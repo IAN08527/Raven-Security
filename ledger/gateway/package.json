@@ -1,0 +1,14 @@
+{
+  "name": "raven-ledger-gateway",
+  "version": "1.0.0",
+  "description": "Project Raven ledger REST gateway (Express over fabric-gateway) - section D13",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@hyperledger/fabric-gateway": "^1.7.0",
+    "express": "^4.19.2"
+  }
+}

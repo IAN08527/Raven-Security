@@ -1,0 +1,38 @@
+# Dependencies & Build artifacts
+node_modules/
+dist/
+target/
+src-tauri/target/
+src-tauri/binaries/*.exe
+tools/*/target/
+tools/raven_saga_cli/target/
+tools/rust_cloud_probe/target/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.log
+opencode.json
+
+# Large Binary Assets & Models
+assets/basemap/*.pmtiles
+assets/cctv/*.mp4
+*.pt
+*.onnx
+*.engine
+yolov8n.pt
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.agents/

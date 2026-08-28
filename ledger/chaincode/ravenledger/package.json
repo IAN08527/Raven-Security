@@ -1,0 +1,14 @@
+{
+  "name": "ravenledger-chaincode",
+  "version": "1.0.0",
+  "description": "Project Raven evidence/action ledger chaincode (Hyperledger Fabric)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"chaincode unit tests\" && exit 0"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "fabric-contract-api": "^2.5.3",
+    "fabric-shim": "^2.5.3"
+  }
+}

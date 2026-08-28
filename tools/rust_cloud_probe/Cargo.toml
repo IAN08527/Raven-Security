@@ -1,0 +1,11 @@
+[package]
+name = "rust_cloud_probe"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres"] }
+dotenvy = "0.15"
+url = "2.5"
+serde = { version = "1", features = ["derive"] }
