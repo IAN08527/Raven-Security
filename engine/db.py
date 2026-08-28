@@ -121,9 +121,9 @@ async def schema_present() -> bool:
             """SELECT count(*) FROM information_schema.tables
                WHERE table_schema='public' AND table_name IN
                ('officers','cases','source_files','entities','relationships',
-                'evidence','cdr_records','financial_txns','anomalies','audit_log','reid_targets')"""
+                'evidence','cdr_records','financial_txns','audit_log','reid_targets')"""
         )
-        return count >= 11
+        return count >= 10
 
 
 async def ensure_connected() -> None:

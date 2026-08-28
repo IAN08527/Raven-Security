@@ -139,12 +139,12 @@ pub async fn schema_present(pool: &PgPool) -> Result<bool, sqlx::Error> {
         "SELECT count(*) FROM information_schema.tables \
          WHERE table_schema='public' AND table_name IN \
          ('officers','cases','source_files','entities','relationships',\
-          'evidence','cdr_records','financial_txns','anomalies','audit_log','reid_targets')",
+          'evidence','cdr_records','financial_txns','audit_log','reid_targets')",
     )
     .persistent(false)
     .fetch_one(pool)
     .await?;
-    Ok(count >= 11)
+    Ok(count >= 10)
 }
 
 /// Resolve a case id that may be either a UUID or a `case_code` to a UUID string.

@@ -47,16 +47,6 @@ pub async fn review_insight(
 }
 
 #[tauri::command]
-pub async fn list_anomalies(
-    _state: State<'_, AppState>,
-    case_id: String,
-    status: Option<String>,
-) -> Result<Vec<serde_json::Value>, String> {
-    // Backlog #5.
-    Ok(vec![])
-}
-
-#[tauri::command]
 pub async fn get_audit_trail(
     _state: State<'_, AppState>,
     object_id: String,

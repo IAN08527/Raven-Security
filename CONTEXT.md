@@ -37,8 +37,8 @@
 - **Raven**: native Windows desktop (Tauri v2 + React/WebView2) AI criminal-network
   analysis tool for SIH26189 (MHA/NCRB). Fully local, no egress.
 - Authoritative docs: `docs/PRD.md`, `docs/design.md` (Pro Dark UI), `docs/architecture.md`.
-- Six modules: (1) ingestion+NER, (2) dual storage+blockchain audit, (3) micro/macro
-  graph, (4) anomaly+influencer, (5) CCTV Re-ID, (6) geospatial routine.
+- Five modules: (1) ingestion+NER, (2) dual storage+blockchain audit, (3) micro/macro
+  graph, (4) CCTV Re-ID, (5) geospatial routine.
 - Key decisions to respect: D2 VRAM mutex (build first), D4 saga not 2PC, D6 offline
   PMTiles, D9 human-in-loop Re-ID, D13 Fabric via REST + mock fallback.
 
@@ -58,7 +58,7 @@
 - `ledger/`: chaincode, Express gateway :8801, mock Merkle fallback (`LEDGER_MODE=mock`).
 - `engine/`: requirements (cu128), `vram.py` mutex, FastAPI `main.py` with all §10.2 endpoints, nlp/cv/analytics stubs.
 - `src-tauri/`: Cargo.toml, tauri.conf.json, all 15 Tauri commands (§10.1), saga/db/ledger/audit modules (stubs).
-- `src/`: React shell, PD design tokens, layout, health gate, graph/map/vision/evidence/audit/anomaly panes.
+- `src/`: React shell, PD design tokens, layout, health gate, graph/map/vision/evidence/audit panes.
 - `tools/`: `gen_data.py`, `seed_golden_path.py`. Root `README.md`, `.gitignore`.
 - **Handoff**: every module is a working skeleton with real signatures; implementation is the backlog.
 
@@ -242,15 +242,13 @@
    Live end-to-end against cloud Supabase proven (4 entities / 3 relations /
    8 evidence). Real Ollama LLM path implemented but not exercised live (no GPU);
    `ollama pull phi3:mini` + `RAVEN_NLP_MODE=auto` enables it on the demo machine.
-4. **Graph engine** — Rust `get_ego_graph`/`get_macro_graph` (Bolt + batched evidence
+ 4. **Graph engine** — Rust `get_ego_graph`/`get_macro_graph` (Bolt + batched evidence
    hydrate), Cytoscape micro/macro + evidence side panel in frontend (§6.2, §9.2).
-5. **Anomaly + influencer** — comm-spike / geo-convergence / structuring detectors
-   (CPU) + Neo4j GDS betweenness; anomaly inbox UI (§6.5).
-6. **CCTV Re-ID** — YOLOv8n + ByteTrack MJPEG, human-in-loop lock-on, topology-gated
+5. **CCTV Re-ID** — YOLOv8n + ByteTrack MJPEG, human-in-loop lock-on, topology-gated
    handoff across 4-cam network (§6.3, D8/D9).
-7. **Geospatial routine** — MapLibre + local PMTiles, CDR ping loop + hotspots (D6, §6.6).
-8. **Tamper + audit UI** — verify-evidence flow, red tamper state, audit ledger view (§6.4).
-9. **Rehearsal hardening** — mock ledger fallback, `rebuild_graph` dev button, golden
+6. **Geospatial routine** — MapLibre + local PMTiles, CDR ping loop + hotspots (D6, §6.6).
+7. **Tamper + audit UI** — verify-evidence flow, red tamper state, audit ledger view (§6.4).
+8. **Rehearsal hardening** — mock ledger fallback, `rebuild_graph` dev button, golden
    path rehearsal (§13.2, §16.2).
 
 ## Open questions

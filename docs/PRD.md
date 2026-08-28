@@ -36,7 +36,7 @@ Raven is an AI-powered Criminal Network Analysis System built as a secure, nativ
 |  |  [ React / HTML / Tailwind UI via WebView2 ]                                                |  |
 |  |  - Neo4j Graph Rendering (Micro & Macro views).                                             |  |
 |  |  - Mapbox Geospatial Routing.                                                               |  |
-|  |  - Real-time CCTV interaction and anomaly alerts.                                           |  |
+|  |  - Real-time CCTV interaction and tracking.                                                 |  |
 |  +---------------------------------------------------------------------------------------------+  |
 +---------------------------------------------------------------------------------------------------+
 
@@ -45,7 +45,7 @@ Raven is an AI-powered Criminal Network Analysis System built as a secure, nativ
 ## 2. Target Users & Personas
 
 *   **Investigating Officer (IO):** Field-level officers analyzing specific suspect networks, tracking local associates, and reviewing movement routines.
-*   **Intelligence Analyst:** Headquarters analysts evaluating macro syndicate hierarchies, detecting anomalies, and identifying key influencers[cite: 1].
+*   **Intelligence Analyst:** Headquarters analysts evaluating macro syndicate hierarchies and connection strength between suspected actors[cite: 1].
 *   **Forensic Auditor:** Compliance officers verifying digital evidence integrity via blockchain audit logs.
 
 ---
@@ -100,7 +100,7 @@ To demonstrate real-world applicability, Raven simulates data feeds from six gov
 *   **FR-2.1 Off-Chain Heavy Storage (Supabase):** Raw files and structured tables are hosted in Supabase with RLS.
 *   **FR-2.2 On-Chain Evidence Integrity:**
     *   Upon ingestion, the Rust core computes a SHA-256 hash of the original document and commits it to the blockchain.
-    *   Every automatically detected relationship, entity, or anomaly is presented with supporting evidence[cite: 1]. If an underlying file's hash no longer matches the blockchain ledger, the UI displays a "Tampered Evidence" warning.
+    *   Every automatically detected relationship or entity is presented with supporting evidence[cite: 1]. If an underlying file's hash no longer matches the blockchain ledger, the UI displays a "Tampered Evidence" warning.
 *   **FR-2.3 Access Audit Logging:** Investigators can confirm, reject, or annotate system-generated insights, keeping a trained human analyst in the decision loop[cite: 1]. Every interaction writes an immutable access log on-chain.
 
 ### 5.3 Module 3: Dual Criminal Net (Micro & Macro Graph Engine)
@@ -116,26 +116,20 @@ To prevent visual clutter, the graph UI is strictly restricted to Person-to-Pers
     *   Edge thickness/color is determined by a dynamically computed weight matrix:
         *   Weight = Sum(Telecom Call [+1], Money Transfer [+10], Co-Accused [+25], CCTV Co-Location [+10]) * Time_Decay_Factor.
 
-### 5.4 Module 4: Proactive AI Pattern Detection & Influencer Analysis
+### 5.4 Module 4: Spatio-Temporal CCTV Tracking & Human-in-the-Loop Re-ID
 
-Rather than requiring an investigator to search for patterns manually, the system surfaces them proactively, ranked by relevance[cite: 1].
-*   **FR-4.1 Key Influencer Identification:** The system applies graph analytics and machine learning to identify key influencers—individuals whose position makes them disproportionately important to the network's function[cite: 1].
-*   **FR-4.2 Anomaly Trigger Engine:** Background jobs scan databases to flag suspicious patterns such as unusual communication spikes, sudden geographic convergence of known associates, or irregular financial activity[cite: 1].
-
-### 5.5 Module 5: Spatio-Temporal CCTV Tracking & Human-in-the-Loop Re-ID
-
-*   **FR-5.1 Pedestrian Detection & ID Labeling:** 
+*   **FR-4.1 Pedestrian Detection & ID Labeling:** 
     *   The Python CV pipeline runs YOLOv8, assigning sequential 2-digit IDs (01, 02) to detected individuals.
     *   The React UI displays these IDs as clickable thumbnails in a side panel next to the video player.
-*   **FR-5.2 Human-in-the-Loop Lock-On:**
+*   **FR-4.2 Human-in-the-Loop Lock-On:**
     *   The investigator selects a target ID from the UI. The backend generates an OSNet Re-ID feature vector ("fingerprint") for that specific target.
-*   **FR-5.3 Spatio-Temporal Camera Topology (Compute Optimization):**
+*   **FR-4.3 Spatio-Temporal Camera Topology (Compute Optimization):**
     *   To prevent VRAM crashes, cameras are mapped as a physical graph. The AI only activates Re-ID tracking on adjacent downstream cameras during the target's calculated travel-time window.
 
-### 5.6 Module 6: Historical Routine System & Geospatial Mapping
+### 5.5 Module 5: Historical Routine System & Geospatial Mapping
 
-*   **FR-6.1 Data Source Aggregation:** Aggregates location points from extracted CDR coordinates, FIR locations, and registered addresses.
-*   **FR-6.2 Geospatial Loop Rendering:**
+*   **FR-5.1 Data Source Aggregation:** Aggregates location points from extracted CDR coordinates, FIR locations, and registered addresses.
+*   **FR-5.2 Geospatial Loop Rendering:**
     *   The UI renders the suspect's chronological movements across a Mapbox map.
     *   Identifies frequent hotspots and visualizes a baseline "daily routine loop," enabling predictive deployment.
 

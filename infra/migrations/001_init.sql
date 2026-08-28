@@ -65,8 +65,6 @@ CREATE TABLE entities (
   gender        text,
   dob           date,
   risk_score    numeric(5,2) DEFAULT 0,
-  centrality    numeric(8,5) DEFAULT 0,     -- written back by GDS
-  is_influencer boolean NOT NULL DEFAULT false,
   sync_state    text NOT NULL DEFAULT 'pending',  -- pending|synced (D4)
   created_at    timestamptz NOT NULL DEFAULT now()
 );
@@ -232,25 +230,10 @@ CREATE TABLE reid_sightings (
 );
 CREATE INDEX ON reid_sightings (target_id, ts);
 
--- ============ ANOMALIES + HUMAN LOOP + AUDIT ============
-CREATE TABLE anomalies (
-  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  case_id       uuid NOT NULL REFERENCES cases(id),
-  kind          text NOT NULL,              -- comm_spike|geo_convergence|financial|influencer
-  severity      smallint NOT NULL,          -- 1..5
-  entity_ids    uuid[] NOT NULL,
-  window_start  timestamptz,
-  window_end    timestamptz,
-  score         numeric(8,3),
-  detail        jsonb NOT NULL,             -- detector-specific, drives the UI card
-  status        text NOT NULL DEFAULT 'new',-- new|confirmed|rejected
-  created_at    timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX ON anomalies (case_id, status, severity DESC);
-
+-- ============ HUMAN LOOP + AUDIT ============
 CREATE TABLE insight_reviews (            -- FR-2.3 human in the loop
   id            bigserial PRIMARY KEY,
-  object_type   text NOT NULL,              -- 'relationship'|'anomaly'|'entity'|'sighting'
+  object_type   text NOT NULL,              -- 'relationship'|'entity'|'sighting'
   object_id     uuid NOT NULL,
   action        text NOT NULL,              -- 'confirm'|'reject'|'annotate'
   note          text,

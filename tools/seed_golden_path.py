@@ -6,7 +6,6 @@ GOLDEN = {
         "Rakesh Sawant / R. Sawant collapse via shared NAFIS id",
         "CDR call spike between syndicate A and B 36h before incident",
         "Structuring: 6x Rs 49,500 from syndicate B to kingpin cousin mule",
-        "Macro graph reveals kingpin via betweenness (degree 3, centrality 0.41)",
         "CCTV cam_01 -> cam_02 -> cam_04 topology handoff tracking",
         "Tamper one FIR blob -> graph greys out, red shield fires",
     ],

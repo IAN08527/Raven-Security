@@ -29,7 +29,6 @@
 - Ingest synthetic FIR PDFs (scanned and digital), CDR CSVs, financial CSVs, ICJS JSON.
 - Local LLM entity extraction with schema-enforced JSON output.
 - Dual-graph criminal network (micro ego-view and macro view) with weighted edges backed by clickable evidence.
-- Key influencer ranking and three anomaly detectors.
 - CCTV pedestrian detection, human-in-the-loop Re-ID lock-on, topology-driven camera handoff across a 4-camera synthetic network.
 - Geospatial routine loop rendering from CDR pings.
 - Hyperledger Fabric anchoring of file hashes and investigator actions, plus a live tamper-detection demo.
@@ -67,7 +66,7 @@
 |  |                              |  Neo4j single-writer, ledger caller, audit emitter  | |
 |  |  ----------------------------+--------------------------------------------------- | |
 |  |  WebView2 (React 18 + Vite)  |  Cytoscape graph, MapLibre map, MJPEG video pane,   | |
-|  |                              |  evidence side panel, anomaly inbox                 | |
+|  |                              |  evidence side panel                                 | |
 |  +-----------------------------------------------------------------------------------+ |
 |      |  invoke()          |  http :8756          |  ws :8756         |  img :8756       |
 |      v                    v                      v                   v                  |
@@ -76,14 +75,14 @@
 |  |  >> VRAM Residency Manager (asyncio.Lock + explicit model eviction)                | |
 |  |  >> NLP lane : EasyOCR -> Ollama (phi3:mini / gemma2:2b) -> JSON schema validator  | |
 |  |  >> CV  lane : YOLOv8n tracker -> OSNet Re-ID (512-d) -> pgvector match            | |
-|  |  >> Analytics lane : anomaly scans, routine clustering (CPU only, always resident) | |
+|  |  >> Analytics lane : routine clustering (CPU only, always resident) | |
 |  +-----------------------------------------------------------------------------------+ |
 |      |  pg :54322        |  bolt :7687        |  http :11434       |  http :8801        |
 |      v                   v                    v                    v                     |
 |  [ LAYER 3 - DATA + LEDGER NODE ]  (Docker Desktop / WSL2)                              |
 |  +----------------+  +-------------------+  +--------------+  +----------------------+ |
 |  | Supabase Local |  | Neo4j 5 Community |  | Ollama       |  | Fabric test-network  | |
-|  | Postgres 15    |  | + GDS plugin      |  | (native Win, |  | 2 peers, 1 orderer,  | |
+|  | Postgres 15    |  |                   |  | (native Win, |  | 2 peers, 1 orderer,  | |
 |  | + pgvector     |  | Bolt 7687         |  |  not Docker) |  | + Node REST gateway  | |
 |  | + Storage/S3   |  | HTTP 7474         |  | port 11434   |  | port 8801            | |
 |  | API 54321      |  |                   |  |              |  |                      | |
@@ -154,7 +153,7 @@ A FastAPI app bundled by PyInstaller and shipped as a Tauri sidecar binary. Thre
 ### 3.4 Data + Ledger Node
 
 - **Supabase Local** - Postgres 15 with pgvector, plus Storage for raw file blobs. Source of truth for everything.
-- **Neo4j 5 Community + GDS** - derived projection of the relationship data, plus the camera topology graph. Rebuildable from Postgres at any time (this is a deliberate property, see D4).
+- **Neo4j 5 Community** - derived projection of the relationship data, plus the camera topology graph. Rebuildable from Postgres at any time (this is a deliberate property, see D4).
 - **Hyperledger Fabric test-network** - append-only anchor of file hashes and officer actions. Never stores case content.
 
 ---
@@ -174,7 +173,7 @@ Each row states what the textbook approach would be, what we did instead, why, a
 | **D7** | Re-ID vector storage | Dedicated vector DB (Milvus, Qdrant, FAISS) | **pgvector column in Postgres**, `vector(512)`, cosine distance | The corpus is tens of vectors, not millions. A whole extra service for that is unjustifiable RAM. It also keeps the sighting, the vector, and its evidence row in one transaction | Would not scale past ~1M vectors. Irrelevant at demo scale |
 | **D8** | CCTV tracking | Run Re-ID continuously across all cameras | **Topology-gated activation.** Neo4j stores `(:Camera)-[:LEADS_TO {mean_travel_s, stddev_s}]->(:Camera)`. After lock-on, inference is suspended on the source camera and booted only on adjacent cameras, only inside the predicted arrival window | This is the actual intellectual contribution of the CV module. It turns an O(cameras) compute problem into O(adjacent cameras), and it uses the graph database for something other than the obvious | If the target takes an unmapped route, tracking is lost. This is by design and is surfaced in the UI as "target lost, expand search" rather than hidden |
 | **D9** | Person Re-ID | Fully automatic cross-camera matching | **Human-in-the-loop lock-on.** YOLO assigns 2-digit IDs, the officer clicks the target, only then is a feature vector generated | Automatic Re-ID accuracy on 8GB commodity hardware with low-res CCTV is poor, and a false auto-match in a policing tool is a serious harm. The officer's click is also a legally meaningful act, so it gets anchored on-chain | Requires an operator. Positioned as a feature (evidentiary accountability), not a limitation |
-| **D10** | Neo4j writers | Any service may write | **Rust is the only writer.** Python has read-only Bolt credentials | Removes an entire class of concurrent-write races between the sidecar and the core, and means every graph mutation passes the audit emitter | Python must round-trip through Rust for graph writes (only the anomaly engine needs this, so the cost is small) |
+| **D10** | Neo4j writers | Any service may write | **Rust is the only writer.** Python has read-only Bolt credentials | Removes an entire class of concurrent-write races between the sidecar and the core, and means every graph mutation passes the audit emitter | Python must round-trip through Rust for graph writes (cheap, since the engine is read-only on the graph) |
 | **D11** | LLM output handling | Prompt for JSON and parse | **Grammar-constrained decode**: Ollama `format: json` plus a Pydantic model plus one bounded repair retry that feeds the validation error back into the prompt. Third failure quarantines the document into `ingest_jobs.status='needs_review'` | An unparseable LLM response during a live demo is the most likely soft failure mode. Fail into a visible queue, never into a crash or a silent drop | One extra inference round-trip on malformed output |
 | **D12** | Supabase Local footprint | `supabase start` defaults | **Trimmed `config.toml`**: analytics, imgproxy, edge-runtime, inbucket and realtime disabled | The default stack is ~10 containers and the analytics (Logflare) container alone is a well-known RAM hog. On a machine also running Neo4j, Fabric and CUDA, RAM is the binding constraint | Lose Studio's log viewer. Acceptable |
 | **D13** | Fabric client | Call Fabric from Rust | **Node.js `@hyperledger/fabric-gateway` wrapped in a thin Express REST service on :8801**, called by Rust over HTTP | There is no maintained production-grade Rust SDK for Fabric. Writing gRPC and MSP handling by hand in Rust is a 20-hour detour on a 36-hour budget | One more process. Mitigated because it is ~150 lines and has a health endpoint |
@@ -334,17 +333,6 @@ Officer opens FIR-102 evidence panel
 
 To demo this: keep a "corrupt evidence" dev button that flips one byte in the stored blob. Judges remember the red state far more than the green one.
 
-### 6.5 Anomaly scan (FR-4.2)
-
-Runs on CPU, on a 30-second timer, never touches the GPU, so it cannot interfere with D2:
-
-| Detector | Method | Threshold |
-| :--- | :--- | :--- |
-| Communication spike | Per-pair call counts, 24h window vs 30-day rolling mean | z-score > 3.0 |
-| Geographic convergence | DBSCAN over CDR pings of known associates, eps=250m, 60-min window | >= 3 associates in one cluster |
-| Irregular financial flow | Amount vs per-account 90-day median, plus structuring detection (repeated sub-threshold transfers) | 5x median, or 3+ txns in 24h at 90-100% of a round threshold |
-| Key influencer | Neo4j GDS betweenness centrality + degree, weighted | top 5% of nodes |
-
 ---
 
 ## 7. Relational Schema (Postgres 15, source of truth)
@@ -417,8 +405,6 @@ CREATE TABLE entities (
   gender        text,
   dob           date,
   risk_score    numeric(5,2) DEFAULT 0,
-  centrality    numeric(8,5) DEFAULT 0,     -- written back by GDS
-  is_influencer boolean NOT NULL DEFAULT false,
   sync_state    text NOT NULL DEFAULT 'pending',  -- pending|synced (D4)
   created_at    timestamptz NOT NULL DEFAULT now()
 );
@@ -584,25 +570,10 @@ CREATE TABLE reid_sightings (
 );
 CREATE INDEX ON reid_sightings (target_id, ts);
 
--- ============ ANOMALIES + HUMAN LOOP + AUDIT ============
-CREATE TABLE anomalies (
-  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  case_id       uuid NOT NULL REFERENCES cases(id),
-  kind          text NOT NULL,              -- comm_spike|geo_convergence|financial|influencer
-  severity      smallint NOT NULL,          -- 1..5
-  entity_ids    uuid[] NOT NULL,
-  window_start  timestamptz,
-  window_end    timestamptz,
-  score         numeric(8,3),
-  detail        jsonb NOT NULL,             -- detector-specific, drives the UI card
-  status        text NOT NULL DEFAULT 'new',-- new|confirmed|rejected
-  created_at    timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX ON anomalies (case_id, status, severity DESC);
-
+-- ============ HUMAN LOOP + AUDIT ============
 CREATE TABLE insight_reviews (            -- FR-2.3 human in the loop
   id            bigserial PRIMARY KEY,
-  object_type   text NOT NULL,              -- 'relationship'|'anomaly'|'entity'|'sighting'
+  object_type   text NOT NULL,              -- 'relationship'|'entity'|'sighting'
   object_id     uuid NOT NULL,
   action        text NOT NULL,              -- 'confirm'|'reject'|'annotate'
   note          text,
@@ -645,7 +616,7 @@ Recomputed by a Postgres function `recompute_weight(rel_id)` called after every 
 
 ---
 
-## 8. Graph Schema (Neo4j 5 + GDS)
+## 8. Graph Schema (Neo4j 5)
 
 Two disjoint subgraphs in one database. This is deliberate: the camera topology gets the same traversal engine for free.
 
@@ -664,7 +635,7 @@ CREATE INDEX link_weight IF NOT EXISTS
 
 | Label | Properties | Notes |
 | :--- | :--- | :--- |
-| `:Person` | `entity_id, case_id, name, risk_score, centrality, is_influencer, nafis_id` | Only PERSON entities are projected. Per FR-3, the graph is strictly P2P to avoid hairballs |
+| `:Person` | `entity_id, case_id, name, risk_score, nafis_id` | Only PERSON entities are projected. Per FR-3, the graph is strictly P2P to avoid hairballs |
 | `:Camera` | `code, label, lat, lon` | Separate component, never rendered in the criminal graph |
 
 **Relationship types**
@@ -689,14 +660,6 @@ MATCH (a:Person)-[r:LINKED_TO]->(b:Person)
 WHERE a.case_id = $caseId AND r.weight >= $minWeight
 RETURN a, r, b ORDER BY r.weight DESC LIMIT 1000;
 
-// Key influencers via GDS (FR-4.1)
-CALL gds.graph.project('raven', 'Person',
-  {LINKED_TO: {orientation: 'UNDIRECTED', properties: 'weight'}});
-CALL gds.betweenness.stream('raven')
-YIELD nodeId, score
-RETURN gds.util.asNode(nodeId).entity_id AS entity_id, score
-ORDER BY score DESC LIMIT 10;
-
 // Camera handoff prediction (D8)
 MATCH (:Camera {code: $from})-[r:LEADS_TO]->(next:Camera)
 RETURN next.code, r.mean_travel_s, r.stddev_s;
@@ -709,8 +672,6 @@ MERGE (b:Person {entity_id: $dst})
 MERGE (a)-[r:LINKED_TO {rel_id: $relId}]->(b)
   SET r.weight = $weight, r.evidence_count = $ec, r.last_seen = $lastSeen;
 ```
-
-> **Gotcha:** GDS is not in the stock `neo4j:5` image. Set `NEO4J_PLUGINS='["graph-data-science"]'` in the container env or influencer analysis silently has no procedures to call.
 
 ---
 
@@ -773,7 +734,6 @@ MERGE (a)-[r:LINKED_TO {rel_id: $relId}]->(b)
 | `get_edge_evidence` | `{rel_id}` | `{evidence[], source_files[]}` | audit `file.read` |
 | `verify_evidence` | `{file_id}` | `{match, local_sha, chain_sha, tx_id, anchored_at}` | audit |
 | `review_insight` | `{object_type, object_id, action, note}` | `{review_id, tx_id}` | writes pg + ledger |
-| `list_anomalies` | `{case_id, status}` | `Anomaly[]` | none |
 | `get_routine` | `{entity_id, from, to}` | `{points[], hotspots[], loop[]}` | audit |
 | `start_tracking` | `{camera_code}` | `{session_id, stream_url, ws_url}` | starts CV session |
 | `lock_on_target` | `{session_id, track_id, label}` | `{target_id, tx_id}` | VRAM switch + ledger write |
@@ -796,7 +756,6 @@ MERGE (a)-[r:LINKED_TO {rel_id: $relId}]->(b)
 | POST | `/cv/session/{id}/watch` | `{cameras[], window_start, window_end, target_id}` | `{watch_id}` |
 | POST | `/cv/session/{id}/stop` | - | `{ok, gpu_released: true}` |
 | GET | `/cv/stream/{camera_code}.mjpg` | - | `multipart/x-mixed-replace` |
-| POST | `/analytics/anomaly_scan` | `{case_id}` | `{anomalies[]}` |
 | POST | `/analytics/routine` | `{entity_id, from, to}` | `{hotspots[], loop[], dwell_minutes}` |
 | GET | `/tiles/{z}/{x}/{y}.pbf` | - | local PMTiles vector tiles (D6) |
 | WS | `/ws/events` | - | see 10.4 |
@@ -829,7 +788,6 @@ One channel, discriminated union, versioned from day one:
 | `cv.sighting` | `{target_id, camera_code, similarity, ts, thumb}` | map pin + timeline |
 | `cv.target_lost` | `{target_id, last_camera, searched_until}` | amber banner |
 | `vram.state` | `{holder, free_mb, evicted}` | GPU chip in the status bar |
-| `anomaly.new` | `{anomaly_id, kind, severity, entity_ids}` | anomaly inbox |
 | `ledger.tamper` | `{file_id, local_sha, chain_sha}` | red tamper modal |
 
 ### 10.5 Error envelope (every HTTP layer, no exceptions)
@@ -882,7 +840,7 @@ Codes: `VRAM_BUSY`, `MODEL_LOAD_FAILED`, `LLM_SCHEMA_INVALID`, `OCR_FAILED`, `LE
 | `@tauri-apps/api` | 2.x | `invoke`, event listeners | - |
 | `zustand` | 4.x | Client state | Less ceremony than Redux for a 36-hour build |
 | `@tanstack/react-query` | 5.x | Server state, caching, retry | Free retry/backoff for the `VRAM_BUSY` code |
-| `recharts` | 2.x | Timeline and anomaly charts | - |
+| `recharts` | 2.x | Timeline charts | - |
 | `lucide-react` | 0.4x | Icons | - |
 | `date-fns` | 3.x | Time windows and decay display | - |
 
@@ -928,7 +886,7 @@ Codes: `VRAM_BUSY`, `MODEL_LOAD_FAILED`, `LLM_SCHEMA_INVALID`, `OCR_FAILED`, `LE
 | Docker Desktop | latest | Container runtime | WSL2 backend mandatory on Windows |
 | `supabase/cli` | latest | Local Postgres + Storage + Auth | Trim `config.toml` per D12 |
 | `pgvector/pgvector:pg15` or Supabase's bundled pg15 | 15 | Relational store | Supabase's image already includes pgvector, just `CREATE EXTENSION` |
-| `neo4j:5-community` | 5.x | Graph | `NEO4J_PLUGINS='["graph-data-science"]'`, `NEO4J_server_memory_heap_max__size=1G` to stop it eating RAM you need |
+| `neo4j:5-community` | 5.x | Graph | `NEO4J_server_memory_heap_max__size=1G` to stop it eating RAM you need |
 | `hyperledger/fabric-*` | 2.5.x | Ledger | via `fabric-samples/test-network`, requires bash so run it from WSL2 |
 | `@hyperledger/fabric-gateway` | 1.7 | Node client SDK | D13 |
 | `express` | 4.x | REST wrapper around the gateway | ~150 lines total |
@@ -994,7 +952,7 @@ All data is generated. This is a design asset, not a shortcut, because it lets y
 
 | Output | Volume | Notes |
 | :--- | :--- | :--- |
-| Persons | 120 | 3 syndicates of ~30, plus 30 peripheral, 1 designated kingpin who is only reachable via 2 hops (so betweenness finds what degree misses) |
+| Persons | 120 | 3 syndicates of ~30, plus 30 peripheral, 1 designated kingpin who is only reachable via 2 hops |
 | FIR PDFs (digital text) | 25 | Templated Maharashtra Police FIR format, real-looking IPC/BNS sections, narrative paragraphs that embed the relations you want extracted |
 | FIR PDFs (scanned) | 8 | Same docs printed to image with slight rotation and JPEG noise, for the OCR path |
 | CDR CSV | ~40,000 rows | 90 days, realistic diurnal call pattern, plus one planted 24h spike between two syndicates before an "incident" |
@@ -1010,9 +968,9 @@ All data is generated. This is a design asset, not a shortcut, because it lets y
 Seed one coherent story so the eight-minute demo has a narrative spine:
 
 1. Two FIRs name "Rakesh Sawant" and "R. Sawant" separately. NAFIS collapses them. (FR-1.3)
-2. CDR shows a call spike between that entity and a second syndicate 36 hours before an incident. (FR-4.2)
+2. CDR shows a strong call link between that entity and a second syndicate 36 hours before an incident, weighted by call volume.
 3. Money flows in the structuring pattern from syndicate B to a mule account owned by the kingpin's cousin.
-4. Macro graph looks like two disconnected clusters until the mule edge appears, then betweenness surfaces the kingpin, who has only 3 direct links. **This is the demo's "wow" moment: the most important person is not the most connected one.**
+4. Macro graph reveals the mule edge that connects two clusters, exposing the kingpin's cousin as the bridge between syndicates.
 5. CCTV clip shows the kingpin's associate walking the mapped camera route, tracked by topology handoff.
 6. Judge corrupts an FIR blob with the dev button, the graph greys out and the red tamper state fires.
 
@@ -1038,20 +996,6 @@ Write this sequence down and rehearse it. Judges score the narrative, not the co
      + green shield "Verified, ledger tx a3f9.., 14:22:07"
 8. Click Confirm -> insight_reviews row + on-chain action, edge turns solid green
 9. Switch to Map tab -> 90 days of CDR pings -> routine loop + 3 hotspots
-```
-
-### 14.2 Intelligence Analyst - "who actually matters?"
-
-```
-1. Macro view, weight floor slider set to 5
-2. Two visible clusters
-3. Click "Run influencer analysis" -> GDS betweenness, ~2s
-4. Top 5 nodes pulse and grow, sidebar ranks them with scores
-5. #1 has degree 3 but betweenness 0.41 -> the bridge
-6. Anomaly inbox shows 4 cards, sorted by severity:
-     "Communication spike, 3 entities, z=4.2, 14 Mar"
-7. Click card -> graph auto-focuses the involved subgraph, timeline chart appears
-8. Reject one anomaly with a note -> written to ledger, disappears from inbox
 ```
 
 ### 14.3 Investigating Officer - CCTV track
@@ -1125,8 +1069,8 @@ Because Rust talks to Fabric only through a REST boundary (D13), a single env va
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **A - Infra + Ledger** | 1 | Docker stack up, schemas applied, health gate | Fabric network + chaincode + gateway | Mock ledger fallback, tamper demo | Support |
 | **B - Rust core** | 1 | Tauri scaffold, sidecar spawn, hashing, file router | Ingest saga, Neo4j writer, audit emitter | Verify + review commands | Integration |
-| **C - Python engine** | 2 | **VRAM manager first**, cu128 verify, FastAPI skeleton | NLP extract + schema repair; CV session + MJPEG | Re-ID + topology handoff; anomaly detectors | Tuning thresholds |
-| **D - Frontend** | 1 | Layout, health board, drop zone | Cytoscape micro/macro, evidence panel | Map, vision pane, anomaly inbox | Polish, dark theme |
+| **C - Python engine** | 2 | **VRAM manager first**, cu128 verify, FastAPI skeleton | NLP extract + schema repair; CV session + MJPEG | Re-ID + topology handoff | Tuning thresholds |
+| **D - Frontend** | 1 | Layout, health board, drop zone | Cytoscape micro/macro, evidence panel | Map, vision pane, audit panel | Polish, dark theme |
 | **E - Data + pitch** | 1 | Synthetic generator, CCTV clips, camera topology | Seed the golden path, PMTiles basemap | Demo script, slides, rehearsal | Rehearse x3 |
 
 Hard gate at hour 20: if a module is not integrated end to end by then, cut it and rehearse what works. A rehearsed 4-feature demo beats a broken 6-feature one every time.
@@ -1138,7 +1082,7 @@ Hard gate at hour 20: if a module is not integrated end to end by then, cut it a
 ```
 raven/
 ├── src/                          # React frontend
-│   ├── components/{graph,map,vision,evidence,anomaly,audit}/
+│   ├── components/{graph,map,vision,evidence,audit}/
 │   ├── hooks/{useInvoke,useRavenSocket,useVramState}.ts
 │   ├── types/generated.ts        # mirrors Rust command signatures
 │   └── store/case.ts
@@ -1157,7 +1101,7 @@ raven/
 │   ├── vram.py                   # BUILD THIS FIRST
 │   ├── nlp/{ocr.py,extract.py,schemas.py,prompts/}
 │   ├── cv/{session.py,detect.py,reid.py,topology.py,stream.py}
-│   ├── analytics/{anomaly.py,routine.py}
+│   ├── analytics/{routine.py}
 │   └── build_sidecar.ps1         # pyinstaller --onedir + target-triple rename
 ├── ledger/
 │   ├── chaincode/ravenledger/    # Node contract

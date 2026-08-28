@@ -140,12 +140,6 @@ async def cv_stream(camera_code: str):
     )
 
 
-@app.post("/analytics/anomaly_scan")
-async def anomaly_scan(body: dict):
-    from analytics import anomaly as analytics
-    return await analytics.anomaly_scan(PG_DSN, body["case_id"])
-
-
 @app.post("/analytics/routine")
 async def analytics_routine(body: dict):
     from analytics import routine as routine_mod

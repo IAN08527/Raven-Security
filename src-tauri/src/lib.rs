@@ -49,7 +49,6 @@ pub fn run() {
             commands::audit::get_edge_evidence,
             commands::audit::verify_evidence,
             commands::audit::review_insight,
-            commands::audit::list_anomalies,
             commands::cctv::get_routine,
             commands::cctv::start_tracking,
             commands::cctv::lock_on_target,

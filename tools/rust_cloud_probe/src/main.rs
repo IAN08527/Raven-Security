@@ -61,14 +61,14 @@ async fn try_roundtrip(pool: &sqlx::PgPool) -> Result<(), String> {
         "SELECT count(*) FROM information_schema.tables \
          WHERE table_schema='public' \
            AND table_name IN ('officers','cases','source_files','entities','relationships',\
-           'evidence','cdr_records','financial_txns','anomalies','audit_log','reid_targets')",
+           'evidence','cdr_records','financial_txns','audit_log','reid_targets')",
     )
     .persistent(false)
     .fetch_one(pool)
     .await
     .map_err(|e| e.to_string())?;
     if present < 6 {
-        return Err(format!("core schema incomplete (found {present}/11 tables)"));
+        return Err(format!("core schema incomplete (found {present}/10 tables)"));
     }
 
     // 3) representative reads

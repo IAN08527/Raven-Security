@@ -17,14 +17,6 @@ CREATE INDEX link_weight IF NOT EXISTS
 // WHERE a.case_id = $caseId AND r.weight >= $minWeight
 // RETURN a, r, b ORDER BY r.weight DESC LIMIT 1000;
 
-// Key influencers via GDS (FR-4.1)
-// CALL gds.graph.project('raven', 'Person',
-//   {LINKED_TO: {orientation: 'UNDIRECTED', properties: 'weight'}});
-// CALL gds.betweenness.stream('raven')
-// YIELD nodeId, score
-// RETURN gds.util.asNode(nodeId).entity_id AS entity_id, score
-// ORDER BY score DESC LIMIT 10;
-
 // Camera handoff prediction (D8)
 // MATCH (:Camera {code: $from})-[r:LEADS_TO]->(next:Camera)
 // RETURN next.code, r.mean_travel_s, r.stddev_s;

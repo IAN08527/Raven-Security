@@ -6,7 +6,6 @@ import { GraphPane } from "./components/graph/GraphPane";
 import { MapPane } from "./components/map/MapPane";
 import { VisionPane } from "./components/vision/VisionPane";
 import { EvidencePane } from "./components/evidence/EvidencePane";
-import { AnomalyInbox } from "./components/anomaly/AnomalyInbox";
 import { AuditPanel } from "./components/audit/AuditPanel";
 import { useCaseStore } from "./store/case";
 
@@ -43,7 +42,6 @@ export default function App() {
             {activeView === "vision" && <VisionPane />}
             {activeView === "audit" && <AuditPanel />}
           </div>
-          <AnomalyInbox />
         </main>
 
         <aside className="w-[280px] border-l border-pd-border bg-pd-surface">
