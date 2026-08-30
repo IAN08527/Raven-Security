@@ -14,9 +14,12 @@
 - **Session: Backlog #1 — Ingest/Storage baseline — DONE (see Session 1b).**
 - **Session: Backlog #2 — Ingest saga (Rust) — DONE (see Session 2).**
 - **Session: Backlog #3 — NLP extraction (Python) — DONE (see Session 3).**
+- **Session: Backlog #5 — CCTV Re-ID — IN PROGRESS.** Phases 0–3 code done + mock-proven;
+  detail + per-phase status in `docs/cctv-roadmap.md`. Branch `feature/cctv-reid`.
 - **Rule (one feature per session):** each session builds exactly ONE backlog item end-to-end.
-- **Next up:** **Backlog #4 — Graph engine** Rust `get_ego_graph`/`get_macro_graph` (Bolt +
-  batched evidence hydrate), Cytoscape micro/macro + evidence side panel in frontend (§6.2, §9.2).
+- **Next up:** **Backlog #5 Phase 4 — topology-gated handoff (D8)** — arm only adjacent
+  downstream cameras inside the predicted travel window; the match loop already honours the
+  `watching` gate, so this is a registration change. Then Phases 5–6 (confirm+evidence, docs).
 - Note on the health gate: `HealthBoard.tsx` already reads `health_check` and shows
   `supabase`/`neo4j`/`ollama`/`fabric`/`python` rows; the `supabase` row is now driven by a real
   `pg_health` probe (Backlog #1). Neo4j/ollama/fabric rows will only go green when those services
@@ -244,8 +247,11 @@
    `ollama pull phi3:mini` + `RAVEN_NLP_MODE=auto` enables it on the demo machine.
  4. **Graph engine** — Rust `get_ego_graph`/`get_macro_graph` (Bolt + batched evidence
    hydrate), Cytoscape micro/macro + evidence side panel in frontend (§6.2, §9.2).
-5. **CCTV Re-ID** — YOLOv8n + ByteTrack MJPEG, human-in-loop lock-on, topology-gated
-   handoff across 4-cam network (§6.3, D8/D9).
+5. **CCTV Re-ID** — [IN PROGRESS] YOLOv8n + ByteTrack MJPEG, human-in-loop lock-on, topology-gated
+   handoff across 4-cam network (§6.3, D8/D9). Phased build tracked in `docs/cctv-roadmap.md`.
+   Phases 0–3 code done + mock-proven (seed, real OSNet embed, lock-on persist+ledger anchor,
+   sighting match loop). Phases 4–6 remain (topology gate, human confirm+evidence, docs).
+   Demo-machine-only: `cargo check`, live DB/ledger/OSNet, seed run, `.mp4` clips.
 6. **Geospatial routine** — MapLibre + local PMTiles, CDR ping loop + hotspots (D6, §6.6).
 7. **Tamper + audit UI** — verify-evidence flow, red tamper state, audit ledger view (§6.4).
 8. **Rehearsal hardening** — mock ledger fallback, `rebuild_graph` dev button, golden

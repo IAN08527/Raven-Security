@@ -100,5 +100,16 @@ export interface CVDetections {
   frame_h?: number;
 }
 
+export interface CVSighting {
+  sighting_id: number | null;
+  target_id: string;
+  camera_code: string;
+  similarity: number;
+  bbox: number[];
+  frame_path: string;
+  ts: string;
+  track_id?: number;
+}
+
 export type WebSocketEvent =
   | { v: number; type: string; ts: string; payload: Record<string, unknown> };

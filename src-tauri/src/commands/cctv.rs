@@ -66,6 +66,22 @@ pub async fn lock_on_target(
     )
     .await?;
 
+    // 3. Arm the engine's live match loop with the anchored target (Phase 3).
+    //    Best-effort: the durable target + ledger anchor are already committed,
+    //    so a registry hiccup must not fail the officer's lock-on.
+    let reg = "http://127.0.0.1:8756/cv/targets/register";
+    let _ = state
+        .http
+        .post(reg)
+        .json(&json!({
+            "target_id": outcome.target_id.as_str(),
+            "feature_b64": feature_b64,
+            "case_id": case_id.as_str(),
+            "source_camera": camera_code,
+        }))
+        .send()
+        .await;
+
     Ok(LockResult {
         target_id: outcome.target_id,
         tx_id: outcome.tx_id,

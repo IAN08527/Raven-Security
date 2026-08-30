@@ -114,6 +114,53 @@ async def list_cases():
         )
 
 
+_CAMERA_ID_CACHE: "dict[str, str]" = {}
+
+
+async def resolve_camera_id(code: str) -> "str | None":
+    """Map a camera code ('cam_02') to its UUID; cached (camera rows are static)."""
+    if code in _CAMERA_ID_CACHE:
+        return _CAMERA_ID_CACHE[code]
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        cid = await conn.fetchval("SELECT id::text FROM cameras WHERE code = $1", code)
+    if cid:
+        _CAMERA_ID_CACHE[code] = cid
+    return cid
+
+
+async def insert_reid_sighting(
+    target_id: str,
+    camera_id: str,
+    ts: str,
+    similarity: float,
+    bbox: "list[int]",
+    frame_path: "str | None",
+) -> int:
+    """Insert one `reid_sightings` row (Phase 3). Returns the new sighting id.
+
+    A sighting is a *candidate* re-appearance, not yet an accountable act — the
+    officer's confirm (Phase 5) is what anchors and feeds the graph. So this is
+    a plain engine-side write, no ledger.
+    """
+    from decimal import Decimal
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval(
+            "INSERT INTO reid_sightings "
+            "(target_id, camera_id, ts, similarity, bbox, frame_path) "
+            "VALUES ($1::uuid, $2::uuid, $3::timestamptz, $4, $5, $6) "
+            "RETURNING id",
+            target_id,
+            camera_id,
+            ts,
+            Decimal(f"{float(similarity):.4f}"),
+            [int(v) for v in bbox],
+            frame_path,
+        )
+
+
 async def schema_present() -> bool:
     pool = await get_pool()
     async with pool.acquire() as conn:

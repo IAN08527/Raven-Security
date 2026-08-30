@@ -83,7 +83,7 @@ The two things that make this *Raven* and not a generic tracker: **D8** (topolog
 
 ---
 
-## Phase 3 — Sighting match loop
+## Phase 3 — Sighting match loop — ✅ DONE (code + mock proof; DB/WS on demo machine)
 
 **Goal:** the target is recognized again downstream.
 
@@ -91,7 +91,20 @@ The two things that make this *Raven* and not a generic tracker: **D8** (topolog
 - Above threshold → **INSERT `reid_sightings`** (`similarity`, `bbox`, `frame_path`) and broadcast a `cv.sighting` WS event.
 - Threshold tunable via env; guard against duplicate sightings within a short window.
 
-**Exit criteria:** a person matching a locked target on a watched camera produces a `reid_sightings` row + a `cv.sighting` event.
+**Exit criteria:** a person matching a locked target on a watched camera produces a `reid_sightings` row + a `cv.sighting` event. ✅
+
+**Delivered:**
+- `engine/cv/targets.py` (new) — process-local `TargetRegistry`: active targets keyed by the real DB `target_id`, per-`(target, camera)` cooldown, and a `watching` gate. Phase 3 registers `watching=None` (match every camera); `for_camera` already honours the gate so **Phase 4 is a registration change, not a rewrite**.
+- `engine/cv/match.py` (new) — `evaluate_matches(frame, boxes, targets, threshold)`: pure decision core, no DB/WS/cooldown side effects. Embeds each person, attributes a box to at most its single best target.
+- `engine/cv/stream.py` — `_emit_sightings` runs after detection each frame: cooldown check → save crop → `insert_reid_sighting` (best-effort, D4) → `cv.sighting` broadcast. Env `RAVEN_REID_THRESHOLD` (0.75) / `RAVEN_REID_COOLDOWN_S` (10). Match failure never kills the stream.
+- `engine/db.py` — `resolve_camera_id` (cached) + `insert_reid_sighting` (numeric via `Decimal`, `bbox` as `int[]`). A sighting is a *candidate*, not an accountable act — no ledger (the Phase 5 confirm anchors).
+- `engine/main.py` — `POST /cv/targets/register` (Rust arms the match loop with the real `target_id` + fingerprint after `reid::lock_on`) + `DELETE /cv/targets/{target_id}`.
+- `src-tauri/src/commands/cctv.rs` — `lock_on_target` now POSTs `/cv/targets/register` after persist+anchor (best-effort; a registry hiccup never fails the committed lock).
+- `src/types/generated.ts` — `CVSighting` wire shape.
+
+**Proof:** `tools/test_sighting.py` (mock, no GPU/DB) **PASS** — same outfit downstream = 1 sighting (sim `1.0000`); different outfit = 0; two-person frame attributes only the target (track 3); cooldown is per-`(target, camera)` and suppresses within window; topology gate matches only the armed camera. Phases 1 & 2 proofs still PASS.
+
+**Remaining (demo machine, by design):** `cargo check -p raven` (no Rust toolchain in this sandbox) + a live locked target re-appearing on a watched feed writing one `reid_sightings` row and emitting one `cv.sighting`.
 
 ---
 
@@ -157,7 +170,7 @@ _Last updated: 2026-08-30_
 | 0 | Clips + camera/topology seed | ✅ Code done · DB seed + clips pending demo machine |
 | 1 | Real Re-ID embedding | ✅ Done + proven (mock) |
 | 2 | Lock-on persist + ledger anchor (D9) | ✅ Code done + payload proof · DB/ledger + cargo check pending demo machine |
-| 3 | Sighting match loop | ⬜ Not started |
+| 3 | Sighting match loop | ✅ Code done + proven (mock) · DB/WS + cargo check pending demo machine |
 | 4 | Topology-gated handoff (D8) | ⬜ Not started |
 | 5 | Human-in-loop confirm + evidence | ⬜ Not started |
 | 6 | Proof & documentation | ⬜ Not started |
@@ -182,9 +195,18 @@ _Last updated: 2026-08-30_
 - Rust `lock_on_target` now takes `case_id`, orchestrates engine→persist→anchor, and returns a real `target_id` + `tx_id` + `ledger_status`. `VisionPane` supplies `caseId` from the case store and shows anchored/pending + tx.
 - Proof `tools/test_lock.py` PASSES: base64 round-trip lossless (cosine `1.0000`), pgvector literal = 512 parts and re-parses exactly, crop bbox clamps. Phase 1 proof still PASSES.
 
+**Phase 3 — sighting match loop (done + proven).**
+- New `engine/cv/targets.py` `TargetRegistry`: the live set of locked targets the match loop compares against, keyed by the real DB `target_id`. Separate from any `CVSession` because a sighting fires on a *different* camera than the lock camera. Carries a per-`(target, camera)` cooldown and a `watching` gate; Phase 3 leaves `watching=None` (all cameras) — Phase 4 fills it in.
+- New `engine/cv/match.py` `evaluate_matches`: pure, side-effect-free matcher (embed each person, cosine vs each target, one box → its best target ≥ threshold). Testable with mock vectors, no DB/GPU.
+- `stream.py` now runs `_emit_sightings` each frame: cooldown-gated, saves the crop, writes `reid_sightings` (best-effort — DB down still broadcasts, D4), emits `cv.sighting`. Thresholds via `RAVEN_REID_THRESHOLD` / `RAVEN_REID_COOLDOWN_S`.
+- `engine/db.py`: `resolve_camera_id` (cached) + `insert_reid_sighting` (Decimal numeric, `int[]` bbox). No ledger — a sighting is a candidate; Phase 5 confirm is the accountable act.
+- `engine/main.py`: `/cv/targets/register` + `DELETE /cv/targets/{id}`. Rust `lock_on_target` arms the match loop by POSTing the anchored `target_id` + fingerprint after persist (best-effort).
+- `src/types/generated.ts`: `CVSighting` shape.
+- Proof `tools/test_sighting.py` PASSES: same outfit = 1 sighting (sim `1.0000`); different outfit = 0; two-person frame attributes only the target; cooldown per-camera; topology gate arms only the right camera. Phases 1 & 2 still PASS.
+
 ### What remains
 
-- **Phases 3–6:** not started (see each phase section above for the plan + exit criteria).
+- **Phases 4–6:** not started (see each phase section above for the plan + exit criteria).
 - **Demo-machine-only work (deferred by design, not blockers to building 3–6):**
   - `cargo check -p raven -p raven-core` (no Rust toolchain in this sandbox) + one live lock-on writing the `reid_targets` + `audit_log` rows.
   - Run `python tools/seed_cctv.py` against cloud Supabase (needs `.env` + `pip install -r engine/requirements.txt`). Expect `seeded cameras=4 camera_edges=4`.

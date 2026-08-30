@@ -117,6 +117,32 @@ async def cv_lock(sid: str, body: dict):
         vram.release()
 
 
+@app.post("/cv/targets/register")
+async def cv_target_register(body: dict):
+    """Arm a locked target for the Phase 3 match loop.
+
+    Called by Rust right after `reid::lock_on` persists + anchors the target, so
+    the engine's live match loop knows the real `target_id` (assigned DB-side)
+    and its fingerprint. Phase 4 will pass `watching` to gate cameras.
+    """
+    from cv.targets import registry
+    registry.register(
+        body["target_id"],
+        body["feature_b64"],
+        body.get("case_id", ""),
+        body.get("source_camera", ""),
+        body.get("watching"),
+    )
+    return {"registered": body["target_id"]}
+
+
+@app.delete("/cv/targets/{target_id}")
+async def cv_target_unregister(target_id: str):
+    from cv.targets import registry
+    registry.unregister(target_id)
+    return {"unregistered": target_id}
+
+
 @app.post("/cv/session/{sid}/watch")
 async def cv_watch(sid: str, body: dict):
     s = sessions[sid]
