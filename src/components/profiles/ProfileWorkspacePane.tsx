@@ -248,8 +248,8 @@ export function ProfileWorkspacePane({
               </div>
 
               {/* BOX 2: Comprehensive Identity & Contact Coordinates Card */}
-              <div className="flex-1 rounded border border-pd-border bg-pd-surface p-6 shadow-sm flex flex-col space-y-5">
-                <div className="flex items-center justify-between border-b border-pd-border/60 pb-2.5">
+              <div className="flex-1 rounded border border-pd-border bg-pd-surface p-6 shadow-sm flex flex-col justify-between space-y-5">
+                <div className="flex items-center justify-between border-b border-pd-border/60 pb-3">
                   <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-pd-accent" />
                     Primary Identity & Residence Coordinates
@@ -257,55 +257,64 @@ export function ProfileWorkspacePane({
                   <span className="font-mono text-pd-xs text-pd-text-tertiary">Verified NAFIS Match & CDR Linked</span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4.5 gap-x-8 text-pd-base">
-                  <div className="space-y-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                  {/* Field 1 */}
+                  <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
                     <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Known Aliases</div>
-                    <div className="text-pd-md font-semibold text-pd-warning">"Ricky", "R.V. Sawant"</div>
+                    <div className="text-pd-md font-bold text-pd-warning">"Ricky", "R.V. Sawant"</div>
                   </div>
 
-                  <div className="space-y-1">
+                  {/* Field 2 */}
+                  <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
                     <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Date of Birth & Age</div>
-                    <div className="font-mono text-pd-md text-pd-text-primary">1987-03-15 (37 Years)</div>
+                    <div className="font-mono text-pd-md font-bold text-pd-text-primary">1987-03-15 (37 Years)</div>
                   </div>
 
-                  <div className="space-y-1">
+                  {/* Field 3 */}
+                  <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
                     <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Permanent Account No (PAN)</div>
-                    <div className="font-mono text-pd-md text-pd-text-primary font-semibold">ABCPS1234K</div>
+                    <div className="font-mono text-pd-md font-bold text-pd-text-primary">ABCPS1234K</div>
                   </div>
 
-                  <div className="space-y-1">
+                  {/* Field 4 */}
+                  <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
                     <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Biometric Fingerprint Status</div>
-                    <div className="text-pd-success text-pd-sm font-semibold flex items-center gap-2 font-mono">
-                      <span className="h-2 w-2 rounded-full bg-pd-success" />
+                    <div className="text-pd-success text-pd-sm font-bold flex items-center gap-2 font-mono">
+                      <span className="h-2 w-2 rounded-full bg-pd-success animate-pulse" />
                       NAFIS Match: MUM-8842
                     </div>
                   </div>
 
-                  <div className="space-y-1">
+                  {/* Field 5 */}
+                  <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
                     <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Burner / Alternate SIM</div>
-                    <div className="font-mono text-pd-md font-semibold text-pd-warning">+91 98222 11009 (Jio)</div>
+                    <div className="font-mono text-pd-md font-bold text-pd-warning">+91 98222 11009 (Jio)</div>
                   </div>
 
-                  <div className="space-y-1">
+                  {/* Field 6 */}
+                  <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
                     <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Frequent Cell Tower Pings</div>
-                    <div className="text-pd-sm text-pd-text-primary font-mono">Tower MH-MUM-0847 (Dharavi West)</div>
+                    <div className="text-pd-sm font-bold text-pd-text-primary font-mono">Tower MH-MUM-0847 (Dharavi West)</div>
                   </div>
 
-                  <div className="space-y-1">
+                  {/* Field 7 */}
+                  <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
                     <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Primary Known Residence Address</div>
                     <div className="text-pd-sm font-medium text-pd-text-primary leading-relaxed">
-                      Room 14/B, Dharavi Cross Lane, Behind Municipal School, Dharavi, Mumbai 400017
+                      Room 14/B, Dharavi Cross Lane, Dharavi, Mumbai 400017
                     </div>
                   </div>
 
-                  <div className="space-y-1">
+                  {/* Field 8 */}
+                  <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
                     <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Secondary Location (Safehouse)</div>
-                    <div className="text-pd-sm text-pd-text-secondary leading-relaxed">
+                    <div className="text-pd-sm font-medium text-pd-text-secondary leading-relaxed">
                       Flat 402, Golden Residency, Andheri East, Mumbai
                     </div>
                   </div>
                 </div>
               </div>
+
             </div>
 
 
