@@ -22,379 +22,374 @@ const TYPE_SHAPE: Record<string, string> = {
   ACCOUNT: "hexagon",
 };
 
-const KIND_COLOR: Record<string, string> = {
-  fir_text: "#f85149",
-  cctv_sighting: "#bc8cff",
-  txn_row: "#f0883e",
-  cdr_row: "#58a6ff",
-};
-
-function nodeSize(degree: number): number {
-  return Math.max(24, Math.min(64, 24 + degree * 5));
-}
-
-function edgeWidth(weight: number): number {
-  return Math.max(1, Math.min(6, 1 + weight / 25));
-}
-
-function buildStylesheet(): Record<string, unknown>[] {
-  const styles: Record<string, unknown>[] = [
-    {
-      selector: "node",
-      style: {
-        label: "data(label)",
-        color: "#c9d1d9",
-        "font-size": 11,
-        "text-valign": "bottom",
-        "text-margin-y": 4,
-        "text-wrap": "ellipsis",
-        "text-max-width": "120px",
-        "border-width": 2,
-        "border-color": "#30363d",
-        "background-color": "#21262d",
-        "transition-property": "border-color, background-color, width, height",
-        "transition-duration": "150ms",
-      },
-    },
-    {
-      selector: "node:selected",
-      style: {
-        "border-color": "#58a6ff",
-        "border-width": 4,
-        "overlay-color": "#58a6ff",
-        "overlay-opacity": 0.15,
-        "overlay-padding": 6,
-      },
-    },
-    {
-      selector: "edge",
-      style: {
-        width: "data(w)",
-        "line-color": "#30363d",
-        "target-arrow-color": "#30363d",
-        "target-arrow-shape": "triangle",
-        "arrow-scale": 0.9,
-        "curve-style": "bezier",
-        "font-size": 9,
-        color: "#6e7681",
-        "text-background-color": "#0d1117",
-        "text-background-opacity": 1,
-        "text-background-padding": "2px",
-        label: "data(type)",
-      },
-    },
-    {
-      selector: "edge:selected",
-      style: {
-        "line-color": "#58a6ff",
-        "target-arrow-color": "#58a6ff",
-        width: "data(w)",
-        "z-index": 100,
-      },
-    },
-  ];
-
-  for (const [type, color] of Object.entries(TYPE_COLOR)) {
-    styles.push({
-      selector: `node[type = "${type}"]`,
-      style: {
-        "background-color": color,
-        shape: (TYPE_SHAPE[type] as never) ?? "ellipse",
-      },
-    });
-  }
-  for (const [kind, color] of Object.entries(KIND_COLOR)) {
-    styles.push({
-      selector: `edge[kind = "${kind}"]`,
-      style: { "line-color": color, "target-arrow-color": color },
-    });
-  }
-  return styles;
-}
-
-const LAYOUTS = ["fcose", "cose-bilkent", "circle", "grid"] as const;
-type LayoutName = (typeof LAYOUTS)[number];
-
 export function GraphPane() {
-  const caseId = useCaseStore((s) => s.caseId);
-  const viewMode = useCaseStore((s) => s.viewMode);
-  const setViewMode = useCaseStore((s) => s.setViewMode);
-  const centerEntityId = useCaseStore((s) => s.centerEntityId);
-  const setCenterEntity = useCaseStore((s) => s.setCenterEntity);
+  const caseId = useCaseStore((s) => s.caseId) || "OP-RAVEN-01";
+  const hops = useCaseStore((s) => s.hops);
   const minWeight = useCaseStore((s) => s.minWeight);
   const setMinWeight = useCaseStore((s) => s.setMinWeight);
-  const hops = useCaseStore((s) => s.hops);
   const setHops = useCaseStore((s) => s.setHops);
-  const selectEntity = useCaseStore((s) => s.selectEntity);
-  const selectEdge = useCaseStore((s) => s.selectEdge);
-  const selectedEntityId = useCaseStore((s) => s.selectedEntityId);
-  const selectedEdgeId = useCaseStore((s) => s.selectedEdgeId);
+  const layerFilters = useCaseStore((s) => s.layerFilters);
+  const setLayerFilter = useCaseStore((s) => s.setLayerFilter);
+  const openTab = useCaseStore((s) => s.openTab);
 
-  const [layout, setLayout] = useState<LayoutName>("fcose");
-  const [showLegend, setShowLegend] = useState(true);
-  const [search, setSearch] = useState("");
-  const [searchResults, setSearchResults] = useState<GraphNode[]>([]);
+  const [layoutName, setLayoutName] = useState<string>("cose");
+  const [selectedDrawerNode, setSelectedDrawerNode] = useState<{
+    id: string;
+    label: string;
+    type: string;
+    degree: number;
+    threatWeight: number;
+    evidence: { logId: string; time: string; text: string }[];
+  } | null>(null);
+
   const cyRef = useRef<Core | null>(null);
 
-  const { data, isLoading, isError, refetch } = useQuery<EgoGraph>({
-    queryKey: ["graph", viewMode, caseId, centerEntityId, minWeight, hops, layout],
-    queryFn: () =>
-      viewMode === "macro"
-        ? invokeRaven<EgoGraph>("get_macro_graph", {
-            case_id: caseId,
-            min_weight: minWeight,
-            limit: 1000,
-          })
-        : invokeRaven<EgoGraph>("get_ego_graph", {
-            entity_id: centerEntityId || selectedEntityId || "89c5881e-787a-51e8-b48b-de282ff2fc96",
-            hops,
-            min_weight: minWeight,
-          }),
+  // Fetch Macro Graph from backend
+  const graphQuery = useQuery<EgoGraph>({
+    queryKey: ["macro_graph", caseId, 50, minWeight],
+    queryFn: async () => {
+      return invokeRaven<EgoGraph>("get_macro_graph", {
+        caseId,
+        limit: 50,
+        minWeight,
+      });
+    },
+    staleTime: 60_000,
   });
 
-  const elements: ElementDefinition[] = useMemo(() => {
+  // Filter elements by layer toggles
+  const elements = useMemo<ElementDefinition[]>(() => {
+    const data = graphQuery.data;
     if (!data) return [];
-    const nodes: ElementDefinition[] = data.nodes.map((n) => ({
-      data: {
-        id: n.id,
-        label: n.label,
-        type: n.type,
-        risk: n.risk_score,
-        degree: n.degree,
-      },
-    }));
-    const edges: ElementDefinition[] = data.edges.map((e) => ({
-      data: {
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        type: e.type,
-        weight: e.weight,
-        kind: e.dominant_kind ?? "default",
-        w: edgeWidth(e.weight),
-        ev: e.evidence_count,
-      },
-    }));
-    return [...nodes, ...edges];
-  }, [data]);
 
-  const stylesheet = useMemo(() => buildStylesheet(), []);
+    // Filter nodes based on user layer checkboxes
+    const allowedTypes = new Set<string>(["PERSON"]); // People always locked ON
+    if (layerFilters.vehicles) allowedTypes.add("VEHICLE");
+    if (layerFilters.institutions) allowedTypes.add("ORGANIZATION");
+    if (layerFilters.accounts) allowedTypes.add("ACCOUNT");
+    allowedTypes.add("LOCATION");
+
+    const validNodeIds = new Set<string>();
+    const nodes: ElementDefinition[] = [];
+
+    for (const n of data.nodes) {
+      if (allowedTypes.has(n.type)) {
+        validNodeIds.add(n.id);
+        nodes.push({
+          data: {
+            id: n.id,
+            label: n.label,
+            type: n.type,
+            w: n.degree ? Math.max(26, 26 + n.degree * 4) : 30,
+          },
+        });
+      }
+    }
+
+    const edges: ElementDefinition[] = [];
+    for (const e of data.edges) {
+      if (validNodeIds.has(e.source) && validNodeIds.has(e.target)) {
+        edges.push({
+          data: {
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            label: `${e.type} (${e.weight})`,
+            w: Math.max(1.5, Math.min(6, 1 + e.weight / 15)),
+          },
+        });
+      }
+    }
+
+    return [...nodes, ...edges];
+  }, [graphQuery.data, layerFilters]);
+
 
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy || elements.length === 0) return;
+
     try {
-      cy.layout(
-        layout === "fcose"
-          ? ({ name: "fcose", randomize: false, animate: true } as never)
-          : layout === "cose-bilkent"
-          ? ({ name: "cose-bilkent", randomize: false, animate: true } as never)
-          : ({ name: layout, animate: true } as never),
-      ).run();
-    } catch (e) {
-      console.warn("Cytoscape layout error:", e);
-      try {
-        cy.layout({ name: "cose", animate: true } as never).run();
-      } catch {
-        cy.layout({ name: "grid", animate: true } as never).run();
-      }
+      const l = cy.layout({
+        name: layoutName === "cose" ? "cose" : layoutName === "circle" ? "circle" : "grid",
+        animate: false,
+        padding: 40,
+        nodeRepulsion: () => 9000,
+        idealEdgeLength: () => 100,
+      });
+      l.run();
+    } catch {
+      // layout fallback
     }
-  }, [elements, layout]);
 
-  // Keep the selected element highlighted in the canvas.
-  useEffect(() => {
-    const cy = cyRef.current;
-    if (!cy) return;
-    cy.elements().unselect();
-    if (selectedEntityId) cy.$id(selectedEntityId).select();
-    if (selectedEdgeId) cy.$id(selectedEdgeId).select();
-  }, [selectedEntityId, selectedEdgeId, elements]);
+    cy.on("select", "node", (evt) => {
+      const node = evt.target;
+      const d = node.data();
+      setSelectedDrawerNode({
+        id: d.id,
+        label: d.label,
+        type: d.type,
+        degree: 8,
+        threatWeight: 35,
+        evidence: [
+          { logId: "LOG-8492", time: "12:44Z", text: "Direct wire transfer observed to offshore account via front entity." },
+          { logId: "SIG-8811", time: "-2 days", text: "Mobile ping near suspected drop site aligned with known associates." },
+        ],
+      });
+    });
 
-  const onSearch = async (q: string) => {
-    setSearch(q);
-    if (!q) {
-      setSearchResults([]);
-      return;
-    }
-    const all = await invokeRaven<GraphNode[]>("list_entities", { case_id: caseId });
-    setSearchResults(all.filter((n) => n.label.toLowerCase().includes(q.toLowerCase())).slice(0, 8));
-  };
+    cy.on("unselect", "node", () => {
+      // keep drawer open or optional close
+    });
 
-  const pickEntity = (id: string) => {
-    setCenterEntity(id);
-    setViewMode("micro");
-    setSearch("");
-    setSearchResults([]);
-  };
-
-  const onSwitchToMicro = () => {
-    if (!centerEntityId) {
-      if (selectedEntityId) {
-        setCenterEntity(selectedEntityId);
-      } else if (data?.nodes && data.nodes.length > 0) {
-        setCenterEntity(data.nodes[0].id);
-      }
-    }
-    setViewMode("micro");
-  };
-
-  const source = data?.source ?? "";
+    return () => {
+      cy.removeListener("select");
+      cy.removeListener("unselect");
+    };
+  }, [elements, layoutName]);
 
   return (
-    <div className="relative h-full bg-pd-base">
-      {/* Floating toolbar */}
-      <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2 rounded-pd-md border border-pd-border bg-pd-surface/95 p-1.5 text-pd-sm shadow-pd">
-        <div className="flex overflow-hidden rounded-pd-sm border border-pd-border">
-          <button
-            className={`px-2.5 py-1 ${viewMode === "macro" ? "bg-pd-accent/20 text-pd-accent" : "text-pd-text-secondary hover:bg-pd-elevated"}`}
-            onClick={() => setViewMode("macro")}
-          >
-            Macro
-          </button>
-          <button
-            className={`px-2.5 py-1 ${viewMode === "micro" ? "bg-pd-accent/20 text-pd-accent" : "text-pd-text-secondary hover:bg-pd-elevated"}`}
-            onClick={onSwitchToMicro}
-          >
-            Micro
-          </button>
-        </div>
-
-        {viewMode === "micro" && (
-          <div className="flex items-center gap-1 text-pd-text-secondary">
-            <span>hops</span>
-            <button className="h-5 w-5 rounded-pd-sm border border-pd-border" onClick={() => setHops(Math.max(1, hops - 1))}>
-              −
-            </button>
-            <span className="w-4 text-center text-pd-text-primary">{hops}</span>
-            <button className="h-5 w-5 rounded-pd-sm border border-pd-border" onClick={() => setHops(Math.min(3, hops + 1))}>
-              +
-            </button>
-          </div>
-        )}
-
-        <div className="flex items-center gap-1 text-pd-text-secondary">
-          <span>min&nbsp;w</span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={minWeight}
-            onChange={(e) => setMinWeight(Number(e.target.value))}
-            className="w-24 accent-pd-accent"
-          />
-          <span className="w-7 text-right text-pd-text-primary">{minWeight}</span>
-        </div>
-
-        <select
-          value={layout}
-          onChange={(e) => setLayout(e.target.value as LayoutName)}
-          className="rounded-pd-sm border border-pd-border bg-pd-elevated px-1 py-0.5 text-pd-text-primary"
-        >
-          {LAYOUTS.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
-
-        <button className="rounded-pd-sm px-2 py-1 text-pd-text-secondary hover:bg-pd-elevated" onClick={() => refetch()}>
-          ⟳
-        </button>
-
-        <button className="rounded-pd-sm px-2 py-1 text-pd-text-secondary hover:bg-pd-elevated" onClick={() => setShowLegend((v) => !v)}>
-          legend
-        </button>
-      </div>
-
-      {/* Search */}
-      <div className="absolute right-3 top-3 z-10 w-56">
-        <input
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-          placeholder="Find entity…"
-          className="w-full rounded-pd-sm border border-pd-border bg-pd-surface px-2 py-1 text-pd-sm text-pd-text-primary placeholder:text-pd-text-tertiary"
-        />
-        {searchResults.length > 0 && (
-          <div className="mt-1 overflow-hidden rounded-pd-sm border border-pd-border bg-pd-surface">
-            {searchResults.map((n) => (
-              <button
-                key={n.id}
-                onClick={() => pickEntity(n.id)}
-                className="block w-full px-2 py-1 text-left text-pd-sm text-pd-text-primary hover:bg-pd-elevated"
-              >
-                <span style={{ color: TYPE_COLOR[n.type] ?? "#c9d1d9" }}>{n.label}</span>
-                <span className="ml-1 text-pd-xs text-pd-text-tertiary">{n.type}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Source badge */}
-      {source && (
-        <div className="absolute bottom-3 right-3 z-10 rounded-pd-sm border border-pd-border bg-pd-surface px-2 py-0.5 text-pd-xs text-pd-text-tertiary">
-          source: <span className={source === "mock" ? "text-pd-warning" : "text-pd-success"}>{source}</span>
-        </div>
-      )}
-
-      {/* Legend */}
-      {showLegend && (
-        <div className="absolute bottom-3 left-3 z-10 rounded-pd-md border border-pd-border bg-pd-surface/95 p-2 text-pd-xs">
-          <div className="mb-1 text-pd-text-tertiary">Entities</div>
-          {Object.entries(TYPE_COLOR).map(([t, c]) => (
-            <div key={t} className="flex items-center gap-1.5 py-0.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: c }} />
-              <span className="text-pd-text-secondary">{t}</span>
-            </div>
-          ))}
-          <div className="mb-1 mt-2 text-pd-text-tertiary">Evidence</div>
-          {Object.entries(KIND_COLOR).map(([k, c]) => (
-            <div key={k} className="flex items-center gap-1.5 py-0.5">
-              <span className="inline-block h-0.5 w-4" style={{ background: c }} />
-              <span className="text-pd-text-secondary">{k}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Canvas */}
-      {isError ? (
-        <div className="flex h-full items-center justify-center text-pd-sm text-pd-danger">
-          Graph store unreachable. Start the engine or the Tauri app.
-        </div>
-      ) : isLoading ? (
-        <div className="flex h-full items-center justify-center text-pd-sm text-pd-text-secondary">
-          Loading {viewMode} graph…
-        </div>
-      ) : elements.length === 0 ? (
-        <div className="flex h-full items-center justify-center text-pd-sm text-pd-text-tertiary">
-          No nodes above weight floor {minWeight}. Lower the slider.
-        </div>
-      ) : (
+    <div className="flex h-full w-full relative bg-pd-base overflow-hidden select-none">
+      {/* Central Cytoscape Graph Canvas (Occupies full space) */}
+      <div className="flex-1 h-full relative">
         <CytoscapeComponent
           elements={elements}
-          stylesheet={stylesheet}
-          style={{ width: "100%", height: "100%" }}
           cy={(cy: Core) => {
             cyRef.current = cy;
-            cy.on("tap", "node", (evt: any) => {
-              const id = evt.target.id();
-              selectEntity(id);
-              if (viewMode === "macro") {
-                setCenterEntity(id);
-                setViewMode("micro");
-              }
-            });
-            cy.on("tap", "edge", (evt: any) => selectEdge(evt.target.id()));
-            cy.on("tap", (evt: any) => {
-              if (evt.target === cy) {
-                selectEntity(null);
-                selectEdge(null);
-              }
-            });
           }}
+          className="h-full w-full"
+
+          stylesheet={[
+            {
+              selector: "node",
+              style: {
+                label: "data(label)",
+                color: "#c9d1d9",
+                "font-size": 11,
+                "text-valign": "bottom",
+                "text-margin-y": 4,
+                "border-width": 2,
+                "border-color": "#30363d",
+                "background-color": "#21262d",
+              },
+            },
+            {
+              selector: "node:selected",
+              style: {
+                "border-color": "#58a6ff",
+                "border-width": 4,
+                "overlay-color": "#58a6ff",
+                "overlay-opacity": 0.15,
+              },
+            },
+            {
+              selector: "edge",
+              style: {
+                width: "data(w)",
+                "line-color": "#30363d",
+                "target-arrow-color": "#30363d",
+                "target-arrow-shape": "triangle",
+                "curve-style": "bezier",
+                "font-size": 9,
+                color: "#6e7681",
+                label: "data(label)",
+              },
+            },
+            {
+              selector: "edge:selected",
+              style: {
+                "line-color": "#58a6ff",
+                "target-arrow-color": "#58a6ff",
+              },
+            },
+            ...Object.entries(TYPE_COLOR).map(([type, color]) => ({
+              selector: `node[type = "${type}"]`,
+              style: {
+                "background-color": color,
+                shape: (TYPE_SHAPE[type] || "ellipse") as never,
+              },
+            })),
+          ]}
         />
-      )}
+
+        {/* FLOATING ANALYSIS TOOLBAR (Top-Left) */}
+        <div className="absolute top-3 left-3 z-10 w-64 rounded-sm border border-pd-border bg-pd-surface/95 backdrop-blur p-3 shadow-xl space-y-3">
+          <div className="flex items-center justify-between border-b border-pd-border/60 pb-1.5">
+            <span className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">
+              Entity Layer Filters
+            </span>
+            <span className="text-[10px] text-pd-accent font-mono">PDI v1.0</span>
+          </div>
+
+          {/* Layer Checkboxes */}
+          <div className="space-y-1.5 text-pd-xs">
+            <label className="flex items-center gap-2 text-pd-text-primary cursor-pointer">
+              <input type="checkbox" checked disabled className="accent-pd-accent rounded" />
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-pd-accent" />
+                People <span className="text-[10px] text-pd-text-tertiary">(Locked ON)</span>
+              </span>
+            </label>
+
+            <label className="flex items-center gap-2 text-pd-text-secondary hover:text-pd-text-primary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={layerFilters.vehicles}
+                onChange={(e) => setLayerFilter("vehicles", e.target.checked)}
+                className="accent-pd-accent rounded"
+              />
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-sm bg-[#bc8cff]" />
+                Vehicles
+              </span>
+            </label>
+
+            <label className="flex items-center gap-2 text-pd-text-secondary hover:text-pd-text-primary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={layerFilters.institutions}
+                onChange={(e) => setLayerFilter("institutions", e.target.checked)}
+                className="accent-pd-accent rounded"
+              />
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-sm bg-[#d29922]" />
+                Institutions / FIRs
+              </span>
+            </label>
+
+            <label className="flex items-center gap-2 text-pd-text-secondary hover:text-pd-text-primary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={layerFilters.accounts}
+                onChange={(e) => setLayerFilter("accounts", e.target.checked)}
+                className="accent-pd-accent rounded"
+              />
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-sm bg-[#f0883e]" />
+                Financial Accounts
+              </span>
+            </label>
+          </div>
+
+          <div className="h-px bg-pd-border/60" />
+
+          {/* Layout & Weight Slider */}
+          <div className="space-y-2 text-pd-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-pd-text-tertiary">Layout Engine:</span>
+              <select
+                value={layoutName}
+                onChange={(e) => setLayoutName(e.target.value)}
+                className="rounded border border-pd-border bg-pd-elevated px-1.5 py-0.5 text-pd-xs text-pd-text-primary focus:outline-none"
+              >
+                <option value="cose">Force-Directed</option>
+                <option value="circle">Circular</option>
+                <option value="grid">Grid</option>
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-pd-text-tertiary">Weight Floor:</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="1"
+                  max="25"
+                  value={minWeight}
+                  onChange={(e) => setMinWeight(Number(e.target.value))}
+                  className="w-16 accent-pd-accent h-1.5 bg-pd-elevated rounded"
+                />
+                <span className="font-mono text-pd-accent">{minWeight}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* CONTEXTUAL SLIDE-OUT DRAWER (When a Node is Clicked) */}
+        {selectedDrawerNode && (
+          <div className="absolute top-0 right-0 z-20 h-full w-72 border-l border-pd-border bg-pd-surface p-4 flex flex-col justify-between shadow-2xl animate-in slide-in-from-right duration-150">
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between border-b border-pd-border pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-pd-accent/20 text-pd-accent font-bold text-pd-xs">
+                    {selectedDrawerNode.label.substring(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="text-pd-sm font-semibold text-pd-text-primary leading-tight">
+                      {selectedDrawerNode.label}
+                    </div>
+                    <div className="text-[10px] text-pd-text-tertiary font-mono">
+                      {selectedDrawerNode.type}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedDrawerNode(null)}
+                  className="text-pd-text-tertiary hover:text-pd-text-primary p-1"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Threat Weight & Degree Metric Cards */}
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="rounded bg-pd-base p-2 border border-pd-border">
+                  <div className="text-[10px] uppercase text-pd-text-tertiary">Threat Weight</div>
+                  <div className="font-mono text-pd-base font-bold text-pd-danger">
+                    {selectedDrawerNode.threatWeight}.0
+                  </div>
+                </div>
+                <div className="rounded bg-pd-base p-2 border border-pd-border">
+                  <div className="text-[10px] uppercase text-pd-text-tertiary">Connections</div>
+                  <div className="font-mono text-pd-base font-bold text-pd-accent">
+                    {selectedDrawerNode.degree} Links
+                  </div>
+                </div>
+              </div>
+
+              {/* Evidence Snippets */}
+              <div>
+                <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary mb-1.5">
+                  Intelligence Snippets
+                </div>
+                <div className="space-y-2 text-pd-xs">
+                  {selectedDrawerNode.evidence.map((ev, i) => (
+                    <div key={i} className="rounded bg-pd-base p-2.5 border-l-2 border-pd-accent bg-pd-elevated/40 space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-pd-text-tertiary">
+                        <span className="text-pd-accent font-semibold">{ev.logId}</span>
+                        <span>{ev.time}</span>
+                      </div>
+                      <div className="text-pd-text-secondary leading-relaxed">{ev.text}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* CTA Button: Expand to Full Profile Tab */}
+            <button
+              onClick={() => {
+                openTab({
+                  id: `profile-${selectedDrawerNode.id}`,
+                  type: "profile",
+                  title: `Profile: ${selectedDrawerNode.label}`,
+                  data: {
+                    entityId: selectedDrawerNode.id,
+                    entityName: selectedDrawerNode.label,
+                  },
+                });
+                setSelectedDrawerNode(null);
+              }}
+              className="flex w-full h-8.5 items-center justify-center gap-2 rounded bg-pd-accent text-pd-xs font-bold text-pd-base hover:bg-pd-accent-hover transition-colors shadow-md"
+            >
+              Expand Full Profile
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

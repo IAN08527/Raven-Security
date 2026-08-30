@@ -1,56 +1,62 @@
 import { useState } from "react";
 import { Sidebar } from "./components/Sidebar";
+import { Header } from "./components/Header";
+import { TabBar } from "./components/TabBar";
 import { StatusBar } from "./components/StatusBar";
 import { HealthBoard } from "./components/HealthBoard";
+import { CommandPalette } from "./components/CommandPalette";
 import { GraphPane } from "./components/graph/GraphPane";
-import { MapPane } from "./components/map/MapPane";
+import { ProfilesDirectoryPane } from "./components/profiles/ProfilesDirectoryPane";
+import { ProfileWorkspacePane } from "./components/profiles/ProfileWorkspacePane";
 import { VisionPane } from "./components/vision/VisionPane";
-import { EvidencePane } from "./components/evidence/EvidencePane";
 import { AuditPanel } from "./components/audit/AuditPanel";
 import { useCaseStore } from "./store/case";
 
 export default function App() {
-  const [showHealth, setShowHealth] = useState(true);
-  const activeView = useCaseStore((s) => s.activeView);
+  const [showHealth, setShowHealth] = useState(false);
+  const tabs = useCaseStore((s) => s.tabs);
+  const activeTabId = useCaseStore((s) => s.activeTabId);
+  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
   return (
-    <div className="flex h-full flex-col bg-pd-base text-pd-text-primary">
-      <header className="flex h-7 items-center gap-3 border-b border-pd-border bg-pd-base px-3 text-pd-sm">
-        <span className="font-semibold text-pd-accent">Raven</span>
-        <nav className="flex gap-3 text-pd-text-secondary">
-          <span>File</span>
-          <span>Edit</span>
-          <span>View</span>
-          <span>Tools</span>
-          <span>Help</span>
-        </nav>
-        <button
-          className="ml-auto text-pd-text-secondary hover:text-pd-text-primary"
-          onClick={() => setShowHealth(true)}
-        >
-          Health
-        </button>
-      </header>
+    <div className="flex h-full flex-col bg-pd-base text-pd-text-primary font-sans">
+      {/* 28px App Header */}
+      <Header onHealth={() => setShowHealth(true)} />
 
+      {/* Main Workspace Layout */}
       <div className="flex min-h-0 flex-1">
+        {/* 240px Left Navigation Sidebar */}
         <Sidebar />
 
-        <main className="flex min-w-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1">
-            {activeView === "graph" && <GraphPane />}
-            {activeView === "map" && <MapPane />}
-            {activeView === "vision" && <VisionPane />}
-            {activeView === "audit" && <AuditPanel />}
+        {/* Tabbed Canvas Area */}
+        <main className="flex min-w-0 flex-1 flex-col bg-pd-base overflow-hidden">
+          {/* 36px Dynamic Tab Bar */}
+          <TabBar />
+
+          {/* Active Workspace View Dispatcher */}
+          <div className="min-h-0 flex-1 relative overflow-hidden">
+            {activeTab?.type === "graph" && <GraphPane />}
+            {activeTab?.type === "profiles-dir" && <ProfilesDirectoryPane />}
+            {activeTab?.type === "profile" && (
+              <ProfileWorkspacePane
+                key={activeTab.id}
+                entityId={activeTab.data?.entityId}
+                entityName={activeTab.data?.entityName}
+              />
+            )}
+            {activeTab?.type === "vision" && <VisionPane />}
+            {activeTab?.type === "audit" && <AuditPanel />}
           </div>
         </main>
-
-        <aside className="w-[280px] border-l border-pd-border bg-pd-surface">
-          <EvidencePane />
-        </aside>
       </div>
 
+      {/* 24px Status Bar */}
       <StatusBar onHealth={() => setShowHealth(true)} />
 
+      {/* Command Palette Modal Overlay (Ctrl+K / Ctrl+Shift+P) */}
+      <CommandPalette />
+
+      {/* Startup & Diagnostic Health Board Modal */}
       {showHealth && <HealthBoard onClose={() => setShowHealth(false)} />}
     </div>
   );

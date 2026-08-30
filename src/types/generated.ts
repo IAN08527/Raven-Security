@@ -89,6 +89,16 @@ export interface SourceFile {
   status: string;
 }
 
+export interface AuditEntry {
+  id: number;
+  event_type: string;
+  actor: string;
+  target_id: string | null;
+  target_type: string | null;
+  details: Record<string, unknown> | null;
+  created_at: string;
+}
+
 export interface VerifyResult {
   matched: boolean;
   local_sha: string;
