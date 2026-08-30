@@ -196,11 +196,21 @@ export function ProfileWorkspacePane({
         {/* SUB-TAB 1: GENERAL INFO (PHOTO CARD ON LEFT + IDENTITY/CONTACT DETAILS ON RIGHT) */}
         {profileSubTab === "general" && (
           <div className="h-full p-6 overflow-y-auto space-y-6">
-            {/* Unified Primary Dossier Card: (Photo Column on Left + Identity & Contact Data on Right) */}
-            <div className="rounded border border-pd-border bg-pd-surface p-6 shadow-sm flex flex-col lg:flex-row gap-6 items-stretch">
-              {/* LEFT COLUMN: Suspect Mugshot / Surveillance Portrait Frame */}
-              <div className="w-full lg:w-72 rounded border border-pd-border bg-pd-elevated p-4 flex flex-col items-center justify-between space-y-4 shrink-0 shadow-md">
-                <div className="w-full relative aspect-[4/4.8] rounded bg-[#0a0f16] border border-pd-border overflow-hidden flex items-center justify-center group shadow-inner">
+            {/* TOP ROW: Two Completely Separate Cards Side-by-Side */}
+            <div className="flex flex-col lg:flex-row gap-6 items-stretch">
+              {/* BOX 1: Suspect Mugshot / Surveillance Photo Card */}
+              <div className="w-full lg:w-80 rounded border border-pd-border bg-pd-surface p-6 flex flex-col items-center justify-between space-y-4 shrink-0 shadow-sm">
+                <div className="w-full flex items-center justify-between border-b border-pd-border/60 pb-2.5">
+                  <span className="text-pd-xs font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-pd-accent" />
+                    Surveillance Photo
+                  </span>
+                  <span className="font-mono text-[10px] text-pd-danger bg-pd-danger/15 px-1.5 py-0.5 rounded border border-pd-danger/30 font-bold">
+                    CAM-01 ACTIVE
+                  </span>
+                </div>
+
+                <div className="w-full relative aspect-[4/4.6] rounded bg-[#0a0f16] border border-pd-border overflow-hidden flex items-center justify-center group shadow-inner">
                   {/* Subtle Background Pattern & Gradient */}
                   <div className="absolute inset-0 bg-[radial-gradient(#1f2937_1px,transparent_1px)] [background-size:12px_12px] opacity-40" />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f16] via-transparent to-transparent z-10" />
@@ -223,12 +233,6 @@ export function ProfileWorkspacePane({
                     </div>
                   </div>
 
-                  {/* Top-Right Surveillance Stamp */}
-                  <div className="absolute top-2 right-2 z-20 font-mono text-[9px] text-pd-danger bg-pd-danger/15 px-1.5 py-0.5 rounded border border-pd-danger/30 font-bold flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-pd-danger animate-pulse" />
-                    CAM-01
-                  </div>
-
                   {/* Bottom Watermark Stamp */}
                   <div className="absolute bottom-2 left-2 z-20 font-mono text-[10px] text-pd-text-primary bg-pd-base/90 px-2 py-0.5 rounded border border-pd-border/80 font-bold">
                     NAFIS: MUM-8842
@@ -243,8 +247,8 @@ export function ProfileWorkspacePane({
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: Comprehensive Identity & Contact Coordinates Grid */}
-              <div className="flex-1 flex flex-col justify-between space-y-4">
+              {/* BOX 2: Comprehensive Identity & Contact Coordinates Card */}
+              <div className="flex-1 rounded border border-pd-border bg-pd-surface p-6 shadow-sm flex flex-col space-y-5">
                 <div className="flex items-center justify-between border-b border-pd-border/60 pb-2.5">
                   <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-pd-accent" />
@@ -253,7 +257,7 @@ export function ProfileWorkspacePane({
                   <span className="font-mono text-pd-xs text-pd-text-tertiary">Verified NAFIS Match & CDR Linked</span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-5 gap-x-8 text-pd-base">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4.5 gap-x-8 text-pd-base">
                   <div className="space-y-1">
                     <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Known Aliases</div>
                     <div className="text-pd-md font-semibold text-pd-warning">"Ricky", "R.V. Sawant"</div>
@@ -303,6 +307,7 @@ export function ProfileWorkspacePane({
                 </div>
               </div>
             </div>
+
 
             {/* Section 2: Syndicate Hierarchy & Investigative Target Status */}
             <div className="rounded border border-pd-border bg-pd-surface p-6 space-y-4 shadow-sm">
