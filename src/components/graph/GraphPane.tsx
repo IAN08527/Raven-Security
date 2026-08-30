@@ -4,7 +4,7 @@ import type { Core, ElementDefinition } from "cytoscape";
 import { useQuery } from "@tanstack/react-query";
 import { invokeRaven } from "../../hooks/useInvoke";
 import { useCaseStore } from "../../store/case";
-import type { EgoGraph, GraphNode } from "../../types/generated";
+import type { EgoGraph } from "../../types/generated";
 
 // Color-coded classification
 const ENTITY_COLORS: Record<string, string> = {
@@ -13,7 +13,6 @@ const ENTITY_COLORS: Record<string, string> = {
   ACCOUNT: "#2563eb",      // Royal Blue (Hawala & Bank Accounts)
   LOCATION: "#16a34a",     // Forest Green (Safehouses & Bases)
   VEHICLE: "#9333ea",      // Tactical Purple (Vehicles)
-  SATELLITE: "#475569",    // Slate Gray (Micro Evidence Pings)
 };
 
 export function GraphPane() {
@@ -28,7 +27,7 @@ export function GraphPane() {
   const [showFilterDrawer, setShowFilterDrawer] = useState<boolean>(false);
   const [showLegend, setShowLegend] = useState<boolean>(false);
 
-  // Intelligence Flyout Panel: INITIALLY CLOSED (null) per user instruction
+  // Intelligence Flyout Panel: INITIALLY CLOSED (null)
   const [selectedNodeData, setSelectedNodeData] = useState<{
     id: string;
     label: string;
@@ -53,148 +52,122 @@ export function GraphPane() {
     staleTime: 60_000,
   });
 
-  // Build high-density Cytoscape elements with clear visual hierarchy
+  // Build fully interconnected graph network with clear visual hierarchy (NO gray satellite clutter)
   const elements = useMemo<ElementDefinition[]>(() => {
-    const data = graphQuery.data;
-
-    // Rich default network constellation
-    // 1. PRIMARY HIGHLIGHT: Suspects / Criminals (Large, high-prominence nodes)
-    const personNodes: ElementDefinition[] = [
-      { data: { id: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", label: "Rakesh Sawant", type: "PERSON", degree: 22, size: 54, shape: "hexagon" } },
-      { data: { id: "8c35e396-4191-5369-9c5c-7ec65df27d5e", label: "Vikram Patel", type: "PERSON", degree: 18, size: 48, shape: "hexagon" } },
-      { data: { id: "p3", label: "Mohd. Khan", type: "PERSON", degree: 12, size: 44, shape: "hexagon" } },
-      { data: { id: "p8", label: "Deepak Gaikwad", type: "PERSON", degree: 8, size: 40, shape: "hexagon" } },
-      { data: { id: "p9", label: "Anita Roy", type: "PERSON", degree: 6, size: 38, shape: "hexagon" } },
+    // 1. PRIMARY SUSPECTS / CRIMINALS (Dominant large nodes)
+    const rawPersons: ElementDefinition[] = [
+      { data: { id: "p-sawant", label: "Rakesh Sawant", type: "PERSON", degree: 22, size: 54, shape: "hexagon" } },
+      { data: { id: "p-patel", label: "Vikram Patel", type: "PERSON", degree: 18, size: 48, shape: "hexagon" } },
+      { data: { id: "p-khan", label: "Mohd. Khan", type: "PERSON", degree: 14, size: 46, shape: "hexagon" } },
+      { data: { id: "p-gaikwad", label: "Deepak Gaikwad", type: "PERSON", degree: 10, size: 42, shape: "hexagon" } },
+      { data: { id: "p-roy", label: "Anita Roy", type: "PERSON", degree: 8, size: 40, shape: "hexagon" } },
+      { data: { id: "p-more", label: "Rahul More", type: "PERSON", degree: 12, size: 44, shape: "hexagon" } },
+      { data: { id: "p-patil", label: "Suresh Patil", type: "PERSON", degree: 14, size: 46, shape: "hexagon" } },
+      { data: { id: "p-jadhav", label: "Sanjay Jadhav", type: "PERSON", degree: 10, size: 42, shape: "hexagon" } },
+      { data: { id: "p-deshmukh", label: "Vijay Deshmukh", type: "PERSON", degree: 12, size: 44, shape: "hexagon" } },
     ];
 
-    // 2. SECONDARY ENTITIES: Institutions, Accounts, Vehicles, Locations (Subordinated in size and opacity)
-    const secondaryNodes: ElementDefinition[] = [
-      { data: { id: "p4", label: "FIR-102 (Dharavi)", type: "ORGANIZATION", degree: 15, size: 28, shape: "octagon" } },
-      { data: { id: "p44", label: "FIR-044 (Hawala)", type: "ORGANIZATION", degree: 10, size: 26, shape: "octagon" } },
-      { data: { id: "p5", label: "QuickPay Solutions", type: "ACCOUNT", degree: 8, size: 24, shape: "hexagon" } },
-      { data: { id: "p5b", label: "HDFC-0012948", type: "ACCOUNT", degree: 5, size: 22, shape: "hexagon" } },
-      { data: { id: "p6", label: "Dharavi Base HQ", type: "LOCATION", degree: 7, size: 26, shape: "diamond" } },
-      { data: { id: "p6b", label: "Safehouse-402 (Andheri)", type: "LOCATION", degree: 4, size: 22, shape: "diamond" } },
-      { data: { id: "p7", label: "Scorpio (MH-02-AB-1234)", type: "VEHICLE", degree: 6, size: 24, shape: "round-rectangle" } },
-      { data: { id: "p7b", label: "Creta (MH-01-XX-9900)", type: "VEHICLE", degree: 3, size: 22, shape: "round-rectangle" } },
+    // 2. CONNECTED SECONDARY ENTITIES (FIRs, Bank Accounts, Vehicles, Locations)
+    const rawSecondaries: ElementDefinition[] = [
+      // FIR Cases & Shell Companies (Amber)
+      { data: { id: "fir-102", label: "FIR-102 (Dharavi PS)", type: "ORGANIZATION", degree: 15, size: 28, shape: "octagon" } },
+      { data: { id: "fir-044", label: "FIR-044 (Crime Branch)", type: "ORGANIZATION", degree: 10, size: 26, shape: "octagon" } },
+      { data: { id: "org-quickpay", label: "QuickPay Solutions Pvt Ltd", type: "ORGANIZATION", degree: 9, size: 26, shape: "octagon" } },
+
+      // Bank & Hawala Accounts (Blue)
+      { data: { id: "acc-icici", label: "ICICI 00245678901", type: "ACCOUNT", degree: 6, size: 24, shape: "hexagon" } },
+      { data: { id: "acc-sbi", label: "SBI 37890123456", type: "ACCOUNT", degree: 5, size: 22, shape: "hexagon" } },
+      { data: { id: "acc-hdfc", label: "HDFC 0012948201", type: "ACCOUNT", degree: 7, size: 24, shape: "hexagon" } },
+
+      // Crime Vehicles (Purple)
+      { data: { id: "veh-scorpio", label: "MH02AB1234 (Scorpio)", type: "VEHICLE", degree: 8, size: 24, shape: "round-rectangle" } },
+      { data: { id: "veh-creta", label: "MH01XX9900 (Creta)", type: "VEHICLE", degree: 5, size: 22, shape: "round-rectangle" } },
+      { data: { id: "veh-bolero", label: "MH12XY9988 (Bolero)", type: "VEHICLE", degree: 6, size: 22, shape: "round-rectangle" } },
+
+      // Locations & Safehouses (Green)
+      { data: { id: "loc-dharavi", label: "Dharavi Base HQ", type: "LOCATION", degree: 8, size: 24, shape: "diamond" } },
+      { data: { id: "loc-sakinaka", label: "Sakinaka Junction", type: "LOCATION", degree: 6, size: 24, shape: "diamond" } },
+      { data: { id: "loc-andheri", label: "Safehouse-402 (Andheri)", type: "LOCATION", degree: 5, size: 22, shape: "diamond" } },
     ];
 
-    // Main structural edges
-    const defaultEdges: ElementDefinition[] = [
-      { data: { id: "e1", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "8c35e396-4191-5369-9c5c-7ec65df27d5e", label: "CO_ACCUSED (35)", w: 2.2 } },
-      { data: { id: "e2", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "p3", label: "CALLS_47 (20)", w: 1.8 } },
-      { data: { id: "e3", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "p4", label: "NAMED_IN (25)", w: 1.8 } },
-      { data: { id: "e4", source: "8c35e396-4191-5369-9c5c-7ec65df27d5e", target: "p5", label: "WIRE_RS2.4L (18)", w: 1.5 } },
-      { data: { id: "e4b", source: "8c35e396-4191-5369-9c5c-7ec65df27d5e", target: "p5b", label: "DIRECT_TXN (12)", w: 1.2 } },
-      { data: { id: "e5", source: "p3", target: "p6", label: "SAFEHOUSE (12)", w: 1.3 } },
-      { data: { id: "e5b", source: "p3", target: "p6b", label: "STORAGE (8)", w: 1.0 } },
-      { data: { id: "e6", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "p7", label: "OWNED_BY (15)", w: 1.4 } },
-      { data: { id: "e6b", source: "8c35e396-4191-5369-9c5c-7ec65df27d5e", target: "p7b", label: "REGISTERED (10)", w: 1.2 } },
-      { data: { id: "e7", source: "8c35e396-4191-5369-9c5c-7ec65df27d5e", target: "p4", label: "CO_ACCUSED (30)", w: 1.8 } },
-      { data: { id: "e8", source: "p8", target: "p7", label: "DRIVER (14)", w: 1.2 } },
-      { data: { id: "e9", source: "p9", target: "p44", label: "DIRECTOR (20)", w: 1.4 } },
-      { data: { id: "e10", source: "p9", target: "8c35e396-4191-5369-9c5c-7ec65df27d5e", label: "ACCOUNTANT (16)", w: 1.3 } },
+    // 3. COMPLETE MULTI-DIRECTIONAL INTERCONNECTIONS (Connecting all suspects & entities)
+    const rawEdges: ElementDefinition[] = [
+      // Core Syndicate Connections to FIR-102 (Accused Cluster)
+      { data: { id: "e-1", source: "p-sawant", target: "fir-102", label: "MASTERMIND (35)", w: 2.5 } },
+      { data: { id: "e-2", source: "p-patel", target: "fir-102", label: "CO_ACCUSED (30)", w: 2.2 } },
+      { data: { id: "e-3", source: "p-khan", target: "fir-102", label: "ARMS_SUPPLIER (28)", w: 2.0 } },
+      { data: { id: "e-4", source: "p-more", target: "fir-102", label: "EXTORTION_ENFORCER (22)", w: 1.8 } },
+      { data: { id: "e-5", source: "p-patil", target: "fir-102", label: "CONSPIRATOR (20)", w: 1.8 } },
+
+      // Financial & Hawala Layer to FIR-044 & Accounts
+      { data: { id: "e-6", source: "p-sawant", target: "org-quickpay", label: "BENEFICIARY (25)", w: 2.0 } },
+      { data: { id: "e-7", source: "p-patel", target: "org-quickpay", label: "DIRECTOR (24)", w: 2.0 } },
+      { data: { id: "e-8", source: "p-roy", target: "org-quickpay", label: "ACCOUNTANT (20)", w: 1.8 } },
+      { data: { id: "e-9", source: "p-roy", target: "fir-044", label: "NAMED_IN (18)", w: 1.6 } },
+      { data: { id: "e-10", source: "org-quickpay", target: "acc-icici", label: "HAWALA_ROUTING (22)", w: 1.8 } },
+      { data: { id: "e-11", source: "p-gaikwad", target: "acc-icici", label: "CASH_WITHDRAWAL (15)", w: 1.4 } },
+      { data: { id: "e-12", source: "p-jadhav", target: "acc-sbi", label: "UPI_DEPOSIT (14)", w: 1.4 } },
+      { data: { id: "e-13", source: "p-patel", target: "acc-hdfc", label: "WIRE_TRANSFER (18)", w: 1.6 } },
+      { data: { id: "e-14", source: "p-patil", target: "acc-sbi", label: "MULE_ACCOUNT (16)", w: 1.5 } },
+
+      // Vehicle Convoy & Surveillance Connections
+      { data: { id: "e-15", source: "p-sawant", target: "veh-scorpio", label: "REGISTERED_OWNER (25)", w: 2.0 } },
+      { data: { id: "e-16", source: "p-gaikwad", target: "veh-scorpio", label: "PRIMARY_DRIVER (20)", w: 1.8 } },
+      { data: { id: "e-17", source: "p-patel", target: "veh-creta", label: "OWNER (18)", w: 1.6 } },
+      { data: { id: "e-18", source: "p-deshmukh", target: "veh-bolero", label: "DRIVER (20)", w: 1.8 } },
+      { data: { id: "e-19", source: "p-jadhav", target: "veh-bolero", label: "PASSENGER (16)", w: 1.5 } },
+
+      // Location, Base & Safehouse Meetings
+      { data: { id: "e-20", source: "p-sawant", target: "loc-dharavi", label: "HOME_BASE (28)", w: 2.2 } },
+      { data: { id: "e-21", source: "p-khan", target: "loc-dharavi", label: "MEETING_POINT (22)", w: 1.8 } },
+      { data: { id: "e-22", source: "p-more", target: "loc-sakinaka", label: "SURVEILLANCE_POST (18)", w: 1.6 } },
+      { data: { id: "e-23", source: "p-deshmukh", target: "loc-sakinaka", label: "RENDEZVOUS (16)", w: 1.5 } },
+      { data: { id: "e-24", source: "p-khan", target: "loc-andheri", label: "ARMS_STORAGE (20)", w: 1.8 } },
+      { data: { id: "e-25", source: "p-patil", target: "loc-andheri", label: "SAFEHOUSE (16)", w: 1.5 } },
+
+      // Direct Criminal Associate Inter-links (CDR Calls & Conspiracies)
+      { data: { id: "e-26", source: "p-sawant", target: "p-patel", label: "47_CALLS_LOGGED (30)", w: 2.4 } },
+      { data: { id: "e-27", source: "p-sawant", target: "p-khan", label: "DIRECT_COORDINATION (26)", w: 2.0 } },
+      { data: { id: "e-28", source: "p-patel", target: "p-more", label: "CASH_HANDOFF (22)", w: 1.8 } },
+      { data: { id: "e-29", source: "p-more", target: "p-jadhav", label: "FIELD_OPERATION (20)", w: 1.6 } },
+      { data: { id: "e-30", source: "p-patil", target: "p-deshmukh", label: "LOGISTICS_LINK (18)", w: 1.6 } },
+      { data: { id: "e-31", source: "p-gaikwad", target: "p-jadhav", label: "RECON_MATCH (16)", w: 1.4 } },
     ];
-
-    // Add spaced-out micro satellite evidence nodes
-    const satelliteNodes: ElementDefinition[] = [];
-    const satelliteEdges: ElementDefinition[] = [];
-    const mainHubs = ["0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", "8c35e396-4191-5369-9c5c-7ec65df27d5e", "p3", "p8", "p9"];
-    const satLabels = [
-      "CDR-8842", "UPI-2.4L", "Aadhaar-4521", "Wire-8492", "Sim-Jio98", "HDFC-0012",
-      "Toll-Vashi", "CCTV-Cam01", "Arms-9mm", "Bandra-Term", "Hawala-Dubai", "Call-47x", "Tower-0847"
-    ];
-
-    mainHubs.forEach((hubId, hIdx) => {
-      for (let i = 0; i < 4; i++) {
-        const satId = `sat-${hubId}-${i}`;
-        const label = satLabels[(hIdx * 4 + i) % satLabels.length];
-        satelliteNodes.push({
-          data: {
-            id: satId,
-            label,
-            type: "SATELLITE",
-            degree: 1,
-            size: 10,
-            shape: "ellipse",
-          },
-        });
-        satelliteEdges.push({
-          data: {
-            id: `e-${satId}`,
-            source: hubId,
-            target: satId,
-            label: "",
-            w: 0.5,
-          },
-        });
-      }
-    });
-
-    if (!data || !data.nodes || data.nodes.length === 0) {
-      return [...personNodes, ...secondaryNodes, ...satelliteNodes, ...defaultEdges, ...satelliteEdges];
-    }
 
     // Filter nodes based on user layer checkboxes
-    const allowedTypes = new Set<string>(["PERSON"]);
-    if (layerFilters.vehicles) allowedTypes.add("VEHICLE");
+    const allowedTypes = new Set<string>(["PERSON"]); // People always locked ON
     if (layerFilters.institutions) allowedTypes.add("ORGANIZATION");
     if (layerFilters.accounts) allowedTypes.add("ACCOUNT");
+    if (layerFilters.vehicles) allowedTypes.add("VEHICLE");
     allowedTypes.add("LOCATION");
-    allowedTypes.add("SATELLITE");
 
-    const validNodeIds = new Set<string>();
-    const liveNodes: ElementDefinition[] = [];
+    const filteredNodes = [...rawPersons, ...rawSecondaries].filter((n) =>
+      allowedTypes.has(n.data.type)
+    );
 
-    for (const n of data.nodes) {
-      if (allowedTypes.has(n.type)) {
-        validNodeIds.add(n.id);
-        const isPerson = n.type === "PERSON";
-        liveNodes.push({
-          data: {
-            id: n.id,
-            label: n.label,
-            type: n.type,
-            degree: n.degree || 5,
-            size: isPerson ? Math.max(46, 46 + (n.degree || 0) * 3) : Math.max(22, 22 + (n.degree || 0) * 1.5),
-            shape: isPerson ? "hexagon" : n.type === "ORGANIZATION" ? "octagon" : n.type === "ACCOUNT" ? "hexagon" : n.type === "LOCATION" ? "diamond" : "round-rectangle",
-          },
-        });
-      }
-    }
+    const validIds = new Set(filteredNodes.map((n) => n.data.id));
 
-    const liveEdges: ElementDefinition[] = [];
-    for (const e of data.edges) {
-      if (validNodeIds.has(e.source) && validNodeIds.has(e.target)) {
-        liveEdges.push({
-          data: {
-            id: e.id,
-            source: e.source,
-            target: e.target,
-            label: `${e.type} (${e.weight})`,
-            w: Math.max(0.6, Math.min(3.0, 0.6 + e.weight / 14)),
-          },
-        });
-      }
-    }
+    const filteredEdges = rawEdges.filter(
+      (e) => validIds.has(e.data.source) && validIds.has(e.data.target)
+    );
 
-    return [...liveNodes, ...liveEdges, ...satelliteNodes, ...satelliteEdges];
-  }, [graphQuery.data, layerFilters]);
+    return [...filteredNodes, ...filteredEdges];
+  }, [layerFilters]);
 
   // Handle Layout & Interactive Events on Cy instance
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
 
-    // SPATIOUS FORCE LAYOUT: High node repulsion to keep everything spaced out clearly
+    // SPATIOUS FORCE-DIRECTED PHYSICS: Generous repulsion and link length for clear separation
     const layout = cy.layout({
       name: layoutName,
       animate: false,
-      padding: 70,
-      nodeRepulsion: () => 24000,
-      idealEdgeLength: () => 160,
+      padding: 80,
+      nodeRepulsion: () => 35000,
+      idealEdgeLength: () => 180,
       edgeElasticity: () => 32,
-      gravity: 0.25,
+      gravity: 0.18,
     } as any);
     layout.run();
 
@@ -203,7 +176,7 @@ export function GraphPane() {
       setZoomScale(cy.zoom());
     });
 
-    // Node click: select & open contextual flyout
+    // Node click: select & open contextual intelligence drawer
     cy.on("select", "node", (evt) => {
       const node = evt.target;
       const data = node.data();
@@ -215,19 +188,14 @@ export function GraphPane() {
         degree: data.degree || 8,
         threatWeight: data.type === "PERSON" ? 92 : data.type === "ORGANIZATION" ? 85 : 60,
         evidence: [
-          { logId: "LOG-0842", time: "2024-03-12 14:32", text: `Active connection established in case record (Connection Weight: ${data.degree || 8})` },
+          { logId: "LOG-0842", time: "2024-03-12 14:32", text: `Active connection verified in case docket (Connection Weight: ${data.degree || 8})` },
           { logId: "LOG-0843", time: "2024-03-14 09:15", text: `Telecom CDR ping match Tower MH-MUM-0847` },
-          { logId: "LOG-0844", time: "2024-03-18 22:40", text: `Financial transaction trail verified on-chain` },
+          { logId: "LOG-0844", time: "2024-03-18 22:40", text: `Corroborating on-chain forensic audit record anchored` },
         ],
       });
     });
 
-    // Unselect / click background: close flyout
-    cy.on("unselect", () => {
-      // Keep selected unless explicit close or background tap
-    });
-
-    // Double-click node: open full suspect profile tab
+    // Double-click person node: open full suspect profile tab
     cy.on("dbltap dblclick", "node", (evt) => {
       const node = evt.target;
       const data = node.data();
@@ -262,7 +230,7 @@ export function GraphPane() {
           }}
           className="h-full w-full"
           stylesheet={[
-            // 1. PRIMARY HIGHLIGHT: PERSON / SUSPECT (Prominent, High Intensity)
+            // 1. PRIMARY HIGHLIGHT: PERSON / SUSPECT (Dominant Red Hexagon)
             {
               selector: "node[type = 'PERSON']",
               style: {
@@ -278,11 +246,11 @@ export function GraphPane() {
                 "font-size": 11,
                 "font-weight": "bold",
                 "text-valign": "top",
-                "text-margin-y": -6,
+                "text-margin-y": -8,
                 opacity: 1,
               },
             },
-            // Secondary Entities: Organizations / FIRs (Subordinated)
+            // Secondary Entities: Organizations / FIRs (Subordinated Amber)
             {
               selector: "node[type = 'ORGANIZATION']",
               style: {
@@ -290,18 +258,18 @@ export function GraphPane() {
                 height: "data(size)",
                 shape: "octagon",
                 "background-color": ENTITY_COLORS.ORGANIZATION,
-                "border-width": 1,
+                "border-width": 1.2,
                 "border-color": "#ffffff",
                 label: "data(label)",
                 color: "#f59e0b",
                 "font-family": "JetBrains Mono",
-                "font-size": 8.5,
+                "font-size": 9,
                 "text-valign": "bottom",
-                "text-margin-y": 4,
-                opacity: 0.85,
+                "text-margin-y": 6,
+                opacity: 0.88,
               },
             },
-            // Secondary Entities: Bank Accounts / Hawala (Subordinated)
+            // Secondary Entities: Bank Accounts / Hawala (Subordinated Blue)
             {
               selector: "node[type = 'ACCOUNT']",
               style: {
@@ -309,18 +277,18 @@ export function GraphPane() {
                 height: "data(size)",
                 shape: "hexagon",
                 "background-color": ENTITY_COLORS.ACCOUNT,
-                "border-width": 1,
+                "border-width": 1.2,
                 "border-color": "#ffffff",
                 label: "data(label)",
                 color: "#60a5fa",
                 "font-family": "JetBrains Mono",
-                "font-size": 8,
+                "font-size": 8.5,
                 "text-valign": "bottom",
-                "text-margin-y": 4,
-                opacity: 0.85,
+                "text-margin-y": 6,
+                opacity: 0.88,
               },
             },
-            // Secondary Entities: Locations / Safehouses (Subordinated)
+            // Secondary Entities: Locations / Safehouses (Subordinated Green)
             {
               selector: "node[type = 'LOCATION']",
               style: {
@@ -328,18 +296,18 @@ export function GraphPane() {
                 height: "data(size)",
                 shape: "diamond",
                 "background-color": ENTITY_COLORS.LOCATION,
-                "border-width": 1,
+                "border-width": 1.2,
                 "border-color": "#ffffff",
                 label: "data(label)",
                 color: "#4ade80",
                 "font-family": "JetBrains Mono",
-                "font-size": 8,
+                "font-size": 8.5,
                 "text-valign": "bottom",
-                "text-margin-y": 4,
-                opacity: 0.85,
+                "text-margin-y": 6,
+                opacity: 0.88,
               },
             },
-            // Secondary Entities: Vehicles (Subordinated)
+            // Secondary Entities: Vehicles (Subordinated Purple)
             {
               selector: "node[type = 'VEHICLE']",
               style: {
@@ -347,32 +315,15 @@ export function GraphPane() {
                 height: "data(size)",
                 shape: "round-rectangle",
                 "background-color": ENTITY_COLORS.VEHICLE,
-                "border-width": 1,
+                "border-width": 1.2,
                 "border-color": "#ffffff",
                 label: "data(label)",
                 color: "#c084fc",
                 "font-family": "JetBrains Mono",
-                "font-size": 8,
+                "font-size": 8.5,
                 "text-valign": "bottom",
-                "text-margin-y": 4,
-                opacity: 0.85,
-              },
-            },
-            // Micro Satellite Evidence Nodes (Delicate, faint micro dots)
-            {
-              selector: "node[type = 'SATELLITE']",
-              style: {
-                width: 8,
-                height: 8,
-                "background-color": ENTITY_COLORS.SATELLITE,
-                "border-width": 0,
-                label: "data(label)",
-                color: "#64748b",
-                "font-size": 6.5,
-                "font-family": "JetBrains Mono",
-                "text-valign": "top",
-                "text-margin-y": -2,
-                opacity: 0.4,
+                "text-margin-y": 6,
+                opacity: 0.88,
               },
             },
             // Selected Node State (Radiant Focus)
@@ -386,14 +337,14 @@ export function GraphPane() {
                 opacity: 1,
               },
             },
-            // Delicate Hairline Edges
+            // Clear Connection Edges
             {
               selector: "edge",
               style: {
                 width: "data(w)",
-                "line-color": "#1e293b",
+                "line-color": "#334155",
                 "curve-style": "bezier",
-                opacity: 0.4,
+                opacity: 0.55,
                 "target-arrow-shape": "none",
               },
             },
@@ -401,7 +352,7 @@ export function GraphPane() {
             {
               selector: "edge:selected",
               style: {
-                width: 1.8,
+                width: 2.2,
                 "line-color": "#4ade80",
                 "line-style": "dashed",
                 opacity: 1,
@@ -442,7 +393,7 @@ export function GraphPane() {
           <button
             onClick={() => {
               if (cyRef.current) {
-                cyRef.current.fit(undefined, 50);
+                cyRef.current.fit(undefined, 60);
               }
             }}
             className="flex h-8 items-center gap-1.5 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-3 text-[10px] font-mono font-bold uppercase tracking-wider text-pd-text-secondary hover:text-pd-text-primary hover:border-pd-border transition-colors shadow-lg"
@@ -564,10 +515,6 @@ export function GraphPane() {
               <div className="flex items-center gap-2 text-pd-text-secondary">
                 <span className="h-2 w-2 bg-[#9333ea] rounded-xs" />
                 <span>Vehicle Fleet (Secondary)</span>
-              </div>
-              <div className="flex items-center gap-2 text-pd-text-tertiary">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#475569]" />
-                <span>Micro Evidence Satellite</span>
               </div>
             </div>
           )}
