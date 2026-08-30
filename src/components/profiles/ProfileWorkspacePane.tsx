@@ -119,11 +119,11 @@ export function ProfileWorkspacePane({
 
   return (
     <div className="flex h-full flex-col bg-pd-base text-pd-text-primary overflow-hidden">
-      {/* Profile Header Bar */}
+      {/* Top Profile Header Bar */}
       <div className="flex items-center justify-between border-b border-pd-border bg-pd-surface px-6 py-4 select-none shadow-sm">
-        <div className="flex items-center gap-4.5">
+        <div className="flex items-center gap-4">
           <div className="relative">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-pd-accent/15 border-2 border-pd-accent text-pd-xl font-bold text-pd-accent shadow-md">
+            <div className="flex h-13 w-13 items-center justify-center rounded-full bg-pd-accent/15 border-2 border-pd-accent text-pd-xl font-bold text-pd-accent shadow-md">
               {entityName.substring(0, 2).toUpperCase()}
             </div>
             <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-pd-success border-2 border-pd-surface" />
@@ -193,89 +193,118 @@ export function ProfileWorkspacePane({
 
       {/* Main Sub-Tab Content */}
       <div className="flex-1 min-h-0 relative overflow-hidden">
-        {/* SUB-TAB 1: GENERAL INFO (VERTICAL FULL-WIDTH STACKED WITH GENEROUS PADDING) */}
+        {/* SUB-TAB 1: GENERAL INFO (PHOTO CARD ON LEFT + IDENTITY/CONTACT DETAILS ON RIGHT) */}
         {profileSubTab === "general" && (
           <div className="h-full p-6 overflow-y-auto space-y-6">
-            {/* Section 1: Identity & Legal Registration */}
-            <div className="rounded border border-pd-border bg-pd-surface p-6 space-y-4 shadow-sm">
-              <div className="flex items-center justify-between border-b border-pd-border/60 pb-3">
-                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-pd-accent" />
-                  Primary Identity & Legal Registration
-                </span>
-                <span className="font-mono text-pd-xs text-pd-text-tertiary">Verified NAFIS Match</span>
+            {/* Unified Primary Dossier Card: (Photo Column on Left + Identity & Contact Data on Right) */}
+            <div className="rounded border border-pd-border bg-pd-surface p-6 shadow-sm flex flex-col lg:flex-row gap-6 items-stretch">
+              {/* LEFT COLUMN: Suspect Mugshot / Surveillance Portrait Frame */}
+              <div className="w-full lg:w-72 rounded border border-pd-border bg-pd-elevated p-4 flex flex-col items-center justify-between space-y-4 shrink-0 shadow-md">
+                <div className="w-full relative aspect-[4/4.8] rounded bg-[#0a0f16] border border-pd-border overflow-hidden flex items-center justify-center group shadow-inner">
+                  {/* Subtle Background Pattern & Gradient */}
+                  <div className="absolute inset-0 bg-[radial-gradient(#1f2937_1px,transparent_1px)] [background-size:12px_12px] opacity-40" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f16] via-transparent to-transparent z-10" />
+
+                  {/* Surveillance Silhouette Portrait Graphic */}
+                  <div className="w-full h-full flex flex-col items-center justify-center p-2 relative">
+                    <svg className="w-28 h-28 text-pd-accent/70" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clipRule="evenodd" />
+                    </svg>
+
+                    {/* Biometric Target HUD Reticle */}
+                    <div className="absolute inset-x-5 inset-y-6 border-2 border-pd-accent/60 rounded-sm pointer-events-none flex flex-col justify-between p-1.5">
+                      <div className="flex justify-between text-[9px] font-mono text-pd-accent font-bold">
+                        <span>[+] FACE_ID</span>
+                        <span>98.4%</span>
+                      </div>
+                      <div className="text-[9px] font-mono text-pd-accent/90 self-end">
+                        OSNET-512
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Top-Right Surveillance Stamp */}
+                  <div className="absolute top-2 right-2 z-20 font-mono text-[9px] text-pd-danger bg-pd-danger/15 px-1.5 py-0.5 rounded border border-pd-danger/30 font-bold flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-pd-danger animate-pulse" />
+                    CAM-01
+                  </div>
+
+                  {/* Bottom Watermark Stamp */}
+                  <div className="absolute bottom-2 left-2 z-20 font-mono text-[10px] text-pd-text-primary bg-pd-base/90 px-2 py-0.5 rounded border border-pd-border/80 font-bold">
+                    NAFIS: MUM-8842
+                  </div>
+                </div>
+
+                {/* Identity Summary Below Photo */}
+                <div className="w-full text-center space-y-1 border-t border-pd-border/60 pt-3">
+                  <div className="text-pd-base font-bold text-pd-text-primary">{entityName}</div>
+                  <div className="font-mono text-pd-sm font-bold text-pd-accent">+91 98765 43210</div>
+                  <div className="font-mono text-pd-xs text-pd-text-tertiary">Aadhaar: XXXX-XXXX-4521</div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-y-5 gap-x-8 text-pd-base">
-                <div className="space-y-1">
-                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Full Legal Name</div>
-                  <div className="text-pd-lg font-bold text-pd-text-primary">Rakesh Vijay Sawant</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Known Aliases</div>
-                  <div className="text-pd-md font-semibold text-pd-warning">"Ricky", "R.V. Sawant"</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Date of Birth & Age</div>
-                  <div className="font-mono text-pd-md text-pd-text-primary">1987-03-15 (37 Years)</div>
+              {/* RIGHT COLUMN: Comprehensive Identity & Contact Coordinates Grid */}
+              <div className="flex-1 flex flex-col justify-between space-y-4">
+                <div className="flex items-center justify-between border-b border-pd-border/60 pb-2.5">
+                  <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-pd-accent" />
+                    Primary Identity & Residence Coordinates
+                  </span>
+                  <span className="font-mono text-pd-xs text-pd-text-tertiary">Verified NAFIS Match & CDR Linked</span>
                 </div>
 
-                <div className="space-y-1">
-                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Masked Aadhaar Number</div>
-                  <div className="font-mono text-pd-md text-pd-accent font-semibold">XXXX-XXXX-4521</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Permanent Account No (PAN)</div>
-                  <div className="font-mono text-pd-md text-pd-text-primary font-semibold">ABCPS1234K</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Biometric Fingerprint Status</div>
-                  <div className="text-pd-success text-pd-sm font-semibold flex items-center gap-2 font-mono">
-                    <span className="h-2 w-2 rounded-full bg-pd-success" />
-                    NAFIS Ground Truth ID: MUM-8842
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-5 gap-x-8 text-pd-base">
+                  <div className="space-y-1">
+                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Known Aliases</div>
+                    <div className="text-pd-md font-semibold text-pd-warning">"Ricky", "R.V. Sawant"</div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Date of Birth & Age</div>
+                    <div className="font-mono text-pd-md text-pd-text-primary">1987-03-15 (37 Years)</div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Permanent Account No (PAN)</div>
+                    <div className="font-mono text-pd-md text-pd-text-primary font-semibold">ABCPS1234K</div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Biometric Fingerprint Status</div>
+                    <div className="text-pd-success text-pd-sm font-semibold flex items-center gap-2 font-mono">
+                      <span className="h-2 w-2 rounded-full bg-pd-success" />
+                      NAFIS Match: MUM-8842
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Burner / Alternate SIM</div>
+                    <div className="font-mono text-pd-md font-semibold text-pd-warning">+91 98222 11009 (Jio)</div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Frequent Cell Tower Pings</div>
+                    <div className="text-pd-sm text-pd-text-primary font-mono">Tower MH-MUM-0847 (Dharavi West)</div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Primary Known Residence Address</div>
+                    <div className="text-pd-sm font-medium text-pd-text-primary leading-relaxed">
+                      Room 14/B, Dharavi Cross Lane, Behind Municipal School, Dharavi, Mumbai 400017
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Secondary Location (Safehouse)</div>
+                    <div className="text-pd-sm text-pd-text-secondary leading-relaxed">
+                      Flat 402, Golden Residency, Andheri East, Mumbai
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Section 2: Contact Numbers & Residential Locations */}
-            <div className="rounded border border-pd-border bg-pd-surface p-6 space-y-4 shadow-sm">
-              <div className="flex items-center justify-between border-b border-pd-border/60 pb-3">
-                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-pd-accent" />
-                  Contact Telecom & Residence Coordinates
-                </span>
-                <span className="font-mono text-pd-xs text-pd-text-tertiary">Triangulated via CDR Logs</span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-y-5 gap-x-8 text-pd-base">
-                <div className="space-y-1">
-                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Primary Registered Mobile</div>
-                  <div className="font-mono text-pd-lg font-bold text-pd-accent">+91 98765 43210 (Airtel)</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Burner / Alternate SIM</div>
-                  <div className="font-mono text-pd-md font-semibold text-pd-warning">+91 98222 11009 (Jio)</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Frequent Cell Tower Pings</div>
-                  <div className="text-pd-sm text-pd-text-primary font-mono">Tower MH-MUM-0847 (Dharavi West)</div>
-                </div>
-
-                <div className="col-span-1 md:col-span-2 space-y-1">
-                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Primary Known Residence Address</div>
-                  <div className="text-pd-md font-medium text-pd-text-primary leading-relaxed">
-                    Room 14/B, Dharavi Cross Lane, Behind Municipal School, Dharavi, Mumbai 400017
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Secondary Location (Safehouse)</div>
-                  <div className="text-pd-sm text-pd-text-secondary">Flat 402, Golden Residency, Andheri East</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 3: Syndicate Hierarchy & Investigative Target Status */}
+            {/* Section 2: Syndicate Hierarchy & Investigative Target Status */}
             <div className="rounded border border-pd-border bg-pd-surface p-6 space-y-4 shadow-sm">
               <div className="flex items-center justify-between border-b border-pd-border/60 pb-3">
                 <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2.5">
@@ -306,7 +335,7 @@ export function ProfileWorkspacePane({
               </div>
             </div>
 
-            {/* Section 4: Extracted Forensic Identifiers List */}
+            {/* Section 3: Extracted Forensic Identifiers List */}
             <div className="rounded border border-pd-border bg-pd-surface p-6 space-y-4 shadow-sm">
               <div className="flex items-center justify-between border-b border-pd-border/60 pb-3">
                 <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2.5">
