@@ -27,7 +27,6 @@ export function GraphPane() {
 
   const [layoutName, setLayoutName] = useState<string>("cose");
   const [timelineYear, setTimelineYear] = useState<number>(2024);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [zoomScale, setZoomScale] = useState<number>(1.0);
   const [showFilterDrawer, setShowFilterDrawer] = useState<boolean>(false);
   const [showLegend, setShowLegend] = useState<boolean>(false);
@@ -496,23 +495,18 @@ export function GraphPane() {
 
         {/* 6. BOTTOM HORIZONTAL TIMELINE HUD BAR */}
         <div className="absolute bottom-3 inset-x-4 z-30 h-10 rounded-sm border border-pd-border bg-[#0d1117]/95 backdrop-blur px-4 flex items-center justify-between shadow-2xl font-mono text-[11px]">
-          {/* Left Playback & Year Controls */}
-          <div className="flex items-center gap-2.5">
+          {/* Left Timeline Range Indicator */}
+          <div className="flex items-center gap-2">
             <span className="text-pd-text-tertiary uppercase font-bold text-[10px] tracking-wider">
-              SEASONS
+              TIMELINE:
             </span>
-            <span className="px-2 py-0.5 rounded bg-pd-elevated text-pd-text-primary font-bold border border-pd-border">
+            <span className="px-2 py-0.5 rounded bg-pd-elevated text-pd-text-primary font-bold border border-pd-border text-[10px]">
               2021
             </span>
-            <span className="px-2 py-0.5 rounded bg-pd-elevated text-pd-accent font-bold border border-pd-accent/60">
+            <span className="text-pd-text-tertiary">→</span>
+            <span className="px-2 py-0.5 rounded bg-pd-elevated text-pd-accent font-bold border border-pd-accent/60 text-[10px]">
               {timelineYear}
             </span>
-            <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="flex items-center gap-1 px-2 py-0.5 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary border border-pd-border"
-            >
-              {isPlaying ? "⏸ PAUSE" : "▶ PLAY"}
-            </button>
           </div>
 
           {/* Center Timeline Ruler Slider */}
@@ -560,6 +554,7 @@ export function GraphPane() {
             </button>
           </div>
         </div>
+
       </div>
 
       {/* 7. RIGHT CONTEXTUAL INTELLIGENCE FLYOUT DRAWER */}
