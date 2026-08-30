@@ -142,7 +142,7 @@ The two things that make this *Raven* and not a generic tracker: **D8** (topolog
 
 ---
 
-## Phase 6 — Proof & documentation
+## Phase 6 — Proof & documentation — ✅ DONE (end-to-end mock proof + docs)
 
 **Goal:** prove it and hand off cleanly.
 
@@ -150,7 +150,16 @@ The two things that make this *Raven* and not a generic tracker: **D8** (topolog
 - Document the real-OSNet run for the demo machine (weights download, GPU, `RAVEN_CV_MODE` unset).
 - Update `CONTEXT.md` session ledger; move Backlog #5 to DONE with the standard handoff note.
 
-**Exit criteria:** mock test passes; `cargo check -p raven` / `-p raven-core` clean; `CONTEXT.md` updated.
+**Exit criteria:** mock test passes; `cargo check -p raven` / `-p raven-core` clean; `CONTEXT.md` updated. ✅ (cargo check on the demo machine, same posture as Phases 2/5.)
+
+**Delivered:**
+- `tools/test_e2e.py` (new) — the seam proof. Drives the **real** engine modules (`cv.reid`, `cv.match`, `cv.targets`, `cv.topology`) with mock vectors through the whole chain: lock-on arms cam_02+cam_03 (cam_04 dark) → decoy outfit on cam_02 in-window = 0 sightings → target on cam_02 in-window = 1 sighting (sim 1.0, attributed to the locked target) → sighting chains cam_04 → gate stays shut off-window and on un-armed cameras → confirm mints one `cctv_sighting` evidence row per linked edge and bumps each +10 → re-confirm refused (no double-count) → reject is review-only. The Rust confirm has no importable Python surface, so it is modeled by `ConfirmModel` mirroring `reid.rs::confirm_sighting`, with the +10 read from the real `001_init.sql` `recompute_weight` source (not hardcoded).
+- `docs/cctv-demo-run.md` (new) — the demo-machine runbook: consolidates every deferred "real" step (cargo/tsc gates, migration 002, camera seed, officer badge row, clips, real OSNet weights/entrypoint, Ledger+Neo4j) into one ordered checklist plus the live acceptance script and a map of which mock-proof already covers each live step.
+- `CONTEXT.md` — session ledger + Current Session + Backlog #5 moved to DONE.
+
+**Proof:** `tools/test_e2e.py` (mock, no GPU/DB) **PASS** — all 18 seam checks green. Phases 1–5 proofs still PASS (regression clean).
+
+**Remaining (demo machine, by design):** `cargo check -p raven -p raven-core` + the live acceptance run in `docs/cctv-demo-run.md`.
 
 ---
 
@@ -182,8 +191,8 @@ _Last updated: 2026-08-30_
 | 2 | Lock-on persist + ledger anchor (D9) | ✅ Code done + payload proof · DB/ledger + cargo check pending demo machine |
 | 3 | Sighting match loop | ✅ Code done + proven (mock) · DB/WS + cargo check pending demo machine |
 | 4 | Topology-gated handoff (D8) | ✅ Code done + proven (mock) · DB/GPU pending demo machine |
-| 5 | Human-in-loop confirm + evidence | ⬜ Not started |
-| 6 | Proof & documentation | ⬜ Not started |
+| 5 | Human-in-loop confirm + evidence | ✅ Code done + proven (guard + SQL parity) · Rust confirm/DB weight bump pending demo machine |
+| 6 | Proof & documentation | ✅ Done + proven (end-to-end mock) · cargo check + live run pending demo machine |
 
 ### What we actually did
 
@@ -221,11 +230,28 @@ _Last updated: 2026-08-30_
 - `stream.py`: `_emit_sightings` expires + gates by window, holds `vram.acquire(Lane.CV)` around the embed (one GPU lane), and `_rearm_downstream` chains the next hop on each sighting.
 - Proof `tools/test_topology.py` PASSES: window math exact; cam_01 lock arms cam_02+cam_03 (cam_04 dark); cam_02 matched only in-window; expiry frees the lane; cam_02 sighting chains cam_04. Phases 1–3 still PASS.
 
+**Phase 5 — human-in-the-loop confirm + evidence (done + proven).**
+- Migration `infra/migrations/002_cctv_evidence.sql`: relaxes `evidence.source_file_id` NOT NULL **only** for `kind='cctv_sighting'` (a sighting has no source doc — its provenance is the ledger-anchored confirm + saved crop, not a file); widens `insight_reviews.object_id` to `text` (sighting PKs are bigint, not uuid). Decision A = nullable (honest schema over a fake source_files row); B = entity link at lock-on.
+- `raven_core::reid::confirm_sighting`: confirm/reject is an accountable act — anchors on the ledger (`reid.confirm`/`reid.reject`), writes `insight_reviews` + `audit_log` (D4 → `pending` on ledger outage). A **confirm** sets `reid_sightings.confirmed_by` and, if the target is entity-linked, mints one `cctv_sighting` evidence row per edge touching that entity and calls `recompute_weight` (+10, §5.3). A **reject** records the review only. `lock_on` gained an optional `entity_id` to set the link.
+- **Idempotency guard:** the flow is non-transactional (matches lock-on's D4 posture — ledger is a network call, kept out of a DB tx). A confirm is graph-affecting, so a re-confirm would double-count the +10. `get_sighting` returns `already_confirmed` (`confirmed_by IS NOT NULL`) and `confirm_sighting` early-errors on a second confirm. A duplicate *reject* is harmless (no evidence).
+- New `db::postgres` helpers: `resolve_officer_id`, `set_reid_target_entity`, `get_sighting`, `set_sighting_confirmed`, `insert_insight_review`, `relationships_for_entity`, `insert_cctv_evidence`, `call_recompute_weight`.
+- Tauri `commands::cctv::confirm_sighting` (+ registered in `src-tauri/src/lib.rs`); `lock_on_target` threads `entity_id`. `ConfirmResult` in core `lib.rs` + `generated.ts`.
+- `VisionPane.tsx`: Sightings review panel (thumbnail + camera + similarity + Confirm/Reject) fed by `cv.sighting` events across cameras; shows verdict + tx + edges bumped; lock-on links the graph-selected entity (`selectedEntityId`), with a hint when none is selected. Engine `GET /cv/sightings/{name}` serves saved crops behind a path-traversal guard (`engine/cv/frames.py`).
+- Proof `tools/test_confirm.py` PASSES (pure-python, no numpy/GPU/DB): review-route guard rejects traversal/separators/absolute/dotdot and resolves valid frames; SQL source parity — `recompute_weight` scores `cctv_sighting`=10, migration 002 relaxes source_file + widens object_id. Phases 1–4 proofs still PASS.
+
+**Phase 6 — proof & documentation (done + proven).**
+- New `tools/test_e2e.py`: end-to-end seam proof driving the real engine modules with mock vectors through lock-on → topology arm → sighting → gate → chain → confirm/evidence/+10 → re-confirm guard → reject. Rust confirm modeled by `ConfirmModel` (mirrors `reid.rs`), +10 read from the real `recompute_weight` SQL.
+- New `docs/cctv-demo-run.md`: the demo-machine runbook (all deferred live steps in order + acceptance script).
+- `CONTEXT.md` updated; Backlog #5 → DONE.
+- Proof `tools/test_e2e.py` PASSES (18 seam checks); all Phases 1–5 proofs still PASS.
+
 ### What remains
 
-- **Phases 5–6:** not started (see each phase section above for the plan + exit criteria).
-- **Demo-machine-only work (deferred by design, not blockers to building 3–6):**
+- **All phases code-complete + mock-proven.** Only the demo-machine live run is left (below).
+- **Demo-machine-only work (deferred by design; full runbook in `docs/cctv-demo-run.md`):**
   - `cargo check -p raven -p raven-core` (no Rust toolchain in this sandbox) + one live lock-on writing the `reid_targets` + `audit_log` rows.
+  - Apply `infra/migrations/002_cctv_evidence.sql`, then one live confirm writing `insight_reviews` + `reid_sightings.confirmed_by` + `cctv_sighting` evidence, with the linked edge weight rising (`recompute_weight`). Also `npx tsc --noEmit` (no node_modules in sandbox).
+  - Seed an `officers` row for the anchoring badge (`RAVEN_BADGE`, default `MH-1188`) — `confirm_sighting` resolves badge → `insight_reviews.officer_id` (NOT NULL) and hard-errors if absent.
   - Run `python tools/seed_cctv.py` against cloud Supabase (needs `.env` + `pip install -r engine/requirements.txt`). Expect `seeded cameras=4 camera_edges=4`.
   - Drop the 4 real `.mp4` clips into `assets/cctv/` (same person crossing cam_01→02→04, cam_03 = alt route).
   - Exercise the **real OSNet path** (`RAVEN_CV_MODE` unset/`real`) — needs torch + CUDA + weights download; verify the `boxmot` 11.x entrypoint in `reid.py::get_reid`.
