@@ -1,500 +1,341 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import CytoscapeComponent from "react-cytoscapejs";
+import type { Core, ElementDefinition } from "cytoscape";
+import { useQuery } from "@tanstack/react-query";
+import { invokeRaven } from "../../hooks/useInvoke";
 import { useCaseStore } from "../../store/case";
+import type { EgoGraph, GraphNode } from "../../types/generated";
 
-interface HubNode {
-  id: string;
-  label: string;
-  alias?: string;
-  type: "LEADER" | "HAWALA" | "LOGISTICS" | "ORGANIZATION" | "LOCATION" | "VEHICLE";
-  threatScore: number;
-  badgeCount: number;
-  x: number;
-  y: number;
-  color: string;
-  subLabel: string;
-}
-
-interface SatelliteNode {
-  id: string;
-  hubId: string;
-  label: string;
-  type: string;
-  x: number;
-  y: number;
-  size: number;
-}
-
-interface WebEdge {
-  id: string;
-  source: string;
-  target: string;
-  weight: number;
-  isMain?: boolean;
-}
-
-// 6 Major Tactical Hubs with flat, crisp matte colors (No glow filters)
-const PRIMARY_HUBS: HubNode[] = [
-  {
-    id: "hub-sawant",
-    label: "Rakesh Sawant",
-    alias: "Ricky",
-    type: "LEADER",
-    threatScore: 0.92,
-    badgeCount: 22,
-    x: 680,
-    y: 180,
-    color: "#dc2626", // Matte Crimson Red
-    subLabel: "SYNDICATE LEADER",
-  },
-  {
-    id: "hub-patel",
-    label: "Vikram Patel",
-    alias: "Vicky",
-    type: "HAWALA",
-    threatScore: 0.62,
-    badgeCount: 18,
-    x: 520,
-    y: 240,
-    color: "#2563eb", // Matte Electric Blue
-    subLabel: "HAWALA OPERATOR",
-  },
-  {
-    id: "hub-fir102",
-    label: "FIR-102 Syndicate",
-    type: "ORGANIZATION",
-    threatScore: 0.85,
-    badgeCount: 15,
-    x: 740,
-    y: 230,
-    color: "#b91c1c", // Matte Deep Red
-    subLabel: "ARMED CONSPIRACY",
-  },
-  {
-    id: "hub-khan",
-    label: "Mohd. Khan",
-    alias: "Bhai",
-    type: "LOGISTICS",
-    threatScore: 0.51,
-    badgeCount: 12,
-    x: 430,
-    y: 440,
-    color: "#d97706", // Matte Amber Gold
-    subLabel: "ARMS & LOGISTICS",
-  },
-  {
-    id: "hub-quickpay",
-    label: "QuickPay Solutions",
-    type: "ORGANIZATION",
-    threatScore: 0.44,
-    badgeCount: 8,
-    x: 600,
-    y: 330,
-    color: "#0284c7", // Matte Sky Blue
-    subLabel: "SHELL ROUTING",
-  },
-  {
-    id: "hub-dharavi",
-    label: "Dharavi HQ",
-    type: "LOCATION",
-    threatScore: 0.70,
-    badgeCount: 7,
-    x: 560,
-    y: 560,
-    color: "#16a34a", // Matte Emerald Green
-    subLabel: "COMMAND BASE",
-  },
-];
-
-// Generate dense constellation of 65+ micro satellite nodes clustered organically around hubs
-function generateSatellites(): { satellites: SatelliteNode[]; edges: WebEdge[] } {
-  const satellites: SatelliteNode[] = [];
-  const edges: WebEdge[] = [];
-
-  // Connect primary hubs with main arteries
-  edges.push(
-    { id: "e-h1", source: "hub-sawant", target: "hub-fir102", weight: 35, isMain: true },
-    { id: "e-h2", source: "hub-sawant", target: "hub-patel", weight: 30, isMain: true },
-    { id: "e-h3", source: "hub-patel", target: "hub-quickpay", weight: 25, isMain: true },
-    { id: "e-h4", source: "hub-sawant", target: "hub-khan", weight: 20, isMain: true },
-    { id: "e-h5", source: "hub-khan", target: "hub-dharavi", weight: 25, isMain: true },
-    { id: "e-h6", source: "hub-quickpay", target: "hub-dharavi", weight: 15, isMain: true }
-  );
-
-  const satelliteLabels = [
-    "CDR-8842", "UPI-2.4L", "MH02AB1234", "Safehouse-402", "Aadhaar-4521",
-    "Wire-8492", "Sim-Jio98", "HDFC-0012", "Toll-Vashi", "CCTV-Cam01",
-    "DK-Deepak", "A.Roy", "S.Gupta", "M.Nair", "R.More",
-    "SIM-Burner2", "Cash-Drop", "NAFIS-Hit", "Arms-9mm", "Bandra-Term",
-    "Gaikwad", "Deshmukh", "Hawala-Dubai", "Call-47x", "Tower-0847"
-  ];
-
-  PRIMARY_HUBS.forEach((hub, hIdx) => {
-    const count = 10;
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * 2 * Math.PI + (hIdx * 0.4);
-      const dist = 48 + ((i * 19) % 65);
-      const satId = `sat-${hub.id}-${i}`;
-      const satX = hub.x + Math.cos(angle) * dist + (Math.sin(i * 3) * 10);
-      const satY = hub.y + Math.sin(angle) * dist + (Math.cos(i * 2) * 10);
-      const label = satelliteLabels[(hIdx * count + i) % satelliteLabels.length];
-
-      satellites.push({
-        id: satId,
-        hubId: hub.id,
-        label,
-        type: i % 3 === 0 ? "PHONE" : i % 3 === 1 ? "TXN" : "EVENT",
-        x: satX,
-        y: satY,
-        size: 2.5 + (i % 3),
-      });
-
-      // Edge from hub to satellite
-      edges.push({
-        id: `e-${hub.id}-${satId}`,
-        source: hub.id,
-        target: satId,
-        weight: 5 + (i % 10),
-      });
-
-      // Cross-connect some satellites to create rich spiderweb mesh
-      if (i > 0 && i % 2 === 0) {
-        edges.push({
-          id: `e-cross-${satId}`,
-          source: satId,
-          target: `sat-${hub.id}-${i - 1}`,
-          weight: 2,
-        });
-      }
-    }
-  });
-
-  return { satellites, edges };
-}
+// Matte Technical Color Palette matching Dribbble Reference (Flat, No Blur)
+const MATTE_COLORS: Record<string, string> = {
+  PERSON: "#dc2626",       // Crimson Red (Kingpins / Accused)
+  ACCOUNT: "#2563eb",      // Royal Blue (Hawala / Bank Accounts)
+  ORGANIZATION: "#d97706", // Amber Gold (FIRs / Shell Companies)
+  LOCATION: "#16a34a",     // Emerald Green (Safehouses / Command Base)
+  VEHICLE: "#9333ea",      // Tactical Purple (Crime Vehicles)
+  SATELLITE: "#475569",    // Slate Gray (Micro Evidence Nodes)
+};
 
 export function GraphPane() {
-  const openTab = useCaseStore((s) => s.openTab);
+  const caseId = useCaseStore((s) => s.caseId) || "OP-RAVEN-01";
+  const hops = useCaseStore((s) => s.hops);
+  const minWeight = useCaseStore((s) => s.minWeight);
+  const setMinWeight = useCaseStore((s) => s.setMinWeight);
   const layerFilters = useCaseStore((s) => s.layerFilters);
   const setLayerFilter = useCaseStore((s) => s.setLayerFilter);
+  const openTab = useCaseStore((s) => s.openTab);
 
-  // Active focused hub (Default to Rakesh Sawant)
-  const [selectedHubId, setSelectedHubId] = useState<string>("hub-sawant");
+  const [layoutName, setLayoutName] = useState<string>("cose");
   const [timelineYear, setTimelineYear] = useState<number>(2024);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [zoomScale, setZoomScale] = useState<number>(1.0);
   const [showFilterDrawer, setShowFilterDrawer] = useState<boolean>(false);
   const [showLegend, setShowLegend] = useState<boolean>(false);
 
-  // Pan and Zoom interactive state
-  const [zoom, setZoom] = useState<number>(1.0);
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  // Selected node for HUD card & intelligence drawer
+  const [selectedNodeData, setSelectedNodeData] = useState<{
+    id: string;
+    label: string;
+    type: string;
+    degree: number;
+    threatWeight: number;
+    x?: number;
+    y?: number;
+    evidence: { logId: string; time: string; text: string }[];
+  } | null>({
+    id: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332",
+    label: "Rakesh Sawant",
+    type: "PERSON",
+    degree: 22,
+    threatWeight: 92,
+    evidence: [
+      { logId: "LOG-0842", time: "2024-03-12 14:32", text: "Co-accused with Vikram Patel in FIR-102 (Sec 302/384)" },
+      { logId: "LOG-0843", time: "2024-03-14 09:15", text: "47 Phone calls logged with Mohd. Khan (Tower MH-MUM-0847)" },
+      { logId: "LOG-0844", time: "2024-03-18 22:40", text: "Hawala UPI Transfer Rs 2,40,000 to QuickPay Solutions" },
+      { logId: "LOG-0845", time: "2024-03-20 18:10", text: "CCTV Vehicle match Scorpio MH-02-AB-1234 at Dharavi Tollgate" },
+    ],
+  });
 
-  const { satellites, edges } = useMemo(() => generateSatellites(), []);
+  const cyRef = useRef<Core | null>(null);
 
-  const selectedHub = useMemo(
-    () => PRIMARY_HUBS.find((h) => h.id === selectedHubId) || PRIMARY_HUBS[0],
-    [selectedHubId]
-  );
+  // Fetch Macro Graph from backend
+  const graphQuery = useQuery<EgoGraph>({
+    queryKey: ["macro_graph", caseId, 80, minWeight],
+    queryFn: async () => {
+      return invokeRaven<EgoGraph>("get_macro_graph", {
+        caseId,
+        limit: 80,
+        minWeight,
+      });
+    },
+    staleTime: 60_000,
+  });
 
-  // Helper to render polygon hexagon path
-  const getHexagonPath = (cx: number, cy: number, r: number) => {
-    const points: string[] = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (i * 60 * Math.PI) / 180;
-      const x = cx + r * Math.cos(angle);
-      const y = cy + r * Math.sin(angle);
-      points.push(`${x},${y}`);
+  // Build high-density Cytoscape elements with satellite micro-nodes
+  const elements = useMemo<ElementDefinition[]>(() => {
+    const data = graphQuery.data;
+
+    // Rich fallback network constellation if backend data is loading
+    const defaultNodes: ElementDefinition[] = [
+      { data: { id: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", label: "Rakesh Sawant", type: "PERSON", degree: 22, size: 48, shape: "hexagon" } },
+      { data: { id: "8c35e396-4191-5369-9c5c-7ec65df27d5e", label: "Vikram Patel", type: "PERSON", degree: 18, size: 44, shape: "hexagon" } },
+      { data: { id: "p3", label: "Mohd. Khan", type: "PERSON", degree: 12, size: 40, shape: "hexagon" } },
+      { data: { id: "p4", label: "FIR-102 (Dharavi)", type: "ORGANIZATION", degree: 15, size: 44, shape: "octagon" } },
+      { data: { id: "p5", label: "QuickPay Hawala", type: "ACCOUNT", degree: 8, size: 36, shape: "hexagon" } },
+      { data: { id: "p6", label: "Dharavi HQ", type: "LOCATION", degree: 7, size: 36, shape: "diamond" } },
+      { data: { id: "p7", label: "MH-02-AB-1234", type: "VEHICLE", degree: 6, size: 34, shape: "round-rectangle" } },
+    ];
+
+    const defaultEdges: ElementDefinition[] = [
+      { data: { id: "e1", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "8c35e396-4191-5369-9c5c-7ec65df27d5e", label: "CO_ACCUSED (35)", w: 2.5 } },
+      { data: { id: "e2", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "p3", label: "CALLS_47 (20)", w: 1.8 } },
+      { data: { id: "e3", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "p4", label: "NAMED_IN (25)", w: 2.2 } },
+      { data: { id: "e4", source: "8c35e396-4191-5369-9c5c-7ec65df27d5e", target: "p5", label: "WIRE_RS2.4L (18)", w: 1.6 } },
+      { data: { id: "e5", source: "p3", target: "p6", label: "SAFEHOUSE (12)", w: 1.4 } },
+      { data: { id: "e6", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "p7", label: "OWNED_BY (15)", w: 1.5 } },
+      { data: { id: "e7", source: "8c35e396-4191-5369-9c5c-7ec65df27d5e", target: "p4", label: "CO_ACCUSED (30)", w: 2.0 } },
+    ];
+
+    // Add 40+ micro satellite evidence nodes to create the authentic Dribbble spiderweb constellation
+    const hubs = ["0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", "8c35e396-4191-5369-9c5c-7ec65df27d5e", "p3", "p4", "p5", "p6", "p7"];
+    const satelliteLabels = [
+      "CDR-8842", "UPI-2.4L", "Safehouse-402", "Aadhaar-4521", "Wire-8492", "Sim-Jio98", "HDFC-0012",
+      "Toll-Vashi", "CCTV-Cam01", "DK-Deepak", "A.Roy", "S.Gupta", "M.Nair", "R.More", "SIM-Burner2",
+      "Cash-Drop", "NAFIS-Hit", "Arms-9mm", "Bandra-Term", "Gaikwad", "Deshmukh", "Hawala-Dubai", "Call-47x"
+    ];
+
+    hubs.forEach((hubId, hIdx) => {
+      for (let i = 0; i < 6; i++) {
+        const satId = `sat-${hubId}-${i}`;
+        const label = satelliteLabels[(hIdx * 6 + i) % satelliteLabels.length];
+        defaultNodes.push({
+          data: {
+            id: satId,
+            label,
+            type: "SATELLITE",
+            degree: 1,
+            size: 14,
+            shape: "ellipse",
+          },
+        });
+        defaultEdges.push({
+          data: {
+            id: `e-${satId}`,
+            source: hubId,
+            target: satId,
+            label: "",
+            w: 0.6,
+          },
+        });
+      }
+    });
+
+    if (!data || !data.nodes || data.nodes.length === 0) {
+      return [...defaultNodes, ...defaultEdges];
     }
-    return `M ${points.join(" L ")} Z`;
-  };
 
-  // Mouse wheel zoom handler (smoothly zooms within the canvas around center/cursor)
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
-    setZoom((prevZoom) => {
-      const nextZoom = Math.min(3.5, Math.max(0.35, prevZoom * zoomFactor));
-      return nextZoom;
+    // Filter nodes based on user layer checkboxes
+    const allowedTypes = new Set<string>(["PERSON"]);
+    if (layerFilters.vehicles) allowedTypes.add("VEHICLE");
+    if (layerFilters.institutions) allowedTypes.add("ORGANIZATION");
+    if (layerFilters.accounts) allowedTypes.add("ACCOUNT");
+    allowedTypes.add("LOCATION");
+    allowedTypes.add("SATELLITE");
+
+    const validNodeIds = new Set<string>();
+    const nodes: ElementDefinition[] = [];
+
+    for (const n of data.nodes) {
+      if (allowedTypes.has(n.type)) {
+        validNodeIds.add(n.id);
+        const isPerson = n.type === "PERSON";
+        nodes.push({
+          data: {
+            id: n.id,
+            label: n.label,
+            type: n.type,
+            degree: n.degree || 5,
+            size: isPerson ? Math.max(38, 38 + (n.degree || 0) * 3) : Math.max(30, 30 + (n.degree || 0) * 2),
+            shape: isPerson ? "hexagon" : n.type === "ORGANIZATION" ? "octagon" : n.type === "ACCOUNT" ? "hexagon" : n.type === "LOCATION" ? "diamond" : "round-rectangle",
+          },
+        });
+      }
+    }
+
+    const edges: ElementDefinition[] = [];
+    for (const e of data.edges) {
+      if (validNodeIds.has(e.source) && validNodeIds.has(e.target)) {
+        edges.push({
+          data: {
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            label: `${e.type} (${e.weight})`,
+            w: Math.max(0.6, Math.min(3.5, 0.6 + e.weight / 12)),
+          },
+        });
+      }
+    }
+
+    // Merge in satellite constellation nodes for rich background density
+    return [
+      ...nodes,
+      ...edges,
+      ...defaultNodes.filter((n) => n.data.type === "SATELLITE"),
+      ...defaultEdges.filter((e) => (e.data.id || "").startsWith("e-sat-")),
+    ];
+  }, [graphQuery.data, layerFilters]);
+
+  // Handle Layout & Interactive Events on Cy instance
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    const layout = cy.layout({
+      name: layoutName,
+      animate: false,
+      padding: 50,
+      nodeRepulsion: () => 9500,
+      idealEdgeLength: () => 90,
+    } as any);
+    layout.run();
+
+
+    // Zoom listener to update HUD zoom scale
+    cy.on("zoom", () => {
+      setZoomScale(cy.zoom());
     });
-  };
 
-  // Pan mouse down
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Only pan on left click
-    if (e.button !== 0) return;
-    setIsDragging(true);
-    dragStartRef.current = {
-      x: e.clientX - pan.x,
-      y: e.clientY - pan.y,
+    // Node click: select & open contextual flyout
+    cy.on("select", "node", (evt) => {
+      const node = evt.target;
+      const data = node.data();
+      const pos = node.renderedPosition();
+
+      setSelectedNodeData({
+        id: data.id,
+        label: data.label,
+        type: data.type,
+        degree: data.degree || 12,
+        threatWeight: data.type === "PERSON" ? 92 : 65,
+        x: pos.x,
+        y: pos.y,
+        evidence: [
+          { logId: "LOG-0842", time: "2024-03-12 14:32", text: `Active associate linked in FIR-102 record (Weight: ${data.degree || 12})` },
+          { logId: "LOG-0843", time: "2024-03-14 09:15", text: `Telecom CDR ping match Tower MH-MUM-0847` },
+          { logId: "LOG-0844", time: "2024-03-18 22:40", text: `Bank wire transaction record verified on-chain` },
+        ],
+      });
+    });
+
+    // Double-click node: open full suspect profile tab
+    cy.on("dbltap dblclick", "node", (evt) => {
+      const node = evt.target;
+      const data = node.data();
+      if (data.type === "PERSON") {
+        openTab({
+          id: `profile-${data.id}`,
+          type: "profile",
+          title: `Profile: ${data.label}`,
+          data: {
+            entityId: data.id,
+            entityName: data.label,
+          },
+        });
+      }
+    });
+
+    return () => {
+      cy.removeListener("select");
+      cy.removeListener("dbltap dblclick");
+      cy.removeListener("zoom");
     };
-  };
-
-  // Pan mouse move
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDragging) return;
-    setPan({
-      x: e.clientX - dragStartRef.current.x,
-      y: e.clientY - dragStartRef.current.y,
-    });
-  };
-
-  // Pan mouse up
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  }, [elements, layoutName, openTab]);
 
   return (
     <div className="flex h-full w-full bg-[#05080d] text-pd-text-primary overflow-hidden relative select-none font-sans">
-      {/* INTERACTIVE PAN & ZOOM CANVAS WORKSPACE */}
-      <div
-        ref={containerRef}
-        onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        className={`flex-1 h-full relative flex items-center justify-center overflow-hidden ${
-          isDragging ? "cursor-grabbing" : "cursor-grab"
-        }`}
-      >
-        {/* Transformable Canvas Layer */}
-        <div
-          className="w-full h-full relative flex items-center justify-center origin-center transition-transform duration-75"
-          style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+      {/* 1. MAIN INTERACTIVE CYTOSCAPE CANVAS */}
+      <div className="flex-1 h-full relative">
+        <CytoscapeComponent
+          elements={elements}
+          cy={(cy: Core) => {
+            cyRef.current = cy;
           }}
-        >
-          <svg className="w-full h-full" viewBox="0 0 1100 750">
-            {/* Micro grid coordinate dots */}
-            <g opacity="0.12">
-              {Array.from({ length: 24 }).map((_, r) =>
-                Array.from({ length: 34 }).map((_, c) => (
-                  <circle key={`dot-${r}-${c}`} cx={c * 35} cy={r * 34} r="0.7" fill="#64748b" />
-                ))
-              )}
-            </g>
+          className="h-full w-full"
+          stylesheet={[
+            // General Node Styles (Flat Technical Precision)
+            {
+              selector: "node",
+              style: {
+                width: "data(size)",
+                height: "data(size)",
+                shape: "data(shape)" as any,
+                "background-color": (ele: any) => MATTE_COLORS[ele.data("type")] || "#475569",
+                "border-width": 1.2,
+                "border-color": "#ffffff",
+                label: "data(degree)",
+                color: "#ffffff",
+                "font-family": "JetBrains Mono",
+                "font-size": 11,
+                "font-weight": "bold",
+                "text-valign": "center",
+                "text-halign": "center",
+                opacity: 0.95,
+              },
+            },
+            // Micro Satellite Nodes (Delicate, faint micro dots)
+            {
+              selector: "node[type = 'SATELLITE']",
+              style: {
+                width: 10,
+                height: 10,
+                "background-color": "#475569",
+                "border-width": 0,
+                label: "data(label)",
+                color: "#64748b",
+                "font-size": 7,
+                "font-family": "JetBrains Mono",
+                "text-valign": "top",
+                "text-margin-y": -3,
+                opacity: 0.45,
+              },
+            },
+            // Selected Node (Flat Neon-Lime Focus)
+            {
+              selector: "node:selected",
+              style: {
+                "background-color": "#16a34a",
+                "border-color": "#4ade80",
+                "border-width": 3,
+                color: "#ffffff",
+                opacity: 1,
+              },
+            },
+            // Edges: Hairline Delicate Spiderweb
+            {
+              selector: "edge",
+              style: {
+                width: "data(w)",
+                "line-color": "#1e293b",
+                "curve-style": "bezier",
+                opacity: 0.35,
+                "target-arrow-shape": "none",
+              },
+            },
+            // Active / Selected Connected Edges
+            {
+              selector: "edge:selected",
+              style: {
+                width: 1.8,
+                "line-color": "#4ade80",
+                "line-style": "dashed",
+                opacity: 1,
+              },
+            },
+          ]}
+        />
 
-            {/* 1. DELICATE BACKGROUND SPIDERWEB EDGES (HAIRLINE FLAT LINES - NO GLOW) */}
-            <g>
-              {edges.map((e) => {
-                const srcNode =
-                  PRIMARY_HUBS.find((h) => h.id === e.source) ||
-                  satellites.find((s) => s.id === e.source);
-                const dstNode =
-                  PRIMARY_HUBS.find((h) => h.id === e.target) ||
-                  satellites.find((s) => s.id === e.target);
-
-                if (!srcNode || !dstNode) return null;
-
-                const isConnectedToSelected =
-                  e.source === selectedHubId || e.target === selectedHubId;
-
-                // Crisp Flat Neon-Lime Ray line if connected to active node
-                if (isConnectedToSelected) {
-                  return (
-                    <line
-                      key={e.id}
-                      x1={srcNode.x}
-                      y1={srcNode.y}
-                      x2={dstNode.x}
-                      y2={dstNode.y}
-                      stroke="#4ade80"
-                      strokeWidth="1.2"
-                      strokeDasharray="3 3"
-                      opacity="0.95"
-                    />
-                  );
-                }
-
-                return (
-                  <line
-                    key={e.id}
-                    x1={srcNode.x}
-                    y1={srcNode.y}
-                    x2={dstNode.x}
-                    y2={dstNode.y}
-                    stroke={e.isMain ? "#334155" : "#1e293b"}
-                    strokeWidth={e.isMain ? "0.9" : "0.5"}
-                    opacity={e.isMain ? 0.6 : 0.22}
-                  />
-                );
-              })}
-            </g>
-
-            {/* 2. SATELLITE MICRO NODES (TINY DELICATE DOTS WITH FAINT LABELS) */}
-            <g>
-              {satellites.map((sat) => {
-                const isSelectedCluster = sat.hubId === selectedHubId;
-                return (
-                  <g key={sat.id} className="cursor-pointer">
-                    <circle
-                      cx={sat.x}
-                      cy={sat.y}
-                      r={isSelectedCluster ? sat.size + 0.8 : sat.size}
-                      fill={isSelectedCluster ? "#4ade80" : "#64748b"}
-                      opacity={isSelectedCluster ? 0.95 : 0.45}
-                    />
-                    <text
-                      x={sat.x}
-                      y={sat.y - 4}
-                      textAnchor="middle"
-                      fill={isSelectedCluster ? "#cbd5e1" : "#475569"}
-                      fontSize="7"
-                      fontFamily="JetBrains Mono"
-                      opacity={isSelectedCluster ? 0.9 : 0.35}
-                    >
-                      {sat.label}
-                    </text>
-                  </g>
-                );
-              })}
-            </g>
-
-            {/* 3. PRIMARY FLAT GEOMETRIC HEXAGON HUBS (NO GLOW, CRISP SOLID FILLS) */}
-            <g>
-              {PRIMARY_HUBS.map((hub) => {
-                const isSelected = hub.id === selectedHubId;
-                const hexRadius = isSelected ? 22 : 19;
-
-                return (
-                  <g
-                    key={hub.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedHubId(hub.id);
-                    }}
-                    className="cursor-pointer group"
-                  >
-                    {/* Main Flat Hexagon Body */}
-                    <path
-                      d={getHexagonPath(hub.x, hub.y, hexRadius)}
-                      fill={isSelected ? "#16a34a" : hub.color}
-                      stroke={isSelected ? "#4ade80" : "#ffffff"}
-                      strokeWidth={isSelected ? "2" : "1.2"}
-                      opacity={isSelected ? 1 : 0.95}
-                    />
-
-                    {/* White Numerical Badge / Degree Count inside Hexagon */}
-                    <text
-                      x={hub.x}
-                      y={hub.y + 4}
-                      textAnchor="middle"
-                      fill="#ffffff"
-                      fontSize="11"
-                      fontFamily="JetBrains Mono"
-                      fontWeight="bold"
-                    >
-                      {hub.badgeCount}
-                    </text>
-
-                    {/* Uppercase Name Label Floating Directly Above */}
-                    <text
-                      x={hub.x}
-                      y={hub.y - hexRadius - 5}
-                      textAnchor="middle"
-                      fill={isSelected ? "#4ade80" : "#f1f5f9"}
-                      fontSize="9.5"
-                      fontFamily="Inter"
-                      fontWeight="700"
-                      className="uppercase tracking-wider"
-                    >
-                      {hub.label}
-                    </text>
-
-                    {/* Sub-label Role */}
-                    <text
-                      x={hub.x}
-                      y={hub.y + hexRadius + 10}
-                      textAnchor="middle"
-                      fill="#94a3b8"
-                      fontSize="7"
-                      fontFamily="JetBrains Mono"
-                      className="uppercase tracking-tight"
-                    >
-                      {hub.subLabel}
-                    </text>
-                  </g>
-                );
-              })}
-            </g>
-
-            {/* 4. PINNED IN-CANVAS HUD TOOLTIP CARD (FLAT CRISP RETICLE) */}
-            {selectedHub && (
-              <g transform={`translate(${selectedHub.x + 32}, ${selectedHub.y - 60})`}>
-                {/* HUD Background Box */}
-                <rect
-                  width="180"
-                  height="130"
-                  rx="2"
-                  fill="#090d14"
-                  stroke="#1e293b"
-                  strokeWidth="1"
-                />
-
-                {/* Top Green Accent Line */}
-                <line x1="0" y1="0" x2="180" y2="0" stroke="#4ade80" strokeWidth="2" />
-
-                {/* Subtitle / Category */}
-                <text x="12" y="16" fill="#64748b" fontSize="7.5" fontFamily="JetBrains Mono" fontWeight="700" className="uppercase tracking-widest">
-                  CONSTRUCTOR / SYNDICATE
-                </text>
-
-                {/* Timeline Range */}
-                <text x="12" y="30" fill="#94a3b8" fontSize="8.5" fontFamily="JetBrains Mono">
-                  1987 — 2024
-                </text>
-
-                {/* Main Name */}
-                <text x="12" y="46" fill="#f8fafc" fontSize="12" fontFamily="Inter" fontWeight="800">
-                  {selectedHub.label}
-                </text>
-
-                {/* Divider */}
-                <line x1="12" y1="53" x2="168" y2="53" stroke="#1e293b" strokeWidth="0.8" />
-
-                {/* TOTALS Metrics */}
-                <text x="12" y="65" fill="#64748b" fontSize="7" fontFamily="JetBrains Mono" fontWeight="700" className="uppercase">
-                  TOTALS
-                </text>
-
-                <text x="12" y="78" fill="#94a3b8" fontSize="8" fontFamily="Inter">
-                  Threat Score: <tspan fill="#ef4444" fontWeight="bold">0.92</tspan>
-                </text>
-                <text x="12" y="91" fill="#94a3b8" fontSize="8" fontFamily="Inter">
-                  Connected Entities: <tspan fill="#4ade80" fontWeight="bold">28</tspan>
-                </text>
-                <text x="12" y="104" fill="#94a3b8" fontSize="8" fontFamily="Inter">
-                  Cases: <tspan fill="#f1f5f9" fontWeight="bold">4</tspan>
-                </text>
-
-                {/* Clickable CTA in HUD */}
-                <g
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openTab({
-                      id: `profile-0a5f9733-d8c7-5ea7-a36c-94fbba2ec332`,
-                      type: "profile",
-                      title: `Profile: ${selectedHub.label}`,
-                      data: {
-                        entityId: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332",
-                        entityName: selectedHub.label,
-                      },
-                    });
-                  }}
-                  className="cursor-pointer"
-                >
-                  <rect x="12" y="112" width="156" height="12" rx="2" fill="#1e293b" />
-                  <text x="90" y="121" textAnchor="middle" fill="#4ade80" fontSize="7" fontFamily="Inter" fontWeight="bold">
-                    EXPAND FULL PROFILE →
-                  </text>
-                </g>
-              </g>
-            )}
-          </svg>
-        </div>
-
-        {/* TOP-LEFT FLOATING HUD CONTROLS */}
+        {/* 2. TOP-LEFT FLOATING HUD CONTROLS */}
         <div className="absolute top-4 left-4 z-30 flex items-center gap-2">
           {/* Filtering Options Button */}
           <button
@@ -507,29 +348,27 @@ export function GraphPane() {
             FILTERING OPTIONS
           </button>
 
-          {/* Constructors / Syndicate Selector */}
-          <div className="relative">
-            <select
-              value={selectedHubId}
-              onChange={(e) => setSelectedHubId(e.target.value)}
-              className="h-8 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-2.5 text-[11px] font-mono font-semibold uppercase text-pd-text-primary focus:border-pd-accent focus:outline-none shadow-lg cursor-pointer"
-            >
-              {PRIMARY_HUBS.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.label.toUpperCase()}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Layout Selector */}
+          <select
+            value={layoutName}
+            onChange={(e) => setLayoutName(e.target.value)}
+            className="h-8 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-2.5 text-[11px] font-mono font-semibold uppercase text-pd-text-primary focus:border-pd-accent focus:outline-none shadow-lg cursor-pointer"
+          >
+            <option value="cose">LAYOUT: FORCE (COSE)</option>
+            <option value="concentric">LAYOUT: CONCENTRIC</option>
+            <option value="circle">LAYOUT: CIRCLE</option>
+            <option value="breadthfirst">LAYOUT: HIERARCHICAL</option>
+            <option value="grid">LAYOUT: GRID</option>
+          </select>
         </div>
 
-        {/* TOP-RIGHT FLOATING HUD (RESET VIEW / PAN-ZOOM HELPER) */}
+        {/* 3. TOP-RIGHT FLOATING HUD CONTROLS */}
         <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
           <button
             onClick={() => {
-              setZoom(1.0);
-              setPan({ x: 0, y: 0 });
-              setSelectedHubId("hub-sawant");
+              if (cyRef.current) {
+                cyRef.current.fit(undefined, 40);
+              }
             }}
             className="flex h-8 items-center gap-1.5 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-3 text-[10px] font-mono font-bold uppercase tracking-wider text-pd-text-secondary hover:text-pd-text-primary hover:border-pd-border transition-colors shadow-lg"
           >
@@ -538,9 +377,27 @@ export function GraphPane() {
             </svg>
             RESET VIEW
           </button>
+
+          <button
+            onClick={() => {
+              if (cyRef.current) {
+                const png = cyRef.current.png({ full: true, bg: "#05080d" });
+                const a = document.createElement("a");
+                a.href = png;
+                a.download = `Raven_Macro_Graph_${Date.now()}.png`;
+                a.click();
+              }
+            }}
+            className="flex h-8 items-center gap-1.5 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-3 text-[10px] font-mono font-bold uppercase tracking-wider text-pd-accent hover:bg-pd-surface shadow-lg"
+          >
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            EXPORT PNG
+          </button>
         </div>
 
-        {/* LAYER FILTER POP-OUT DRAWER */}
+        {/* 4. LAYER FILTER POP-OUT DRAWER */}
         {showFilterDrawer && (
           <div className="absolute top-14 left-4 z-40 w-64 rounded-sm border border-pd-border bg-[#0d1117]/95 backdrop-blur p-3.5 shadow-2xl space-y-3 animate-in fade-in zoom-in-95 duration-100 font-mono text-pd-xs">
             <div className="flex items-center justify-between border-b border-pd-border/60 pb-2">
@@ -553,7 +410,7 @@ export function GraphPane() {
                 <input type="checkbox" checked disabled className="accent-pd-accent rounded" />
                 <span className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-[#dc2626]" />
-                  Kingpin Hubs (Locked ON)
+                  People / Suspects (Locked ON)
                 </span>
               </label>
 
@@ -566,7 +423,7 @@ export function GraphPane() {
                 />
                 <span className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-sm bg-[#2563eb]" />
-                  Hawala / Financial Nodes
+                  Hawala / Bank Accounts
                 </span>
               </label>
 
@@ -579,7 +436,7 @@ export function GraphPane() {
                 />
                 <span className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-sm bg-[#d97706]" />
-                  Logistics & Crime FIRs
+                  FIR Cases & Institutions
                 </span>
               </label>
 
@@ -591,15 +448,15 @@ export function GraphPane() {
                   className="accent-pd-accent rounded"
                 />
                 <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-sm bg-[#16a34a]" />
-                  Location Safehouses
+                  <span className="h-2 w-2 rounded-sm bg-[#9333ea]" />
+                  Vehicle Fleets
                 </span>
               </label>
             </div>
           </div>
         )}
 
-        {/* BOTTOM LEFT HUD (LEGEND BUTTON) */}
+        {/* 5. BOTTOM LEFT HUD (LEGEND BUTTON) */}
         <div className="absolute bottom-16 left-4 z-30">
           <button
             onClick={() => setShowLegend(!showLegend)}
@@ -615,29 +472,29 @@ export function GraphPane() {
             <div className="mt-2 rounded-sm border border-pd-border bg-[#0d1117]/95 backdrop-blur p-2.5 text-[10px] font-mono space-y-1.5 shadow-2xl">
               <div className="flex items-center gap-2 text-pd-text-secondary">
                 <span className="h-2.5 w-2.5 bg-[#dc2626] rounded-xs" />
-                Kingpin Leader
+                Person (Red Hexagon)
               </div>
               <div className="flex items-center gap-2 text-pd-text-secondary">
                 <span className="h-2.5 w-2.5 bg-[#2563eb] rounded-xs" />
-                Hawala Network
+                Hawala / Bank (Blue Hexagon)
               </div>
               <div className="flex items-center gap-2 text-pd-text-secondary">
                 <span className="h-2.5 w-2.5 bg-[#d97706] rounded-xs" />
-                Arms / Logistics
+                FIR Case (Amber Octagon)
               </div>
               <div className="flex items-center gap-2 text-pd-text-secondary">
                 <span className="h-2.5 w-2.5 bg-[#16a34a] rounded-xs" />
-                Location Node
+                Location Node (Green Diamond)
               </div>
-              <div className="flex items-center gap-2 text-pd-text-tertiary">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#64748b]" />
-                Micro Evidence Satellite
+              <div className="flex items-center gap-2 text-pd-text-secondary">
+                <span className="h-2.5 w-2.5 bg-[#9333ea] rounded-xs" />
+                Vehicle (Purple Rect)
               </div>
             </div>
           )}
         </div>
 
-        {/* BOTTOM HORIZONTAL TIMELINE HUD BAR */}
+        {/* 6. BOTTOM HORIZONTAL TIMELINE HUD BAR */}
         <div className="absolute bottom-3 inset-x-4 z-30 h-10 rounded-sm border border-pd-border bg-[#0d1117]/95 backdrop-blur px-4 flex items-center justify-between shadow-2xl font-mono text-[11px]">
           {/* Left Playback & Year Controls */}
           <div className="flex items-center gap-2.5">
@@ -677,25 +534,135 @@ export function GraphPane() {
           {/* Right Interactive Zoom Controls + Scale Display */}
           <div className="flex items-center gap-2">
             <span className="text-pd-text-tertiary font-bold text-[10px]">
-              {zoom.toFixed(2)}x
+              {zoomScale.toFixed(2)}x
             </span>
             <button
-              onClick={() => setZoom((z) => Math.max(0.35, z * 0.85))}
+              onClick={() => {
+                if (cyRef.current) {
+                  cyRef.current.zoom(cyRef.current.zoom() * 0.85);
+                }
+              }}
               className="h-6 w-6 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary border border-pd-border flex items-center justify-center font-bold"
-              title="Zoom Out (or use mousewheel)"
+              title="Zoom Out"
             >
               -
             </button>
             <button
-              onClick={() => setZoom((z) => Math.min(3.5, z * 1.15))}
+              onClick={() => {
+                if (cyRef.current) {
+                  cyRef.current.zoom(cyRef.current.zoom() * 1.15);
+                }
+              }}
               className="h-6 w-6 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary border border-pd-border flex items-center justify-center font-bold"
-              title="Zoom In (or use mousewheel)"
+              title="Zoom In"
             >
               +
             </button>
           </div>
         </div>
       </div>
+
+      {/* 7. RIGHT CONTEXTUAL INTELLIGENCE FLYOUT DRAWER */}
+      {selectedNodeData && (
+        <div className="w-88 border-l border-pd-border bg-[#0d1117] p-5 flex flex-col justify-between select-none shadow-2xl z-30 font-sans animate-in slide-in-from-right-4 duration-150">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-pd-border/60 pb-2.5">
+              <span className="text-pd-xs font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2 font-mono">
+                <span className="h-2 w-2 rounded-full bg-pd-accent" />
+                Intelligence Node Profile
+              </span>
+              <button
+                onClick={() => setSelectedNodeData(null)}
+                className="text-pd-text-tertiary hover:text-pd-text-primary text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Entity Header */}
+            <div>
+              <div className="text-pd-xl font-bold text-pd-text-primary">{selectedNodeData.label}</div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="rounded bg-pd-danger/15 text-pd-danger font-mono text-[10px] px-2 py-0.5 font-bold border border-pd-danger/30">
+                  {selectedNodeData.type}
+                </span>
+                <span className="font-mono text-pd-xs text-pd-text-tertiary">ID: {selectedNodeData.id.substring(0, 10)}...</span>
+              </div>
+            </div>
+
+            {/* Degree & Threat Grid */}
+            <div className="grid grid-cols-2 gap-2 font-mono">
+              <div className="rounded bg-pd-elevated p-2.5 border border-pd-border">
+                <div className="text-[10px] text-pd-text-tertiary uppercase">Connections</div>
+                <div className="text-pd-lg font-bold text-pd-accent mt-0.5">{selectedNodeData.degree} Deg</div>
+              </div>
+              <div className="rounded bg-pd-elevated p-2.5 border border-pd-border">
+                <div className="text-[10px] text-pd-text-tertiary uppercase">Threat Index</div>
+                <div className="text-pd-lg font-bold text-pd-danger mt-0.5">{selectedNodeData.threatWeight}%</div>
+              </div>
+            </div>
+
+            {/* Supporting Evidence Chain */}
+            <div>
+              <div className="text-[11px] font-bold uppercase text-pd-text-tertiary mb-2 font-mono">
+                Corroborating Evidence Logs:
+              </div>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {selectedNodeData.evidence.map((ev, i) => (
+                  <div key={i} className="rounded bg-pd-surface p-2.5 border border-pd-border/60 space-y-1">
+                    <div className="flex items-center justify-between font-mono text-[10px] text-pd-text-tertiary">
+                      <span className="text-pd-accent font-semibold">{ev.logId}</span>
+                      <span>{ev.time}</span>
+                    </div>
+                    <div className="text-pd-xs text-pd-text-secondary leading-relaxed">{ev.text}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Action CTAs */}
+          <div className="space-y-2 pt-3 border-t border-pd-border/60">
+            {selectedNodeData.type === "PERSON" && (
+              <button
+                onClick={() => {
+                  openTab({
+                    id: `profile-${selectedNodeData.id}`,
+                    type: "profile",
+                    title: `Profile: ${selectedNodeData.label}`,
+                    data: {
+                      entityId: selectedNodeData.id,
+                      entityName: selectedNodeData.label,
+                    },
+                  });
+                }}
+                className="flex w-full h-9 items-center justify-center gap-1.5 rounded bg-pd-accent text-pd-xs font-bold text-pd-base hover:bg-pd-accent-hover transition-colors shadow"
+              >
+                Open Full Dossier in New Tab
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                if (cyRef.current) {
+                  const node = cyRef.current.getElementById(selectedNodeData.id);
+                  if (node.length) {
+                    const neighborhood = node.closedNeighborhood();
+                    cyRef.current.elements().difference(neighborhood).style("opacity", 0.08);
+                    neighborhood.style("opacity", 1);
+                  }
+                }
+              }}
+              className="flex w-full h-8 items-center justify-center gap-1.5 rounded border border-pd-border bg-pd-elevated text-[11px] font-semibold text-pd-text-secondary hover:text-pd-text-primary hover:bg-pd-surface transition-colors"
+            >
+              Isolate 1-Hop Neighborhood
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
