@@ -21,7 +21,8 @@ export interface WorkspaceTab {
   };
 }
 
-export type ProfileSubTab = "general" | "vehicles" | "fir" | "micronet";
+export type ProfileSubTab = "general" | "vehicles" | "fir" | "routines" | "micronet";
+
 
 interface CaseState {
   caseId: string;

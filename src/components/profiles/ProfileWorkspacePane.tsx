@@ -4,6 +4,7 @@ import type { Core, ElementDefinition } from "cytoscape";
 import { useQuery } from "@tanstack/react-query";
 import { invokeRaven } from "../../hooks/useInvoke";
 import { useCaseStore, type ProfileSubTab } from "../../store/case";
+import { RoutineMapPane } from "./RoutineMapPane";
 import type { EgoGraph, GraphNode } from "../../types/generated";
 
 interface ProfileWorkspacePaneProps {
@@ -19,8 +20,8 @@ export function ProfileWorkspacePane({
   const setProfileSubTab = useCaseStore((s) => s.setProfileSubTab);
   const openTab = useCaseStore((s) => s.openTab);
 
-  // Expanded Vehicle state to inspect connected suspects
-  const [expandedVehicle, setExpandedVehicle] = useState<string | null>("MH-02-AB-1234");
+  // Vehicle expansion state starts CLOSED by default per user instruction
+  const [expandedVehicle, setExpandedVehicle] = useState<string | null>(null);
 
   // Ego network controls
   const [hops, setHops] = useState(2);
@@ -119,10 +120,13 @@ export function ProfileWorkspacePane({
   return (
     <div className="flex h-full flex-col bg-pd-base text-pd-text-primary overflow-hidden">
       {/* Profile Header Bar */}
-      <div className="flex items-center justify-between border-b border-pd-border bg-pd-surface px-5 py-3.5 select-none shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="flex h-13 w-13 items-center justify-center rounded-full bg-pd-accent/15 border-2 border-pd-accent text-pd-xl font-bold text-pd-accent shadow">
-            {entityName.substring(0, 2).toUpperCase()}
+      <div className="flex items-center justify-between border-b border-pd-border bg-pd-surface px-6 py-4 select-none shadow-sm">
+        <div className="flex items-center gap-4.5">
+          <div className="relative">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-pd-accent/15 border-2 border-pd-accent text-pd-xl font-bold text-pd-accent shadow-md">
+              {entityName.substring(0, 2).toUpperCase()}
+            </div>
+            <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-pd-success border-2 border-pd-surface" />
           </div>
           <div>
             <div className="flex items-center gap-3">
@@ -158,13 +162,14 @@ export function ProfileWorkspacePane({
       </div>
 
       {/* Sub-Navigation Tabs Bar */}
-      <div className="flex h-9.5 items-center border-b border-pd-border bg-pd-elevated px-4 select-none">
-        <div className="flex items-center gap-1.5">
+      <div className="flex h-10 items-center border-b border-pd-border bg-pd-elevated px-6 select-none">
+        <div className="flex items-center gap-2">
           {(
             [
               { id: "general", label: "General Info", icon: "user" },
               { id: "vehicles", label: "Vehicles (2)", icon: "truck" },
               { id: "fir", label: "FIR History (3)", icon: "file" },
+              { id: "routines", label: "Routines (Geospatial)", icon: "map" },
               { id: "micronet", label: "Micronet (Ego Graph)", icon: "share" },
             ] as { id: ProfileSubTab; label: string; icon: string }[]
           ).map((t) => {
@@ -173,7 +178,7 @@ export function ProfileWorkspacePane({
               <button
                 key={t.id}
                 onClick={() => setProfileSubTab(t.id)}
-                className={`flex h-9 items-center gap-2 px-3.5 text-pd-sm font-semibold transition-colors border-b-2 ${
+                className={`flex h-9 items-center gap-2 px-4 text-pd-sm font-semibold transition-colors border-b-2 ${
                   isActive
                     ? "border-b-pd-accent text-pd-accent bg-pd-base shadow-sm"
                     : "border-b-transparent text-pd-text-secondary hover:text-pd-text-primary hover:bg-pd-surface/60"
@@ -188,44 +193,44 @@ export function ProfileWorkspacePane({
 
       {/* Main Sub-Tab Content */}
       <div className="flex-1 min-h-0 relative overflow-hidden">
-        {/* SUB-TAB 1: GENERAL INFO (VERTICAL FULL-WIDTH STACKED LAYOUT WITH LARGER TEXT) */}
+        {/* SUB-TAB 1: GENERAL INFO (VERTICAL FULL-WIDTH STACKED WITH GENEROUS PADDING) */}
         {profileSubTab === "general" && (
-          <div className="h-full p-5 overflow-y-auto space-y-5">
+          <div className="h-full p-6 overflow-y-auto space-y-6">
             {/* Section 1: Identity & Legal Registration */}
-            <div className="rounded-sm border border-pd-border bg-pd-surface p-4.5 space-y-3.5 shadow-sm">
-              <div className="flex items-center justify-between border-b border-pd-border/60 pb-2">
-                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-pd-accent" />
+            <div className="rounded border border-pd-border bg-pd-surface p-6 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-pd-border/60 pb-3">
+                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-pd-accent" />
                   Primary Identity & Legal Registration
                 </span>
                 <span className="font-mono text-pd-xs text-pd-text-tertiary">Verified NAFIS Match</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-y-4 gap-x-6 text-pd-base">
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Full Legal Name</div>
-                  <div className="text-pd-lg font-bold text-pd-text-primary mt-0.5">Rakesh Vijay Sawant</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-y-5 gap-x-8 text-pd-base">
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Full Legal Name</div>
+                  <div className="text-pd-lg font-bold text-pd-text-primary">Rakesh Vijay Sawant</div>
                 </div>
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Known Aliases</div>
-                  <div className="text-pd-md font-semibold text-pd-warning mt-0.5">"Ricky", "R.V. Sawant"</div>
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Known Aliases</div>
+                  <div className="text-pd-md font-semibold text-pd-warning">"Ricky", "R.V. Sawant"</div>
                 </div>
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Date of Birth & Age</div>
-                  <div className="font-mono text-pd-md text-pd-text-primary mt-0.5">1987-03-15 (37 Years)</div>
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Date of Birth & Age</div>
+                  <div className="font-mono text-pd-md text-pd-text-primary">1987-03-15 (37 Years)</div>
                 </div>
 
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Masked Aadhaar Number</div>
-                  <div className="font-mono text-pd-md text-pd-accent font-semibold mt-0.5">XXXX-XXXX-4521</div>
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Masked Aadhaar Number</div>
+                  <div className="font-mono text-pd-md text-pd-accent font-semibold">XXXX-XXXX-4521</div>
                 </div>
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Permanent Account No (PAN)</div>
-                  <div className="font-mono text-pd-md text-pd-text-primary font-semibold mt-0.5">ABCPS1234K</div>
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Permanent Account No (PAN)</div>
+                  <div className="font-mono text-pd-md text-pd-text-primary font-semibold">ABCPS1234K</div>
                 </div>
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Biometric Fingerprint Status</div>
-                  <div className="text-pd-success text-pd-sm font-semibold flex items-center gap-1.5 mt-0.5 font-mono">
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Biometric Fingerprint Status</div>
+                  <div className="text-pd-success text-pd-sm font-semibold flex items-center gap-2 font-mono">
                     <span className="h-2 w-2 rounded-full bg-pd-success" />
                     NAFIS Ground Truth ID: MUM-8842
                   </div>
@@ -234,66 +239,66 @@ export function ProfileWorkspacePane({
             </div>
 
             {/* Section 2: Contact Numbers & Residential Locations */}
-            <div className="rounded-sm border border-pd-border bg-pd-surface p-4.5 space-y-3.5 shadow-sm">
-              <div className="flex items-center justify-between border-b border-pd-border/60 pb-2">
-                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-pd-accent" />
+            <div className="rounded border border-pd-border bg-pd-surface p-6 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-pd-border/60 pb-3">
+                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-pd-accent" />
                   Contact Telecom & Residence Coordinates
                 </span>
                 <span className="font-mono text-pd-xs text-pd-text-tertiary">Triangulated via CDR Logs</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-y-4 gap-x-6 text-pd-base">
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Primary Registered Mobile</div>
-                  <div className="font-mono text-pd-lg font-bold text-pd-accent mt-0.5">+91 98765 43210 (Airtel)</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-y-5 gap-x-8 text-pd-base">
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Primary Registered Mobile</div>
+                  <div className="font-mono text-pd-lg font-bold text-pd-accent">+91 98765 43210 (Airtel)</div>
                 </div>
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Burner / Alternate SIM</div>
-                  <div className="font-mono text-pd-md font-semibold text-pd-warning mt-0.5">+91 98222 11009 (Jio)</div>
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Burner / Alternate SIM</div>
+                  <div className="font-mono text-pd-md font-semibold text-pd-warning">+91 98222 11009 (Jio)</div>
                 </div>
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Frequent Cell Tower Pings</div>
-                  <div className="text-pd-sm text-pd-text-primary font-mono mt-0.5">Tower MH-MUM-0847 (Dharavi West)</div>
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Frequent Cell Tower Pings</div>
+                  <div className="text-pd-sm text-pd-text-primary font-mono">Tower MH-MUM-0847 (Dharavi West)</div>
                 </div>
 
-                <div className="col-span-1 md:col-span-2">
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Primary Known Residence Address</div>
-                  <div className="text-pd-md font-medium text-pd-text-primary mt-0.5">
+                <div className="col-span-1 md:col-span-2 space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Primary Known Residence Address</div>
+                  <div className="text-pd-md font-medium text-pd-text-primary leading-relaxed">
                     Room 14/B, Dharavi Cross Lane, Behind Municipal School, Dharavi, Mumbai 400017
                   </div>
                 </div>
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Secondary Location (Safehouse)</div>
-                  <div className="text-pd-sm text-pd-text-secondary mt-0.5">Flat 402, Golden Residency, Andheri East</div>
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Secondary Location (Safehouse)</div>
+                  <div className="text-pd-sm text-pd-text-secondary">Flat 402, Golden Residency, Andheri East</div>
                 </div>
               </div>
             </div>
 
             {/* Section 3: Syndicate Hierarchy & Investigative Target Status */}
-            <div className="rounded-sm border border-pd-border bg-pd-surface p-4.5 space-y-3.5 shadow-sm">
-              <div className="flex items-center justify-between border-b border-pd-border/60 pb-2">
-                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-pd-accent" />
+            <div className="rounded border border-pd-border bg-pd-surface p-6 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-pd-border/60 pb-3">
+                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-pd-accent" />
                   Syndicate Hierarchy & Active Case Assignment
                 </span>
-                <span className="rounded bg-pd-danger/15 text-pd-danger font-mono text-pd-xs px-2 py-0.5 font-bold border border-pd-danger/30">
+                <span className="rounded bg-pd-danger/15 text-pd-danger font-mono text-pd-xs px-2.5 py-0.5 font-bold border border-pd-danger/30">
                   CRITICAL TARGET
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-y-4 gap-x-6 text-pd-base">
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Syndicate Role & Tier</div>
-                  <div className="text-pd-md font-bold text-pd-danger mt-0.5">Kingpin (Tier-1 Extortion & Hawala)</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-y-5 gap-x-8 text-pd-base">
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Syndicate Role & Tier</div>
+                  <div className="text-pd-md font-bold text-pd-danger">Kingpin (Tier-1 Extortion & Hawala)</div>
                 </div>
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Assigned Investigating Officer</div>
-                  <div className="text-pd-md font-medium text-pd-text-primary mt-0.5">Inspector A. Kumar (Crime Branch)</div>
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Assigned Investigating Officer</div>
+                  <div className="text-pd-md font-medium text-pd-text-primary">Inspector A. Kumar (Crime Branch)</div>
                 </div>
-                <div>
-                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Surveillance & Re-ID Status</div>
-                  <div className="text-pd-sm font-semibold text-pd-success flex items-center gap-1.5 mt-0.5">
+                <div className="space-y-1">
+                  <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Surveillance & Re-ID Status</div>
+                  <div className="text-pd-sm font-semibold text-pd-success flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-pd-success animate-ping" />
                     CCTV Cam Network Auto-Lock ON
                   </div>
@@ -302,10 +307,10 @@ export function ProfileWorkspacePane({
             </div>
 
             {/* Section 4: Extracted Forensic Identifiers List */}
-            <div className="rounded-sm border border-pd-border bg-pd-surface p-4.5 space-y-3 shadow-sm">
-              <div className="flex items-center justify-between border-b border-pd-border/60 pb-2">
-                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-pd-accent" />
+            <div className="rounded border border-pd-border bg-pd-surface p-6 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-pd-border/60 pb-3">
+                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-pd-accent" />
                   Extracted Digital Identifiers & On-Chain Proofs
                 </span>
                 <span className="font-mono text-pd-xs text-pd-success">100% SHA-256 Verified</span>
@@ -313,37 +318,37 @@ export function ProfileWorkspacePane({
 
               <table className="w-full text-left text-pd-sm">
                 <thead>
-                  <tr className="text-pd-xs text-pd-text-tertiary uppercase border-b border-pd-border/60 pb-1.5 h-8">
-                    <th className="py-1">Type</th>
-                    <th className="py-1">Identifier Value</th>
-                    <th className="py-1">Extracted Source Document</th>
-                    <th className="py-1">Blockchain Hash Integrity</th>
+                  <tr className="text-pd-xs text-pd-text-tertiary uppercase border-b border-pd-border/60 pb-2 h-9">
+                    <th className="py-1.5">Type</th>
+                    <th className="py-1.5">Identifier Value</th>
+                    <th className="py-1.5">Extracted Source Document</th>
+                    <th className="py-1.5">Blockchain Hash Integrity</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-pd-border/40 font-mono text-pd-sm">
-                  <tr className="h-9">
-                    <td className="py-1 text-pd-text-secondary font-sans font-medium">PHONE</td>
-                    <td className="py-1 text-pd-accent font-bold">+91 98765 43210</td>
-                    <td className="py-1 text-pd-text-secondary font-sans">fir_102_final.pdf (Page 1)</td>
-                    <td className="py-1 text-pd-success">Anchored (Block #14209)</td>
+                  <tr className="h-10">
+                    <td className="py-2 text-pd-text-secondary font-sans font-semibold">PHONE</td>
+                    <td className="py-2 text-pd-accent font-bold">+91 98765 43210</td>
+                    <td className="py-2 text-pd-text-secondary font-sans">fir_102_final.pdf (Page 1)</td>
+                    <td className="py-2 text-pd-success">Anchored (Block #14209)</td>
                   </tr>
-                  <tr className="h-9">
-                    <td className="py-1 text-pd-text-secondary font-sans font-medium">VEHICLE</td>
-                    <td className="py-1 text-pd-text-primary font-bold">MH-02-AB-1234 (White Scorpio)</td>
-                    <td className="py-1 text-pd-text-secondary font-sans">cctv_log_cam01.csv</td>
-                    <td className="py-1 text-pd-success">Anchored (Block #14215)</td>
+                  <tr className="h-10">
+                    <td className="py-2 text-pd-text-secondary font-sans font-semibold">VEHICLE</td>
+                    <td className="py-2 text-pd-text-primary font-bold">MH-02-AB-1234 (White Scorpio)</td>
+                    <td className="py-2 text-pd-text-secondary font-sans">cctv_log_cam01.csv</td>
+                    <td className="py-2 text-pd-success">Anchored (Block #14215)</td>
                   </tr>
-                  <tr className="h-9">
-                    <td className="py-1 text-pd-text-secondary font-sans font-medium">BANK_ACC</td>
-                    <td className="py-1 text-pd-text-primary font-bold">HDFC-001294820194</td>
-                    <td className="py-1 text-pd-text-secondary font-sans">bank_stmt_march.csv</td>
-                    <td className="py-1 text-pd-success">Anchored (Block #14218)</td>
+                  <tr className="h-10">
+                    <td className="py-2 text-pd-text-secondary font-sans font-semibold">BANK_ACC</td>
+                    <td className="py-2 text-pd-text-primary font-bold">HDFC-001294820194</td>
+                    <td className="py-2 text-pd-text-secondary font-sans">bank_stmt_march.csv</td>
+                    <td className="py-2 text-pd-success">Anchored (Block #14218)</td>
                   </tr>
-                  <tr className="h-9">
-                    <td className="py-1 text-pd-text-secondary font-sans font-medium">PASSPORT</td>
-                    <td className="py-1 text-pd-text-primary font-bold">P-8842910</td>
-                    <td className="py-1 text-pd-text-secondary font-sans">immigration_record.pdf</td>
-                    <td className="py-1 text-pd-success">Anchored (Block #14220)</td>
+                  <tr className="h-10">
+                    <td className="py-2 text-pd-text-secondary font-sans font-semibold">PASSPORT</td>
+                    <td className="py-2 text-pd-text-primary font-bold">P-8842910</td>
+                    <td className="py-2 text-pd-text-secondary font-sans">immigration_record.pdf</td>
+                    <td className="py-2 text-pd-success">Anchored (Block #14220)</td>
                   </tr>
                 </tbody>
               </table>
@@ -351,12 +356,12 @@ export function ProfileWorkspacePane({
           </div>
         )}
 
-        {/* SUB-TAB 2: VEHICLES (VERTICAL LIST CARDS WITH CONNECTED PEOPLE EXPANSION) */}
+        {/* SUB-TAB 2: VEHICLES (VERTICAL CARDS, INITIALLY CLOSED) */}
         {profileSubTab === "vehicles" && (
-          <div className="h-full p-5 overflow-y-auto space-y-4">
-            <div className="flex items-center justify-between border-b border-pd-border pb-2">
+          <div className="h-full p-6 overflow-y-auto space-y-5">
+            <div className="flex items-center justify-between border-b border-pd-border pb-2.5">
               <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-text-tertiary">
-                Spotted & Registered Vehicle Fleets (Click card to view connected suspects)
+                Spotted & Registered Vehicle Fleets (Click card to expand connected suspects)
               </span>
               <span className="text-pd-xs text-pd-text-secondary font-mono">2 Linked Vehicles</span>
             </div>
@@ -364,29 +369,29 @@ export function ProfileWorkspacePane({
             {/* Vehicle 1 Card */}
             <div
               onClick={() => setExpandedVehicle(expandedVehicle === "MH-02-AB-1234" ? null : "MH-02-AB-1234")}
-              className={`rounded border transition-all p-4.5 space-y-3 cursor-pointer shadow-sm ${
+              className={`rounded border transition-all p-5 space-y-3.5 cursor-pointer shadow-sm ${
                 expandedVehicle === "MH-02-AB-1234"
                   ? "border-pd-accent bg-pd-surface"
                   : "border-pd-border bg-pd-surface/80 hover:bg-pd-surface"
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded bg-pd-elevated text-pd-accent border border-pd-border">
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-11 w-11 items-center justify-center rounded bg-pd-elevated text-pd-accent border border-pd-border">
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                     </svg>
                   </div>
                   <div>
                     <span className="font-mono text-pd-xl font-bold text-pd-accent">MH-02-AB-1234</span>
-                    <div className="text-pd-sm text-pd-text-secondary">
+                    <div className="text-pd-sm text-pd-text-secondary mt-0.5">
                       Mahindra Scorpio • White Color • Model 2021
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-pd-danger/15 px-2.5 py-1 text-pd-xs font-bold text-pd-danger border border-pd-danger/30">
+                <div className="flex items-center gap-3">
+                  <span className="rounded bg-pd-danger/15 px-3 py-1 text-pd-xs font-bold text-pd-danger border border-pd-danger/30">
                     PRIMARY CRIME VEHICLE
                   </span>
                   <span className="text-pd-text-tertiary text-pd-sm">
@@ -395,34 +400,32 @@ export function ProfileWorkspacePane({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-pd-sm text-pd-text-secondary border-t border-pd-border/60 pt-2.5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-pd-sm text-pd-text-secondary border-t border-pd-border/60 pt-3">
                 <div>Registered Owner: <strong className="text-pd-text-primary">Rakesh Vijay Sawant</strong></div>
                 <div>Last CCTV Sighting: <strong className="font-mono text-pd-text-primary">CAM-01 Main Gate (14:32)</strong></div>
-                <div>VAHAN Database Status: <strong className="text-pd-success">Active Commercial Permit</strong></div>
+                <div>VAHAN Status: <strong className="text-pd-success font-medium">Active Commercial Permit</strong></div>
               </div>
 
               {/* Connected Suspects / Co-Occupants List */}
               {expandedVehicle === "MH-02-AB-1234" && (
-                <div className="mt-3 p-3.5 rounded bg-pd-base border border-pd-border/80 space-y-2.5 animate-in fade-in duration-100">
+                <div className="mt-3 p-4 rounded bg-pd-base border border-pd-border/80 space-y-3 animate-in fade-in duration-100">
                   <div className="text-pd-xs font-bold uppercase tracking-wider text-pd-text-tertiary">
                     Suspects Documented Connected To This Vehicle (3 Persons):
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-                    {/* Suspect 1 */}
-                    <div className="rounded bg-pd-elevated p-2.5 border border-pd-border flex flex-col justify-between">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="rounded bg-pd-elevated p-3 border border-pd-border flex flex-col justify-between">
                       <div>
                         <div className="font-bold text-pd-sm text-pd-text-primary">Rakesh Sawant</div>
-                        <div className="text-pd-xs text-pd-text-secondary">Registered Owner & Frequent Driver</div>
+                        <div className="text-pd-xs text-pd-text-secondary mt-0.5">Registered Owner & Driver</div>
                       </div>
-                      <span className="text-[10px] font-mono text-pd-accent mt-2">Active Profile</span>
+                      <span className="text-[11px] font-mono text-pd-accent mt-2.5">Active Subject</span>
                     </div>
 
-                    {/* Suspect 2 */}
-                    <div className="rounded bg-pd-elevated p-2.5 border border-pd-border flex flex-col justify-between">
+                    <div className="rounded bg-pd-elevated p-3 border border-pd-border flex flex-col justify-between">
                       <div>
                         <div className="font-bold text-pd-sm text-pd-text-primary">Vikram Patel</div>
-                        <div className="text-pd-xs text-pd-text-secondary">Spotted Passenger in FIR-102 Incident</div>
+                        <div className="text-pd-xs text-pd-text-secondary mt-0.5">Spotted Passenger in FIR-102</div>
                       </div>
                       <button
                         onClick={(e) => {
@@ -434,17 +437,16 @@ export function ProfileWorkspacePane({
                             data: { entityId: "8c35e396-4191-5369-9c5c-7ec65df27d5e", entityName: "Vikram Patel" },
                           });
                         }}
-                        className="mt-2 text-left text-pd-xs font-semibold text-pd-accent hover:underline flex items-center gap-1"
+                        className="mt-2.5 text-left text-pd-xs font-semibold text-pd-accent hover:underline flex items-center gap-1"
                       >
                         Open Profile →
                       </button>
                     </div>
 
-                    {/* Suspect 3 */}
-                    <div className="rounded bg-pd-elevated p-2.5 border border-pd-border flex flex-col justify-between">
+                    <div className="rounded bg-pd-elevated p-3 border border-pd-border flex flex-col justify-between">
                       <div>
                         <div className="font-bold text-pd-sm text-pd-text-primary">Deepak Gaikwad</div>
-                        <div className="text-pd-xs text-pd-text-secondary">Driver on Tollgate Surveillance Log</div>
+                        <div className="text-pd-xs text-pd-text-secondary mt-0.5">Tollgate Surveillance Driver</div>
                       </div>
                       <button
                         onClick={(e) => {
@@ -456,7 +458,7 @@ export function ProfileWorkspacePane({
                             data: { entityId: "7b4c92a1-3d5f-51e8-9c12-34e56f789abc", entityName: "Deepak Kumar" },
                           });
                         }}
-                        className="mt-2 text-left text-pd-xs font-semibold text-pd-accent hover:underline flex items-center gap-1"
+                        className="mt-2.5 text-left text-pd-xs font-semibold text-pd-accent hover:underline flex items-center gap-1"
                       >
                         Open Profile →
                       </button>
@@ -469,29 +471,29 @@ export function ProfileWorkspacePane({
             {/* Vehicle 2 Card */}
             <div
               onClick={() => setExpandedVehicle(expandedVehicle === "MH-01-XX-9900" ? null : "MH-01-XX-9900")}
-              className={`rounded border transition-all p-4.5 space-y-3 cursor-pointer shadow-sm ${
+              className={`rounded border transition-all p-5 space-y-3.5 cursor-pointer shadow-sm ${
                 expandedVehicle === "MH-01-XX-9900"
                   ? "border-pd-accent bg-pd-surface"
                   : "border-pd-border bg-pd-surface/80 hover:bg-pd-surface"
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded bg-pd-elevated text-pd-text-secondary border border-pd-border">
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-11 w-11 items-center justify-center rounded bg-pd-elevated text-pd-text-secondary border border-pd-border">
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                     </svg>
                   </div>
                   <div>
                     <span className="font-mono text-pd-xl font-bold text-pd-text-primary">MH-01-XX-9900</span>
-                    <div className="text-pd-sm text-pd-text-secondary">
+                    <div className="text-pd-sm text-pd-text-secondary mt-0.5">
                       Hyundai Creta • Silver Color • Model 2022
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-pd-warning/15 px-2.5 py-1 text-pd-xs font-bold text-pd-warning border border-pd-warning/30">
+                <div className="flex items-center gap-3">
+                  <span className="rounded bg-pd-warning/15 px-3 py-1 text-pd-xs font-bold text-pd-warning border border-pd-warning/30">
                     ASSOCIATE FLEET
                   </span>
                   <span className="text-pd-text-tertiary text-pd-sm">
@@ -500,19 +502,19 @@ export function ProfileWorkspacePane({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-pd-sm text-pd-text-secondary border-t border-pd-border/60 pt-2.5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-pd-sm text-pd-text-secondary border-t border-pd-border/60 pt-3">
                 <div>Registered Owner: <strong className="text-pd-text-primary">Vikram Patel</strong></div>
-                <div>Spotted Context: <strong className="text-pd-text-primary">FIR-102 Co-accused Convoys</strong></div>
-                <div>Status: <strong className="text-pd-warning">Under Physical Watch</strong></div>
+                <div>Spotted Context: <strong className="text-pd-text-primary">FIR-102 Convoys</strong></div>
+                <div>Status: <strong className="text-pd-warning">Under Watch</strong></div>
               </div>
 
               {expandedVehicle === "MH-01-XX-9900" && (
-                <div className="mt-3 p-3.5 rounded bg-pd-base border border-pd-border/80 space-y-2.5 animate-in fade-in duration-100">
+                <div className="mt-3 p-4 rounded bg-pd-base border border-pd-border/80 space-y-3 animate-in fade-in duration-100">
                   <div className="text-pd-xs font-bold uppercase tracking-wider text-pd-text-tertiary">
-                    Suspects Documented Connected To This Vehicle:
+                    Suspects Connected:
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                    <div className="rounded bg-pd-elevated p-2.5 border border-pd-border">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="rounded bg-pd-elevated p-3 border border-pd-border">
                       <div className="font-bold text-pd-sm text-pd-text-primary">Vikram Patel</div>
                       <div className="text-pd-xs text-pd-text-secondary">Registered Owner</div>
                       <button
@@ -537,10 +539,10 @@ export function ProfileWorkspacePane({
           </div>
         )}
 
-        {/* SUB-TAB 3: FIR HISTORY (VERTICAL LIST CARDS WITH NEW DOCUMENT TAB OPENING) */}
+        {/* SUB-TAB 3: FIR HISTORY (VERTICAL CARDS WITH NEW DOCUMENT TAB OPENING) */}
         {profileSubTab === "fir" && (
-          <div className="h-full p-5 overflow-y-auto space-y-4">
-            <div className="flex items-center justify-between border-b border-pd-border pb-2">
+          <div className="h-full p-6 overflow-y-auto space-y-5">
+            <div className="flex items-center justify-between border-b border-pd-border pb-2.5">
               <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-text-tertiary">
                 Linked FIRs & Criminal Charges (Click to open full document in new tab)
               </span>
@@ -563,18 +565,18 @@ export function ProfileWorkspacePane({
                   },
                 });
               }}
-              className="rounded border border-pd-danger/40 bg-pd-surface p-4.5 space-y-2.5 cursor-pointer hover:border-pd-danger transition-all shadow-sm group"
+              className="rounded border border-pd-danger/40 bg-pd-surface p-5 space-y-3 cursor-pointer hover:border-pd-danger transition-all shadow-sm group"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-3">
                   <span className="font-mono text-pd-lg font-bold text-pd-danger group-hover:underline">
                     FIR-102/2024 (Dharavi PS)
                   </span>
-                  <span className="rounded bg-pd-danger/15 px-2 py-0.5 text-pd-xs font-bold text-pd-danger border border-pd-danger/30">
+                  <span className="rounded bg-pd-danger/15 px-2.5 py-0.5 text-pd-xs font-bold text-pd-danger border border-pd-danger/30">
                     HEINOUS / CHARGE-SHEETED
                   </span>
                 </div>
-                <button className="flex items-center gap-1.5 rounded bg-pd-elevated px-3 py-1 text-pd-xs font-semibold text-pd-accent border border-pd-border group-hover:border-pd-accent">
+                <button className="flex items-center gap-1.5 rounded bg-pd-elevated px-3 py-1.5 text-pd-xs font-semibold text-pd-accent border border-pd-border group-hover:border-pd-accent">
                   View Full Document
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -590,7 +592,7 @@ export function ProfileWorkspacePane({
                 Acts & Sections: <strong className="font-mono text-pd-danger">IPC Sec 302, 384, 120B & Arms Act Sec 25</strong>
               </div>
 
-              <div className="text-pd-xs text-pd-text-tertiary flex items-center justify-between border-t border-pd-border/60 pt-2 font-mono">
+              <div className="text-pd-xs text-pd-text-tertiary flex items-center justify-between border-t border-pd-border/60 pt-2.5 font-mono">
                 <span>Co-Accused: Vikram Patel, Mohd. Khan</span>
                 <span className="text-pd-success">On-Chain Verified (Block #14209)</span>
               </div>
@@ -612,18 +614,18 @@ export function ProfileWorkspacePane({
                   },
                 });
               }}
-              className="rounded border border-pd-warning/40 bg-pd-surface p-4.5 space-y-2.5 cursor-pointer hover:border-pd-warning transition-all shadow-sm group"
+              className="rounded border border-pd-warning/40 bg-pd-surface p-5 space-y-3 cursor-pointer hover:border-pd-warning transition-all shadow-sm group"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-3">
                   <span className="font-mono text-pd-lg font-bold text-pd-warning group-hover:underline">
                     FIR-044/2023 (Crime Branch CID)
                   </span>
-                  <span className="rounded bg-pd-warning/15 px-2 py-0.5 text-pd-xs font-bold text-pd-warning border border-pd-warning/30">
+                  <span className="rounded bg-pd-warning/15 px-2.5 py-0.5 text-pd-xs font-bold text-pd-warning border border-pd-warning/30">
                     FINANCIAL FRAUD / HAWALA
                   </span>
                 </div>
-                <button className="flex items-center gap-1.5 rounded bg-pd-elevated px-3 py-1 text-pd-xs font-semibold text-pd-accent border border-pd-border group-hover:border-pd-accent">
+                <button className="flex items-center gap-1.5 rounded bg-pd-elevated px-3 py-1.5 text-pd-xs font-semibold text-pd-accent border border-pd-border group-hover:border-pd-accent">
                   View Full Document
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -639,7 +641,7 @@ export function ProfileWorkspacePane({
                 Acts & Sections: <strong className="font-mono text-pd-warning">IPC Sec 420, 468, 471 & Prevention of Money Laundering Act</strong>
               </div>
 
-              <div className="text-pd-xs text-pd-text-tertiary flex items-center justify-between border-t border-pd-border/60 pt-2 font-mono">
+              <div className="text-pd-xs text-pd-text-tertiary flex items-center justify-between border-t border-pd-border/60 pt-2.5 font-mono">
                 <span>Co-Accused: Anita Roy, Vikram Patel</span>
                 <span className="text-pd-success">On-Chain Verified (Block #14210)</span>
               </div>
@@ -647,7 +649,12 @@ export function ProfileWorkspacePane({
           </div>
         )}
 
-        {/* SUB-TAB 4: MICRONET (EGO GRAPH CANVAS) */}
+        {/* SUB-TAB 4: ROUTINES (GEOSPATIAL ROUTINE TRACKER MODELED AFTER STITCH DESIGN) */}
+        {profileSubTab === "routines" && (
+          <RoutineMapPane entityName={entityName} />
+        )}
+
+        {/* SUB-TAB 5: MICRONET (EGO GRAPH CANVAS) */}
         {profileSubTab === "micronet" && (
           <div className="flex h-full w-full relative">
             <div className="flex-1 h-full bg-pd-base relative">
@@ -699,23 +706,23 @@ export function ProfileWorkspacePane({
               />
 
               {/* Floating Controls */}
-              <div className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded bg-pd-surface/90 backdrop-blur border border-pd-border p-1.5 text-pd-xs shadow-lg">
+              <div className="absolute top-4 left-4 z-10 flex items-center gap-2 rounded bg-pd-surface/90 backdrop-blur border border-pd-border p-2 text-pd-xs shadow-lg">
                 <span className="text-pd-text-tertiary">Hops:</span>
                 <button
                   onClick={() => setHops(Math.max(1, hops - 1))}
-                  className="px-1.5 py-0.5 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary"
+                  className="px-2 py-0.5 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary"
                 >
                   -
                 </button>
                 <span className="font-mono text-pd-accent font-semibold">{hops}</span>
                 <button
                   onClick={() => setHops(Math.min(3, hops + 1))}
-                  className="px-1.5 py-0.5 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary"
+                  className="px-2 py-0.5 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary"
                 >
                   +
                 </button>
 
-                <div className="h-3 w-px bg-pd-border mx-1" />
+                <div className="h-3.5 w-px bg-pd-border mx-1" />
 
                 <span className="text-pd-text-tertiary">Min Weight:</span>
                 <input
@@ -724,7 +731,7 @@ export function ProfileWorkspacePane({
                   max="25"
                   value={minWeight}
                   onChange={(e) => setMinWeight(Number(e.target.value))}
-                  className="w-16 accent-pd-accent h-1.5 bg-pd-elevated rounded"
+                  className="w-20 accent-pd-accent h-1.5 bg-pd-elevated rounded"
                 />
                 <span className="font-mono text-pd-text-primary">{minWeight}</span>
               </div>
@@ -732,9 +739,9 @@ export function ProfileWorkspacePane({
 
             {/* Contextual Slide-out Flyout Drawer */}
             {selectedAssociate && (
-              <div className="w-72 border-l border-pd-border bg-pd-surface p-4 flex flex-col justify-between select-none shadow-xl z-20">
-                <div className="space-y-3.5">
-                  <div className="flex items-center justify-between border-b border-pd-border pb-2">
+              <div className="w-80 border-l border-pd-border bg-pd-surface p-5 flex flex-col justify-between select-none shadow-xl z-20">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-pd-border pb-2.5">
                     <span className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">
                       Connection Detail
                     </span>
@@ -750,7 +757,7 @@ export function ProfileWorkspacePane({
                     <div className="text-pd-md font-bold text-pd-text-primary">
                       {entityName} ↔ {selectedAssociate.label}
                     </div>
-                    <div className="mt-1 flex items-center justify-between rounded bg-pd-elevated p-2 border border-pd-border">
+                    <div className="mt-1.5 flex items-center justify-between rounded bg-pd-elevated p-2.5 border border-pd-border">
                       <span className="text-pd-xs text-pd-text-secondary">Connection Weight:</span>
                       <span className="font-mono text-pd-base font-bold text-pd-accent">
                         {selectedAssociate.weight}
@@ -759,14 +766,14 @@ export function ProfileWorkspacePane({
                   </div>
 
                   <div>
-                    <div className="text-pd-xs font-semibold text-pd-text-tertiary mb-1.5">
+                    <div className="text-pd-xs font-semibold text-pd-text-tertiary mb-2">
                       Supporting Evidence (3 links):
                     </div>
-                    <div className="space-y-1.5 text-pd-xs">
+                    <div className="space-y-2 text-pd-xs">
                       {selectedAssociate.evidence.map((ev, i) => (
                         <div
                           key={i}
-                          className="rounded bg-pd-base p-2 border border-pd-border/60 space-y-0.5"
+                          className="rounded bg-pd-base p-2.5 border border-pd-border/60 space-y-1"
                         >
                           <div className="text-pd-text-primary font-medium">{ev.label}</div>
                           <div className="flex items-center justify-between text-pd-text-tertiary font-mono text-[10px]">
@@ -791,10 +798,10 @@ export function ProfileWorkspacePane({
                       },
                     });
                   }}
-                  className="mt-4 flex w-full h-8.5 items-center justify-center gap-1.5 rounded bg-pd-accent text-pd-xs font-bold text-pd-base hover:bg-pd-accent-hover transition-colors shadow"
+                  className="mt-4 flex w-full h-9 items-center justify-center gap-1.5 rounded bg-pd-accent text-pd-xs font-bold text-pd-base hover:bg-pd-accent-hover transition-colors shadow"
                 >
                   Open Full Profile in New Tab
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                 </button>
