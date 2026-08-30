@@ -78,5 +78,26 @@ export interface TrackingResult {
   ws_url: string;
 }
 
+export interface LockResult {
+  target_id: string;
+  tx_id: string;
+}
+
+export interface CVBox {
+  track_id: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  conf: number;
+}
+
+export interface CVDetections {
+  camera_code: string;
+  boxes: CVBox[];
+  frame_w?: number;
+  frame_h?: number;
+}
+
 export type WebSocketEvent =
   | { v: number; type: string; ts: string; payload: Record<string, unknown> };

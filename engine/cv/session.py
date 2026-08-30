@@ -18,7 +18,11 @@ class CVSession:
         cap.release()
         if not ok:
             return {"ok": False}
-        vector, crop, bbox = embed(frame, track_id)
+        # Phase 1: embed now takes the person's [x,y,w,h] box. The per-track box
+        # cache that feeds the real bbox lands in Phase 2 (lock-on persistence);
+        # until then fall back to the whole frame.
+        h, w = frame.shape[:2]
+        vector, crop, bbox = embed(frame, [0, 0, w, h])
         self.track_id = track_id
         self.target_vector = vector
         return {"target_vector_b64": "", "thumbnail_path": "", "crop_bbox": bbox}

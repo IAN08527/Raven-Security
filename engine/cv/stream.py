@@ -10,8 +10,22 @@ async def mjpeg_stream(camera_code: str, feed_uri: str, ws_push):
         if not ok:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             continue
-        boxes = detect_persons(frame)
-        await ws_push({"type": "cv.detections", "payload": {"camera_code": camera_code, "boxes": boxes}})
+        h, w = frame.shape[:2]
+        # Detection is the Backlog #5 hook; keep the stream alive even if the
+        # YOLO stack is not installed yet (frontend wiring path).
+        try:
+            boxes = detect_persons(frame)
+        except Exception:
+            boxes = []
+        await ws_push({
+            "type": "cv.detections",
+            "payload": {
+                "camera_code": camera_code,
+                "boxes": boxes,
+                "frame_w": int(w),
+                "frame_h": int(h),
+            },
+        })
         _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
         yield (b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n")
         await asyncio.sleep(1 / 15)
