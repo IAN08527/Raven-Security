@@ -3,13 +3,21 @@ import type { GraphNode } from "../types/generated";
 
 export interface WorkspaceTab {
   id: string;
-  type: "graph" | "profiles-dir" | "profile" | "vision" | "audit";
+  type: "graph" | "profiles-dir" | "profile" | "vision" | "audit" | "document";
   title: string;
   data?: {
     entityId?: string;
     entityName?: string;
     role?: string;
     riskScore?: number;
+    // Document specific
+    docId?: string;
+    firNo?: string;
+    policeStation?: string;
+    incidentDate?: string;
+    ipcSections?: string;
+    coAccused?: string[];
+    sha256?: string;
   };
 }
 
@@ -81,18 +89,29 @@ interface CaseState {
 export const useCaseStore = create<CaseState>((set, get) => ({
   caseId: "OP-RAVEN-01",
 
+  // Default to Profiles Directory on startup / refresh per user specification
   tabs: [
-    { id: "tab-graph", type: "graph", title: "Macro Network" },
+    { id: "tab-profiles-dir", type: "profiles-dir", title: "Profiles Directory" },
   ],
-  activeTabId: "tab-graph",
+  activeTabId: "tab-profiles-dir",
+  activeNav: "profiles",
 
   openTab: (tab) => {
     const { tabs } = get();
     const existing = tabs.find((t) => t.id === tab.id);
     if (!existing) {
-      set({ tabs: [...tabs, tab], activeTabId: tab.id });
+      // If opening a profile tab, ensure it starts on 'general'
+      if (tab.type === "profile") {
+        set({ tabs: [...tabs, tab], activeTabId: tab.id, profileSubTab: "general" });
+      } else {
+        set({ tabs: [...tabs, tab], activeTabId: tab.id });
+      }
     } else {
-      set({ activeTabId: tab.id });
+      if (tab.type === "profile") {
+        set({ activeTabId: tab.id, profileSubTab: "general" });
+      } else {
+        set({ activeTabId: tab.id });
+      }
     }
   },
 
@@ -108,15 +127,21 @@ export const useCaseStore = create<CaseState>((set, get) => ({
     set({ tabs: nextTabs, activeTabId: nextActiveId });
   },
 
-  setActiveTab: (tabId) => set({ activeTabId: tabId }),
+  setActiveTab: (tabId) => {
+    const tab = get().tabs.find((t) => t.id === tabId);
+    if (tab?.type === "profile") {
+      set({ activeTabId: tabId, profileSubTab: "general" });
+    } else {
+      set({ activeTabId: tabId });
+    }
+  },
 
-  activeNav: "graph",
   setActiveNav: (nav) => {
     set({ activeNav: nav });
-    if (nav === "graph") {
-      get().openTab({ id: "tab-graph", type: "graph", title: "Macro Network" });
-    } else if (nav === "profiles") {
+    if (nav === "profiles") {
       get().openTab({ id: "tab-profiles-dir", type: "profiles-dir", title: "Profiles Directory" });
+    } else if (nav === "graph") {
+      get().openTab({ id: "tab-graph", type: "graph", title: "Macro Network" });
     } else if (nav === "cctv") {
       get().openTab({ id: "tab-cctv", type: "vision", title: "CCTV Live Monitor - Cam 01" });
     } else if (nav === "logs") {
@@ -124,7 +149,8 @@ export const useCaseStore = create<CaseState>((set, get) => ({
     }
   },
 
-  profileSubTab: "micronet",
+  // Default to 'general' sub-tab on profile open
+  profileSubTab: "general",
   setProfileSubTab: (subTab) => set({ profileSubTab: subTab }),
 
   selectedEntityId: null,

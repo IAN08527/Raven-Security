@@ -11,14 +11,6 @@ interface ProfileWorkspacePaneProps {
   entityName?: string;
 }
 
-const TYPE_COLOR: Record<string, string> = {
-  PERSON: "#58a6ff",
-  ORGANIZATION: "#d29922",
-  LOCATION: "#3fb950",
-  VEHICLE: "#bc8cff",
-  ACCOUNT: "#f0883e",
-};
-
 export function ProfileWorkspacePane({
   entityId = "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332",
   entityName = "Rakesh Sawant",
@@ -26,6 +18,9 @@ export function ProfileWorkspacePane({
   const profileSubTab = useCaseStore((s) => s.profileSubTab);
   const setProfileSubTab = useCaseStore((s) => s.setProfileSubTab);
   const openTab = useCaseStore((s) => s.openTab);
+
+  // Expanded Vehicle state to inspect connected suspects
+  const [expandedVehicle, setExpandedVehicle] = useState<string | null>("MH-02-AB-1234");
 
   // Ego network controls
   const [hops, setHops] = useState(2);
@@ -36,17 +31,7 @@ export function ProfileWorkspacePane({
     role?: string;
     weight: number;
     evidence: { label: string; kind: string; weight: number }[];
-  } | null>({
-    id: "8c35e396-4191-5369-9c5c-7ec65df27d5e",
-    label: "Vikram Patel",
-    role: "Hawala Operator",
-    weight: 35,
-    evidence: [
-      { label: "Co-accused in FIR-102 (Sec 302/120B)", kind: "fir_text", weight: 25 },
-      { label: "47 Telecom Calls logged in 30 days", kind: "cdr_row", weight: 1 },
-      { label: "UPI Bank Transfer Rs 2.4L via HDFC", kind: "txn_row", weight: 10 },
-    ],
-  });
+  } | null>(null);
 
   const cyRef = useRef<Core | null>(null);
 
@@ -66,7 +51,6 @@ export function ProfileWorkspacePane({
   const elements = useMemo<ElementDefinition[]>(() => {
     const data = egoQuery.data;
     if (!data) {
-      // Fallback demo ego nodes if backend is loading
       return [
         { data: { id: entityId, label: entityName, type: "PERSON", w: 40 } },
         { data: { id: "p2", label: "Vikram Patel", type: "PERSON", w: 30 } },
@@ -82,7 +66,7 @@ export function ProfileWorkspacePane({
         id: n.id,
         label: n.label,
         type: n.type,
-        w: n.degree ? Math.max(24, 24 + n.degree * 4) : 28,
+        w: n.degree ? Math.max(26, 26 + n.degree * 4) : 28,
       },
     }));
     const edges: ElementDefinition[] = data.edges.map((e) => ({
@@ -96,7 +80,6 @@ export function ProfileWorkspacePane({
     }));
     return [...nodes, ...edges];
   }, [egoQuery.data, entityId, entityName]);
-
 
   useEffect(() => {
     const cy = cyRef.current;
@@ -135,39 +118,39 @@ export function ProfileWorkspacePane({
 
   return (
     <div className="flex h-full flex-col bg-pd-base text-pd-text-primary overflow-hidden">
-      {/* Profile Header Card */}
-      <div className="flex items-center justify-between border-b border-pd-border bg-pd-surface px-4 py-3 select-none">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-pd-accent/15 border-2 border-pd-accent text-pd-lg font-bold text-pd-accent">
+      {/* Profile Header Bar */}
+      <div className="flex items-center justify-between border-b border-pd-border bg-pd-surface px-5 py-3.5 select-none shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex h-13 w-13 items-center justify-center rounded-full bg-pd-accent/15 border-2 border-pd-accent text-pd-xl font-bold text-pd-accent shadow">
             {entityName.substring(0, 2).toUpperCase()}
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-pd-xl font-semibold text-pd-text-primary">{entityName}</h1>
-              <span className="rounded-full bg-pd-danger/15 border border-pd-danger/30 px-2 py-0.5 text-pd-xs font-semibold text-pd-danger">
+            <div className="flex items-center gap-3">
+              <h1 className="text-pd-2xl font-bold text-pd-text-primary tracking-tight">{entityName}</h1>
+              <span className="rounded-full bg-pd-danger/15 border border-pd-danger/30 px-2.5 py-0.5 text-pd-xs font-bold text-pd-danger">
                 ACTIVE SUSPECT
               </span>
               <span className="font-mono text-pd-xs text-pd-text-tertiary">ID: {entityId.substring(0, 8)}...</span>
             </div>
-            <div className="text-pd-xs text-pd-text-secondary mt-0.5">
-              Primary Alias: <span className="text-pd-text-primary italic">"Ricky"</span> • Syndicate Leader (Level 1 Target) • Case: OP-RAVEN-01
+            <div className="text-pd-sm text-pd-text-secondary mt-1">
+              Primary Alias: <span className="text-pd-text-primary font-semibold italic">"Ricky"</span> • Role: <span className="text-pd-warning font-semibold">Syndicate Leader</span> • Target Level: <span className="text-pd-danger font-semibold">Tier-1 Priority</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <button
-            onClick={() => alert(`Exporting dossier for ${entityName}...`)}
-            className="flex items-center gap-1.5 rounded-sm border border-pd-border bg-pd-elevated px-2.5 py-1 text-pd-xs text-pd-text-secondary hover:bg-pd-surface hover:text-pd-text-primary transition-colors"
+            onClick={() => alert(`Exporting complete investigative dossier for ${entityName}...`)}
+            className="flex items-center gap-1.5 rounded border border-pd-border bg-pd-elevated px-3 py-1.5 text-pd-xs font-medium text-pd-text-secondary hover:bg-pd-surface hover:text-pd-text-primary transition-colors"
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Export Dossier
           </button>
           <button
-            onClick={() => alert(`Editing profile for ${entityName}...`)}
-            className="flex items-center gap-1.5 rounded-sm bg-pd-accent px-3 py-1 text-pd-xs font-medium text-pd-base hover:bg-pd-accent-hover transition-colors"
+            onClick={() => alert(`Editing profile parameters for ${entityName}...`)}
+            className="flex items-center gap-1.5 rounded bg-pd-accent px-3.5 py-1.5 text-pd-xs font-bold text-pd-base hover:bg-pd-accent-hover transition-colors shadow"
           >
             Edit Profile
           </button>
@@ -175,8 +158,8 @@ export function ProfileWorkspacePane({
       </div>
 
       {/* Sub-Navigation Tabs Bar */}
-      <div className="flex h-8.5 items-center border-b border-pd-border bg-pd-elevated px-3 select-none">
-        <div className="flex items-center gap-1">
+      <div className="flex h-9.5 items-center border-b border-pd-border bg-pd-elevated px-4 select-none">
+        <div className="flex items-center gap-1.5">
           {(
             [
               { id: "general", label: "General Info", icon: "user" },
@@ -190,9 +173,9 @@ export function ProfileWorkspacePane({
               <button
                 key={t.id}
                 onClick={() => setProfileSubTab(t.id)}
-                className={`flex h-8 items-center gap-1.5 px-3 text-pd-xs font-medium transition-colors border-b-2 ${
+                className={`flex h-9 items-center gap-2 px-3.5 text-pd-sm font-semibold transition-colors border-b-2 ${
                   isActive
-                    ? "border-b-pd-accent text-pd-accent bg-pd-base"
+                    ? "border-b-pd-accent text-pd-accent bg-pd-base shadow-sm"
                     : "border-b-transparent text-pd-text-secondary hover:text-pd-text-primary hover:bg-pd-surface/60"
                 }`}
               >
@@ -205,108 +188,162 @@ export function ProfileWorkspacePane({
 
       {/* Main Sub-Tab Content */}
       <div className="flex-1 min-h-0 relative overflow-hidden">
-        {/* SUB-TAB 1: GENERAL INFO */}
+        {/* SUB-TAB 1: GENERAL INFO (VERTICAL FULL-WIDTH STACKED LAYOUT WITH LARGER TEXT) */}
         {profileSubTab === "general" && (
-          <div className="h-full p-4 overflow-y-auto space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Identity Card */}
-              <div className="rounded-sm border border-pd-border bg-pd-surface p-3.5 space-y-3">
-                <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary border-b border-pd-border/60 pb-1.5">
-                  Identity & Personal Details
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-pd-sm">
-                  <div>
-                    <div className="text-pd-xs text-pd-text-tertiary">Full Legal Name</div>
-                    <div className="font-medium text-pd-text-primary">Rakesh Vijay Sawant</div>
-                  </div>
-                  <div>
-                    <div className="text-pd-xs text-pd-text-tertiary">Aliases</div>
-                    <div className="font-medium text-pd-text-primary">Ricky, R.V. Sawant</div>
-                  </div>
-                  <div>
-                    <div className="text-pd-xs text-pd-text-tertiary">Date of Birth / Age</div>
-                    <div className="font-mono text-pd-text-primary">1987-03-15 (37 yrs)</div>
-                  </div>
-                  <div>
-                    <div className="text-pd-xs text-pd-text-tertiary">Gender</div>
-                    <div className="text-pd-text-primary">Male</div>
-                  </div>
-                  <div>
-                    <div className="text-pd-xs text-pd-text-tertiary">Masked Aadhaar ID</div>
-                    <div className="font-mono text-pd-text-primary">XXXX-XXXX-4521</div>
-                  </div>
-                  <div>
-                    <div className="text-pd-xs text-pd-text-tertiary">PAN Number</div>
-                    <div className="font-mono text-pd-text-primary">ABCPS1234K</div>
-                  </div>
-                </div>
+          <div className="h-full p-5 overflow-y-auto space-y-5">
+            {/* Section 1: Identity & Legal Registration */}
+            <div className="rounded-sm border border-pd-border bg-pd-surface p-4.5 space-y-3.5 shadow-sm">
+              <div className="flex items-center justify-between border-b border-pd-border/60 pb-2">
+                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-pd-accent" />
+                  Primary Identity & Legal Registration
+                </span>
+                <span className="font-mono text-pd-xs text-pd-text-tertiary">Verified NAFIS Match</span>
               </div>
 
-              {/* Contact & Location Card */}
-              <div className="rounded-sm border border-pd-border bg-pd-surface p-3.5 space-y-3">
-                <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary border-b border-pd-border/60 pb-1.5">
-                  Contact & Location Intelligence
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-y-4 gap-x-6 text-pd-base">
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Full Legal Name</div>
+                  <div className="text-pd-lg font-bold text-pd-text-primary mt-0.5">Rakesh Vijay Sawant</div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 text-pd-sm">
-                  <div>
-                    <div className="text-pd-xs text-pd-text-tertiary">Primary Phone</div>
-                    <div className="font-mono text-pd-accent">+91 98765 43210 (Airtel)</div>
-                  </div>
-                  <div>
-                    <div className="text-pd-xs text-pd-text-tertiary">Secondary Phone</div>
-                    <div className="font-mono text-pd-accent">+91 98222 11009 (Jio)</div>
-                  </div>
-                  <div className="col-span-2">
-                    <div className="text-pd-xs text-pd-text-tertiary">Last Known Primary Address</div>
-                    <div className="text-pd-text-primary">14/B, Dharavi Cross Lane, Dharavi, Mumbai 400017</div>
-                  </div>
-                  <div>
-                    <div className="text-pd-xs text-pd-text-tertiary">Registered Vehicles</div>
-                    <div className="font-mono text-pd-text-primary">MH-02-AB-1234, MH-01-XX-9900</div>
-                  </div>
-                  <div>
-                    <div className="text-pd-xs text-pd-text-tertiary">NAFIS Biometric Fingerprint</div>
-                    <div className="font-mono text-pd-success flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-pd-success" />
-                      Verified Match (MUM-8842)
-                    </div>
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Known Aliases</div>
+                  <div className="text-pd-md font-semibold text-pd-warning mt-0.5">"Ricky", "R.V. Sawant"</div>
+                </div>
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Date of Birth & Age</div>
+                  <div className="font-mono text-pd-md text-pd-text-primary mt-0.5">1987-03-15 (37 Years)</div>
+                </div>
+
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Masked Aadhaar Number</div>
+                  <div className="font-mono text-pd-md text-pd-accent font-semibold mt-0.5">XXXX-XXXX-4521</div>
+                </div>
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Permanent Account No (PAN)</div>
+                  <div className="font-mono text-pd-md text-pd-text-primary font-semibold mt-0.5">ABCPS1234K</div>
+                </div>
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Biometric Fingerprint Status</div>
+                  <div className="text-pd-success text-pd-sm font-semibold flex items-center gap-1.5 mt-0.5 font-mono">
+                    <span className="h-2 w-2 rounded-full bg-pd-success" />
+                    NAFIS Ground Truth ID: MUM-8842
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Identifiers Table */}
-            <div className="rounded-sm border border-pd-border bg-pd-surface p-3.5">
-              <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary border-b border-pd-border/60 pb-2 mb-2">
-                All Extracted Digital Identifiers
+            {/* Section 2: Contact Numbers & Residential Locations */}
+            <div className="rounded-sm border border-pd-border bg-pd-surface p-4.5 space-y-3.5 shadow-sm">
+              <div className="flex items-center justify-between border-b border-pd-border/60 pb-2">
+                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-pd-accent" />
+                  Contact Telecom & Residence Coordinates
+                </span>
+                <span className="font-mono text-pd-xs text-pd-text-tertiary">Triangulated via CDR Logs</span>
               </div>
-              <table className="w-full text-left text-pd-xs">
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-y-4 gap-x-6 text-pd-base">
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Primary Registered Mobile</div>
+                  <div className="font-mono text-pd-lg font-bold text-pd-accent mt-0.5">+91 98765 43210 (Airtel)</div>
+                </div>
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Burner / Alternate SIM</div>
+                  <div className="font-mono text-pd-md font-semibold text-pd-warning mt-0.5">+91 98222 11009 (Jio)</div>
+                </div>
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Frequent Cell Tower Pings</div>
+                  <div className="text-pd-sm text-pd-text-primary font-mono mt-0.5">Tower MH-MUM-0847 (Dharavi West)</div>
+                </div>
+
+                <div className="col-span-1 md:col-span-2">
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Primary Known Residence Address</div>
+                  <div className="text-pd-md font-medium text-pd-text-primary mt-0.5">
+                    Room 14/B, Dharavi Cross Lane, Behind Municipal School, Dharavi, Mumbai 400017
+                  </div>
+                </div>
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Secondary Location (Safehouse)</div>
+                  <div className="text-pd-sm text-pd-text-secondary mt-0.5">Flat 402, Golden Residency, Andheri East</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Syndicate Hierarchy & Investigative Target Status */}
+            <div className="rounded-sm border border-pd-border bg-pd-surface p-4.5 space-y-3.5 shadow-sm">
+              <div className="flex items-center justify-between border-b border-pd-border/60 pb-2">
+                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-pd-accent" />
+                  Syndicate Hierarchy & Active Case Assignment
+                </span>
+                <span className="rounded bg-pd-danger/15 text-pd-danger font-mono text-pd-xs px-2 py-0.5 font-bold border border-pd-danger/30">
+                  CRITICAL TARGET
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-y-4 gap-x-6 text-pd-base">
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Syndicate Role & Tier</div>
+                  <div className="text-pd-md font-bold text-pd-danger mt-0.5">Kingpin (Tier-1 Extortion & Hawala)</div>
+                </div>
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Assigned Investigating Officer</div>
+                  <div className="text-pd-md font-medium text-pd-text-primary mt-0.5">Inspector A. Kumar (Crime Branch)</div>
+                </div>
+                <div>
+                  <div className="text-pd-xs font-semibold uppercase text-pd-text-tertiary">Surveillance & Re-ID Status</div>
+                  <div className="text-pd-sm font-semibold text-pd-success flex items-center gap-1.5 mt-0.5">
+                    <span className="h-2 w-2 rounded-full bg-pd-success animate-ping" />
+                    CCTV Cam Network Auto-Lock ON
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Extracted Forensic Identifiers List */}
+            <div className="rounded-sm border border-pd-border bg-pd-surface p-4.5 space-y-3 shadow-sm">
+              <div className="flex items-center justify-between border-b border-pd-border/60 pb-2">
+                <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-pd-accent" />
+                  Extracted Digital Identifiers & On-Chain Proofs
+                </span>
+                <span className="font-mono text-pd-xs text-pd-success">100% SHA-256 Verified</span>
+              </div>
+
+              <table className="w-full text-left text-pd-sm">
                 <thead>
-                  <tr className="text-pd-text-tertiary border-b border-pd-border/40 pb-1">
+                  <tr className="text-pd-xs text-pd-text-tertiary uppercase border-b border-pd-border/60 pb-1.5 h-8">
                     <th className="py-1">Type</th>
                     <th className="py-1">Identifier Value</th>
-                    <th className="py-1">Source Document</th>
-                    <th className="py-1">Integrity Status</th>
+                    <th className="py-1">Extracted Source Document</th>
+                    <th className="py-1">Blockchain Hash Integrity</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-pd-border/20 font-mono">
-                  <tr>
-                    <td className="py-1 text-pd-text-secondary">PHONE</td>
-                    <td className="py-1 text-pd-accent">+91 98765 43210</td>
-                    <td className="py-1 text-pd-text-secondary">fir_102_final.pdf</td>
-                    <td className="py-1 text-pd-success">Anchored (SHA-256)</td>
+                <tbody className="divide-y divide-pd-border/40 font-mono text-pd-sm">
+                  <tr className="h-9">
+                    <td className="py-1 text-pd-text-secondary font-sans font-medium">PHONE</td>
+                    <td className="py-1 text-pd-accent font-bold">+91 98765 43210</td>
+                    <td className="py-1 text-pd-text-secondary font-sans">fir_102_final.pdf (Page 1)</td>
+                    <td className="py-1 text-pd-success">Anchored (Block #14209)</td>
                   </tr>
-                  <tr>
-                    <td className="py-1 text-pd-text-secondary">VEHICLE</td>
-                    <td className="py-1 text-pd-text-primary">MH-02-AB-1234 (White Scorpio)</td>
-                    <td className="py-1 text-pd-text-secondary">cctv_log_cam01.csv</td>
-                    <td className="py-1 text-pd-success">Anchored (SHA-256)</td>
+                  <tr className="h-9">
+                    <td className="py-1 text-pd-text-secondary font-sans font-medium">VEHICLE</td>
+                    <td className="py-1 text-pd-text-primary font-bold">MH-02-AB-1234 (White Scorpio)</td>
+                    <td className="py-1 text-pd-text-secondary font-sans">cctv_log_cam01.csv</td>
+                    <td className="py-1 text-pd-success">Anchored (Block #14215)</td>
                   </tr>
-                  <tr>
-                    <td className="py-1 text-pd-text-secondary">BANK_ACC</td>
-                    <td className="py-1 text-pd-text-primary">HDFC-001294820194</td>
-                    <td className="py-1 text-pd-text-secondary">bank_stmt_march.csv</td>
-                    <td className="py-1 text-pd-success">Anchored (SHA-256)</td>
+                  <tr className="h-9">
+                    <td className="py-1 text-pd-text-secondary font-sans font-medium">BANK_ACC</td>
+                    <td className="py-1 text-pd-text-primary font-bold">HDFC-001294820194</td>
+                    <td className="py-1 text-pd-text-secondary font-sans">bank_stmt_march.csv</td>
+                    <td className="py-1 text-pd-success">Anchored (Block #14218)</td>
+                  </tr>
+                  <tr className="h-9">
+                    <td className="py-1 text-pd-text-secondary font-sans font-medium">PASSPORT</td>
+                    <td className="py-1 text-pd-text-primary font-bold">P-8842910</td>
+                    <td className="py-1 text-pd-text-secondary font-sans">immigration_record.pdf</td>
+                    <td className="py-1 text-pd-success">Anchored (Block #14220)</td>
                   </tr>
                 </tbody>
               </table>
@@ -314,86 +351,297 @@ export function ProfileWorkspacePane({
           </div>
         )}
 
-        {/* SUB-TAB 2: VEHICLES */}
+        {/* SUB-TAB 2: VEHICLES (VERTICAL LIST CARDS WITH CONNECTED PEOPLE EXPANSION) */}
         {profileSubTab === "vehicles" && (
-          <div className="h-full p-4 overflow-y-auto space-y-3">
-            <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">
-              Spotted & Registered Vehicles
+          <div className="h-full p-5 overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-pd-border pb-2">
+              <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-text-tertiary">
+                Spotted & Registered Vehicle Fleets (Click card to view connected suspects)
+              </span>
+              <span className="text-pd-xs text-pd-text-secondary font-mono">2 Linked Vehicles</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded border border-pd-border bg-pd-surface p-3.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-pd-base font-bold text-pd-accent">MH-02-AB-1234</span>
-                  <span className="rounded bg-pd-danger/15 px-2 py-0.5 text-[10px] font-bold text-pd-danger border border-pd-danger/30">
-                    SUSPECT VEHICLE
+
+            {/* Vehicle 1 Card */}
+            <div
+              onClick={() => setExpandedVehicle(expandedVehicle === "MH-02-AB-1234" ? null : "MH-02-AB-1234")}
+              className={`rounded border transition-all p-4.5 space-y-3 cursor-pointer shadow-sm ${
+                expandedVehicle === "MH-02-AB-1234"
+                  ? "border-pd-accent bg-pd-surface"
+                  : "border-pd-border bg-pd-surface/80 hover:bg-pd-surface"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded bg-pd-elevated text-pd-accent border border-pd-border">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <span className="font-mono text-pd-xl font-bold text-pd-accent">MH-02-AB-1234</span>
+                    <div className="text-pd-sm text-pd-text-secondary">
+                      Mahindra Scorpio • White Color • Model 2021
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="rounded bg-pd-danger/15 px-2.5 py-1 text-pd-xs font-bold text-pd-danger border border-pd-danger/30">
+                    PRIMARY CRIME VEHICLE
                   </span>
-                </div>
-                <div className="text-pd-xs text-pd-text-secondary">
-                  Make / Model: <span className="text-pd-text-primary">Mahindra Scorpio (White, 2021)</span>
-                </div>
-                <div className="text-pd-xs text-pd-text-secondary">
-                  Last Spotted: <span className="font-mono text-pd-text-primary">2024-08-28 14:32:00</span> via CAM-01 (Main Gate)
-                </div>
-                <div className="text-pd-xs text-pd-text-secondary">
-                  Registered Owner: <span className="text-pd-text-primary">Rakesh Vijay Sawant</span> (VAHAN record linked)
+                  <span className="text-pd-text-tertiary text-pd-sm">
+                    {expandedVehicle === "MH-02-AB-1234" ? "▲" : "▼"}
+                  </span>
                 </div>
               </div>
 
-              <div className="rounded border border-pd-border bg-pd-surface p-3.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-pd-base font-bold text-pd-text-primary">MH-01-XX-9900</span>
-                  <span className="rounded bg-pd-warning/15 px-2 py-0.5 text-[10px] font-bold text-pd-warning border border-pd-warning/30">
-                    ASSOCIATE REGISTERED
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-pd-sm text-pd-text-secondary border-t border-pd-border/60 pt-2.5">
+                <div>Registered Owner: <strong className="text-pd-text-primary">Rakesh Vijay Sawant</strong></div>
+                <div>Last CCTV Sighting: <strong className="font-mono text-pd-text-primary">CAM-01 Main Gate (14:32)</strong></div>
+                <div>VAHAN Database Status: <strong className="text-pd-success">Active Commercial Permit</strong></div>
+              </div>
+
+              {/* Connected Suspects / Co-Occupants List */}
+              {expandedVehicle === "MH-02-AB-1234" && (
+                <div className="mt-3 p-3.5 rounded bg-pd-base border border-pd-border/80 space-y-2.5 animate-in fade-in duration-100">
+                  <div className="text-pd-xs font-bold uppercase tracking-wider text-pd-text-tertiary">
+                    Suspects Documented Connected To This Vehicle (3 Persons):
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                    {/* Suspect 1 */}
+                    <div className="rounded bg-pd-elevated p-2.5 border border-pd-border flex flex-col justify-between">
+                      <div>
+                        <div className="font-bold text-pd-sm text-pd-text-primary">Rakesh Sawant</div>
+                        <div className="text-pd-xs text-pd-text-secondary">Registered Owner & Frequent Driver</div>
+                      </div>
+                      <span className="text-[10px] font-mono text-pd-accent mt-2">Active Profile</span>
+                    </div>
+
+                    {/* Suspect 2 */}
+                    <div className="rounded bg-pd-elevated p-2.5 border border-pd-border flex flex-col justify-between">
+                      <div>
+                        <div className="font-bold text-pd-sm text-pd-text-primary">Vikram Patel</div>
+                        <div className="text-pd-xs text-pd-text-secondary">Spotted Passenger in FIR-102 Incident</div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openTab({
+                            id: "profile-8c35e396-4191-5369-9c5c-7ec65df27d5e",
+                            type: "profile",
+                            title: "Profile: Vikram Patel",
+                            data: { entityId: "8c35e396-4191-5369-9c5c-7ec65df27d5e", entityName: "Vikram Patel" },
+                          });
+                        }}
+                        className="mt-2 text-left text-pd-xs font-semibold text-pd-accent hover:underline flex items-center gap-1"
+                      >
+                        Open Profile →
+                      </button>
+                    </div>
+
+                    {/* Suspect 3 */}
+                    <div className="rounded bg-pd-elevated p-2.5 border border-pd-border flex flex-col justify-between">
+                      <div>
+                        <div className="font-bold text-pd-sm text-pd-text-primary">Deepak Gaikwad</div>
+                        <div className="text-pd-xs text-pd-text-secondary">Driver on Tollgate Surveillance Log</div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openTab({
+                            id: "profile-7b4c92a1-3d5f-51e8-9c12-34e56f789abc",
+                            type: "profile",
+                            title: "Profile: Deepak Kumar",
+                            data: { entityId: "7b4c92a1-3d5f-51e8-9c12-34e56f789abc", entityName: "Deepak Kumar" },
+                          });
+                        }}
+                        className="mt-2 text-left text-pd-xs font-semibold text-pd-accent hover:underline flex items-center gap-1"
+                      >
+                        Open Profile →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Vehicle 2 Card */}
+            <div
+              onClick={() => setExpandedVehicle(expandedVehicle === "MH-01-XX-9900" ? null : "MH-01-XX-9900")}
+              className={`rounded border transition-all p-4.5 space-y-3 cursor-pointer shadow-sm ${
+                expandedVehicle === "MH-01-XX-9900"
+                  ? "border-pd-accent bg-pd-surface"
+                  : "border-pd-border bg-pd-surface/80 hover:bg-pd-surface"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded bg-pd-elevated text-pd-text-secondary border border-pd-border">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <span className="font-mono text-pd-xl font-bold text-pd-text-primary">MH-01-XX-9900</span>
+                    <div className="text-pd-sm text-pd-text-secondary">
+                      Hyundai Creta • Silver Color • Model 2022
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="rounded bg-pd-warning/15 px-2.5 py-1 text-pd-xs font-bold text-pd-warning border border-pd-warning/30">
+                    ASSOCIATE FLEET
+                  </span>
+                  <span className="text-pd-text-tertiary text-pd-sm">
+                    {expandedVehicle === "MH-01-XX-9900" ? "▲" : "▼"}
                   </span>
                 </div>
-                <div className="text-pd-xs text-pd-text-secondary">
-                  Make / Model: <span className="text-pd-text-primary">Hyundai Creta (Silver)</span>
-                </div>
-                <div className="text-pd-xs text-pd-text-secondary">
-                  Spotted In: <span className="text-pd-text-primary">FIR-102 co-location scene</span>
-                </div>
-                <div className="text-pd-xs text-pd-text-secondary">
-                  Registered Owner: <span className="text-pd-text-primary">Vikram Patel</span>
-                </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-pd-sm text-pd-text-secondary border-t border-pd-border/60 pt-2.5">
+                <div>Registered Owner: <strong className="text-pd-text-primary">Vikram Patel</strong></div>
+                <div>Spotted Context: <strong className="text-pd-text-primary">FIR-102 Co-accused Convoys</strong></div>
+                <div>Status: <strong className="text-pd-warning">Under Physical Watch</strong></div>
+              </div>
+
+              {expandedVehicle === "MH-01-XX-9900" && (
+                <div className="mt-3 p-3.5 rounded bg-pd-base border border-pd-border/80 space-y-2.5 animate-in fade-in duration-100">
+                  <div className="text-pd-xs font-bold uppercase tracking-wider text-pd-text-tertiary">
+                    Suspects Documented Connected To This Vehicle:
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    <div className="rounded bg-pd-elevated p-2.5 border border-pd-border">
+                      <div className="font-bold text-pd-sm text-pd-text-primary">Vikram Patel</div>
+                      <div className="text-pd-xs text-pd-text-secondary">Registered Owner</div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openTab({
+                            id: "profile-8c35e396-4191-5369-9c5c-7ec65df27d5e",
+                            type: "profile",
+                            title: "Profile: Vikram Patel",
+                            data: { entityId: "8c35e396-4191-5369-9c5c-7ec65df27d5e", entityName: "Vikram Patel" },
+                          });
+                        }}
+                        className="mt-2 text-left text-pd-xs font-semibold text-pd-accent hover:underline flex items-center gap-1"
+                      >
+                        Open Profile →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* SUB-TAB 3: FIR HISTORY */}
+        {/* SUB-TAB 3: FIR HISTORY (VERTICAL LIST CARDS WITH NEW DOCUMENT TAB OPENING) */}
         {profileSubTab === "fir" && (
-          <div className="h-full p-4 overflow-y-auto space-y-3">
-            <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">
-              Linked FIRs & Crime Offenses Record
+          <div className="h-full p-5 overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-pd-border pb-2">
+              <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-text-tertiary">
+                Linked FIRs & Criminal Charges (Click to open full document in new tab)
+              </span>
+              <span className="text-pd-xs text-pd-text-secondary font-mono">3 Registered Cases</span>
             </div>
-            <div className="space-y-2.5">
-              <div className="rounded border border-pd-border bg-pd-surface p-3.5 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-pd-sm font-bold text-pd-danger">FIR-102/2024 (Dharavi PS)</span>
-                  <span className="text-pd-xs font-mono text-pd-text-tertiary">Date: 2024-03-12</span>
+
+            {/* FIR 1 Card */}
+            <div
+              onClick={() => {
+                openTab({
+                  id: "doc-fir-102",
+                  type: "document",
+                  title: "Document: FIR-102/2024",
+                  data: {
+                    firNo: "FIR-102/2024 (Dharavi PS)",
+                    policeStation: "Dharavi Police Station, Mumbai",
+                    incidentDate: "2024-03-12 21:45 IST",
+                    ipcSections: "Sec 302, 384, 120B, Arms Act Sec 25",
+                    sha256: "7a3f4c2d1e8b9a0f3e2d1c4b5a6f7e8d9c0b1a2f3e4d5c6b7a8f9e0d1c2b3a4f",
+                  },
+                });
+              }}
+              className="rounded border border-pd-danger/40 bg-pd-surface p-4.5 space-y-2.5 cursor-pointer hover:border-pd-danger transition-all shadow-sm group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="font-mono text-pd-lg font-bold text-pd-danger group-hover:underline">
+                    FIR-102/2024 (Dharavi PS)
+                  </span>
+                  <span className="rounded bg-pd-danger/15 px-2 py-0.5 text-pd-xs font-bold text-pd-danger border border-pd-danger/30">
+                    HEINOUS / CHARGE-SHEETED
+                  </span>
                 </div>
-                <div className="text-pd-sm font-medium text-pd-text-primary">
-                  Organized Syndicate Extortion & Armed Conspiracy
-                </div>
-                <div className="text-pd-xs text-pd-text-secondary">
-                  IPC Sections: <span className="font-mono text-pd-accent">Sec 302, 384, 120B, Arms Act Sec 25</span>
-                </div>
-                <div className="text-pd-xs text-pd-text-tertiary">
-                  Co-accused: Vikram Patel, Mohd. Khan • Evidence: Audio wiretap (SHA: 7a3f...c2d1)
-                </div>
+                <button className="flex items-center gap-1.5 rounded bg-pd-elevated px-3 py-1 text-pd-xs font-semibold text-pd-accent border border-pd-border group-hover:border-pd-accent">
+                  View Full Document
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </button>
               </div>
 
-              <div className="rounded border border-pd-border bg-pd-surface p-3.5 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-pd-sm font-bold text-pd-warning">FIR-044/2023 (Crime Branch Mumbai)</span>
-                  <span className="text-pd-xs font-mono text-pd-text-tertiary">Date: 2023-11-04</span>
+              <div className="text-pd-md font-semibold text-pd-text-primary">
+                Armed Extortion, Murder Conspiracy & Illegal Firearms Possession
+              </div>
+
+              <div className="text-pd-sm text-pd-text-secondary">
+                Acts & Sections: <strong className="font-mono text-pd-danger">IPC Sec 302, 384, 120B & Arms Act Sec 25</strong>
+              </div>
+
+              <div className="text-pd-xs text-pd-text-tertiary flex items-center justify-between border-t border-pd-border/60 pt-2 font-mono">
+                <span>Co-Accused: Vikram Patel, Mohd. Khan</span>
+                <span className="text-pd-success">On-Chain Verified (Block #14209)</span>
+              </div>
+            </div>
+
+            {/* FIR 2 Card */}
+            <div
+              onClick={() => {
+                openTab({
+                  id: "doc-fir-044",
+                  type: "document",
+                  title: "Document: FIR-044/2023",
+                  data: {
+                    firNo: "FIR-044/2023 (Crime Branch)",
+                    policeStation: "Crime Branch CID, Unit 9, Mumbai",
+                    incidentDate: "2023-11-04 11:30 IST",
+                    ipcSections: "Sec 420 (Cheating), Sec 468 (Forgery), Sec 471 & PMLA Sec 3/4",
+                    sha256: "b4e29f1a8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f",
+                  },
+                });
+              }}
+              className="rounded border border-pd-warning/40 bg-pd-surface p-4.5 space-y-2.5 cursor-pointer hover:border-pd-warning transition-all shadow-sm group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="font-mono text-pd-lg font-bold text-pd-warning group-hover:underline">
+                    FIR-044/2023 (Crime Branch CID)
+                  </span>
+                  <span className="rounded bg-pd-warning/15 px-2 py-0.5 text-pd-xs font-bold text-pd-warning border border-pd-warning/30">
+                    FINANCIAL FRAUD / HAWALA
+                  </span>
                 </div>
-                <div className="text-pd-sm font-medium text-pd-text-primary">
-                  Hawala Routing & Illicit Money Laundering (PMLA)
-                </div>
-                <div className="text-pd-xs text-pd-text-secondary">
-                  IPC Sections: <span className="font-mono text-pd-accent">Sec 420, 468, 471</span>
-                </div>
+                <button className="flex items-center gap-1.5 rounded bg-pd-elevated px-3 py-1 text-pd-xs font-semibold text-pd-accent border border-pd-border group-hover:border-pd-accent">
+                  View Full Document
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="text-pd-md font-semibold text-pd-text-primary">
+                Hawala Fund Layering, Forgery & Shell Company Operation
+              </div>
+
+              <div className="text-pd-sm text-pd-text-secondary">
+                Acts & Sections: <strong className="font-mono text-pd-warning">IPC Sec 420, 468, 471 & Prevention of Money Laundering Act</strong>
+              </div>
+
+              <div className="text-pd-xs text-pd-text-tertiary flex items-center justify-between border-t border-pd-border/60 pt-2 font-mono">
+                <span>Co-Accused: Anita Roy, Vikram Patel</span>
+                <span className="text-pd-success">On-Chain Verified (Block #14210)</span>
               </div>
             </div>
           </div>
@@ -402,7 +650,6 @@ export function ProfileWorkspacePane({
         {/* SUB-TAB 4: MICRONET (EGO GRAPH CANVAS) */}
         {profileSubTab === "micronet" && (
           <div className="flex h-full w-full relative">
-            {/* Cytoscape Canvas */}
             <div className="flex-1 h-full bg-pd-base relative">
               <CytoscapeComponent
                 elements={elements}
@@ -410,7 +657,6 @@ export function ProfileWorkspacePane({
                   cyRef.current = cy;
                 }}
                 className="h-full w-full"
-
                 stylesheet={[
                   {
                     selector: "node",
@@ -486,8 +732,8 @@ export function ProfileWorkspacePane({
 
             {/* Contextual Slide-out Flyout Drawer */}
             {selectedAssociate && (
-              <div className="w-72 border-l border-pd-border bg-pd-surface p-3.5 flex flex-col justify-between select-none shadow-xl z-20">
-                <div className="space-y-3">
+              <div className="w-72 border-l border-pd-border bg-pd-surface p-4 flex flex-col justify-between select-none shadow-xl z-20">
+                <div className="space-y-3.5">
                   <div className="flex items-center justify-between border-b border-pd-border pb-2">
                     <span className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">
                       Connection Detail
@@ -496,24 +742,22 @@ export function ProfileWorkspacePane({
                       onClick={() => setSelectedAssociate(null)}
                       className="text-pd-text-tertiary hover:text-pd-text-primary"
                     >
-                      ×
+                      ✕
                     </button>
                   </div>
 
-                  {/* Associate Name & Weight */}
                   <div>
-                    <div className="text-pd-sm font-semibold text-pd-text-primary">
+                    <div className="text-pd-md font-bold text-pd-text-primary">
                       {entityName} ↔ {selectedAssociate.label}
                     </div>
                     <div className="mt-1 flex items-center justify-between rounded bg-pd-elevated p-2 border border-pd-border">
                       <span className="text-pd-xs text-pd-text-secondary">Connection Weight:</span>
-                      <span className="font-mono text-pd-sm font-bold text-pd-accent">
+                      <span className="font-mono text-pd-base font-bold text-pd-accent">
                         {selectedAssociate.weight}
                       </span>
                     </div>
                   </div>
 
-                  {/* Evidence Breakdown */}
                   <div>
                     <div className="text-pd-xs font-semibold text-pd-text-tertiary mb-1.5">
                       Supporting Evidence (3 links):
@@ -535,7 +779,6 @@ export function ProfileWorkspacePane({
                   </div>
                 </div>
 
-                {/* Primary CTA: Open in New Tab */}
                 <button
                   onClick={() => {
                     openTab({
@@ -548,7 +791,7 @@ export function ProfileWorkspacePane({
                       },
                     });
                   }}
-                  className="mt-4 flex w-full h-8 items-center justify-center gap-1.5 rounded bg-pd-accent text-pd-xs font-semibold text-pd-base hover:bg-pd-accent-hover transition-colors shadow"
+                  className="mt-4 flex w-full h-8.5 items-center justify-center gap-1.5 rounded bg-pd-accent text-pd-xs font-bold text-pd-base hover:bg-pd-accent-hover transition-colors shadow"
                 >
                   Open Full Profile in New Tab
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

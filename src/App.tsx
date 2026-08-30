@@ -10,6 +10,7 @@ import { ProfilesDirectoryPane } from "./components/profiles/ProfilesDirectoryPa
 import { ProfileWorkspacePane } from "./components/profiles/ProfileWorkspacePane";
 import { VisionPane } from "./components/vision/VisionPane";
 import { AuditPanel } from "./components/audit/AuditPanel";
+import { DocumentViewerPane } from "./components/documents/DocumentViewerPane";
 import { useCaseStore } from "./store/case";
 
 export default function App() {
@@ -35,13 +36,21 @@ export default function App() {
 
           {/* Active Workspace View Dispatcher */}
           <div className="min-h-0 flex-1 relative overflow-hidden">
-            {activeTab?.type === "graph" && <GraphPane />}
             {activeTab?.type === "profiles-dir" && <ProfilesDirectoryPane />}
+            {activeTab?.type === "graph" && <GraphPane />}
             {activeTab?.type === "profile" && (
               <ProfileWorkspacePane
                 key={activeTab.id}
                 entityId={activeTab.data?.entityId}
                 entityName={activeTab.data?.entityName}
+              />
+            )}
+            {activeTab?.type === "document" && (
+              <DocumentViewerPane
+                key={activeTab.id}
+                docId={activeTab.data?.docId}
+                title={activeTab.title}
+                data={activeTab.data as never}
               />
             )}
             {activeTab?.type === "vision" && <VisionPane />}
