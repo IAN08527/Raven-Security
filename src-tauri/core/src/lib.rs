@@ -95,6 +95,15 @@ pub struct LockResult {
 }
 
 #[derive(Serialize)]
+pub struct ConfirmResult {
+    pub review_id: i64,
+    pub tx_id: String,
+    pub ledger_status: String,
+    pub edges_bumped: usize,
+    pub evidence_written: usize,
+}
+
+#[derive(Serialize)]
 pub struct RebuildResult {
     pub nodes: usize,
     pub edges: usize,

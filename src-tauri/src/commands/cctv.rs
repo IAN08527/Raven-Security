@@ -1,4 +1,4 @@
-use raven_core::{AppState, LockResult, RoutineResult, TrackingResult};
+use raven_core::{AppState, ConfirmResult, LockResult, RoutineResult, TrackingResult};
 use serde_json::json;
 use tauri::State;
 
@@ -30,6 +30,7 @@ pub async fn lock_on_target(
     track_id: u32,
     label: String,
     case_id: String,
+    entity_id: Option<String>,
 ) -> Result<LockResult, String> {
     // 1. Engine builds the fingerprint from the officer's live frame.
     let url = format!("http://127.0.0.1:8756/cv/session/{}/lock_on", session_id);
@@ -63,6 +64,7 @@ pub async fn lock_on_target(
         feature_literal,
         feature_b64,
         thumbnail_path,
+        entity_id.as_deref().filter(|s| !s.is_empty()),
     )
     .await?;
 
@@ -86,6 +88,31 @@ pub async fn lock_on_target(
         target_id: outcome.target_id,
         tx_id: outcome.tx_id,
         ledger_status: outcome.ledger_status,
+    })
+}
+
+/// Confirm or reject a downstream Re-ID sighting (Phase 5, FR-2.3). A confirm is
+/// an accountable act that mints `cctv_sighting` evidence and thickens the linked
+/// entity's graph edges (+10, §5.3); a reject records the review only.
+#[tauri::command]
+pub async fn confirm_sighting(
+    state: State<'_, AppState>,
+    sighting_id: i64,
+    action: String,
+    note: Option<String>,
+) -> Result<ConfirmResult, String> {
+    if action != "confirm" && action != "reject" {
+        return Err(format!("invalid review action: {action}"));
+    }
+    let outcome =
+        raven_core::reid::confirm_sighting(state.inner(), sighting_id, &action, note.as_deref())
+            .await?;
+    Ok(ConfirmResult {
+        review_id: outcome.review_id,
+        tx_id: outcome.tx_id,
+        ledger_status: outcome.ledger_status,
+        edges_bumped: outcome.edges_bumped,
+        evidence_written: outcome.evidence_written,
     })
 }
 

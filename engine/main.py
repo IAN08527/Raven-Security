@@ -117,6 +117,21 @@ async def cv_lock(sid: str, body: dict):
         vram.release()
 
 
+@app.get("/cv/sightings/{name}")
+async def cv_sighting_frame(name: str):
+    """Serve a saved sighting crop for the Phase 5 review panel. `name` is a bare
+    basename — reject any path separators so the officer UI can only read frames
+    inside the sightings dir (no traversal)."""
+    from fastapi.responses import FileResponse
+    from fastapi import HTTPException
+    from cv.stream import SIGHTING_DIR
+    from cv.frames import resolve_frame
+    path = resolve_frame(name, SIGHTING_DIR)
+    if path is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return FileResponse(path, media_type="image/jpeg")
+
+
 @app.post("/cv/targets/register")
 async def cv_target_register(body: dict):
     """Arm a locked target for the Phase 3 match loop.

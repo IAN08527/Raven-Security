@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
-import { Crosshair, Loader2, Square, Video } from "lucide-react";
+import { Check, Crosshair, Loader2, Square, Video, X } from "lucide-react";
 import { invokeRaven } from "../../hooks/useInvoke";
 import { useRavenSocket } from "../../hooks/useRavenSocket";
 import { useCaseStore } from "../../store/case";
 import type {
+  ConfirmResult,
   CVBox,
   CVDetections,
+  CVSighting,
   LockResult,
   TrackingResult,
   WebSocketEvent,
@@ -23,17 +25,31 @@ export function VisionPane() {
   const [lock, setLock] = useState<LockResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Downstream sightings stream in on ANY camera (not just the viewed one), so
+  // they live outside the activeCam filter. Keyed newest-first.
+  const [sightings, setSightings] = useState<CVSighting[]>([]);
+  // sighting_id -> review outcome, so a reviewed card shows its verdict + tx.
+  const [reviews, setReviews] = useState<
+    Record<number, { action: "confirm" | "reject"; res: ConfirmResult }>
+  >({});
   const caseId = useCaseStore((s) => s.caseId);
+  const selectedEntityId = useCaseStore((s) => s.selectedEntityId);
 
-  // Detection boxes arrive over the shared engine WS (cv.detections). Only
-  // keep the ones for the camera we are currently viewing.
+  // Detection boxes (cv.detections) are for the viewed camera; sightings
+  // (cv.sighting) arrive from downstream cameras and feed the review panel.
   const onEvent = useCallback(
     (e: WebSocketEvent) => {
-      if (e.type !== "cv.detections") return;
-      const p = e.payload as unknown as CVDetections;
-      if (!activeCam || p.camera_code !== activeCam) return;
-      setBoxes(p.boxes ?? []);
-      if (p.frame_w && p.frame_h) setFrame({ w: p.frame_w, h: p.frame_h });
+      if (e.type === "cv.detections") {
+        const p = e.payload as unknown as CVDetections;
+        if (!activeCam || p.camera_code !== activeCam) return;
+        setBoxes(p.boxes ?? []);
+        if (p.frame_w && p.frame_h) setFrame({ w: p.frame_w, h: p.frame_h });
+        return;
+      }
+      if (e.type === "cv.sighting") {
+        const s = e.payload as unknown as CVSighting;
+        setSightings((prev) => [s, ...prev].slice(0, 30));
+      }
     },
     [activeCam],
   );
@@ -81,11 +97,31 @@ export function VisionPane() {
         trackId,
         label: `Target ${String(trackId).padStart(2, "0")}`,
         caseId,
+        // Optional identity link: whatever entity is selected in the graph gets
+        // its edges scored when a downstream sighting is later confirmed.
+        entityId: selectedEntityId ?? null,
       });
       setLocked(trackId);
       setLock(res);
     } catch (e) {
       setError(`lock_on failed: ${String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function review(sightingId: number, action: "confirm" | "reject") {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await invokeRaven<ConfirmResult>("confirm_sighting", {
+        sightingId,
+        action,
+        note: null,
+      });
+      setReviews((prev) => ({ ...prev, [sightingId]: { action, res } }));
+    } catch (e) {
+      setError(`confirm_sighting failed: ${String(e)}`);
     } finally {
       setBusy(false);
     }
@@ -105,6 +141,8 @@ export function VisionPane() {
       setFrame(null);
       setLocked(null);
       setLock(null);
+      setSightings([]);
+      setReviews({});
       setBusy(false);
     }
   }
@@ -256,8 +294,89 @@ export function VisionPane() {
             <div className="mt-1 truncate font-mono text-pd-text-secondary" title={lock.tx_id}>
               tx: {lock.tx_id || "—"}
             </div>
+            <div className="mt-1 text-pd-text-tertiary">
+              {selectedEntityId
+                ? "linked to selected entity"
+                : "no entity selected — confirms won't score the graph"}
+            </div>
           </div>
         )}
+      </div>
+
+      {/* Sightings review panel (Phase 5, FR-2.3) */}
+      <div className="flex w-56 flex-col border-l border-pd-border bg-pd-surface">
+        <div className="flex h-9 items-center gap-1.5 border-b border-pd-border px-3 text-pd-xs uppercase tracking-wide text-pd-text-tertiary">
+          <Crosshair size={12} /> Sightings
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {sightings.length === 0 ? (
+            <div className="px-3 py-3 text-pd-xs text-pd-text-tertiary">
+              No sightings yet
+            </div>
+          ) : (
+            sightings.map((s, i) => {
+              const rv = s.sighting_id != null ? reviews[s.sighting_id] : undefined;
+              const frameName = s.frame_path?.split(/[\\/]/).pop();
+              return (
+                <div
+                  key={`${s.sighting_id ?? "x"}-${s.ts}-${i}`}
+                  className="border-b border-pd-border px-3 py-2 text-pd-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    {frameName && (
+                      <img
+                        src={`${ENGINE}/cv/sightings/${frameName}`}
+                        alt="sighting crop"
+                        className="h-10 w-10 rounded border border-pd-border object-cover"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-mono text-pd-text-secondary">
+                        {s.camera_code}
+                      </div>
+                      <div className="text-pd-text-tertiary">
+                        sim {s.similarity.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {rv ? (
+                    <div className="mt-1.5 text-pd-text-tertiary">
+                      {rv.action === "confirm" ? "Confirmed" : "Rejected"}
+                      {rv.action === "confirm" && rv.res.edges_bumped > 0 && (
+                        <span> · +{rv.res.edges_bumped} edge(s)</span>
+                      )}
+                      <div className="truncate font-mono" title={rv.res.tx_id}>
+                        tx: {rv.res.tx_id || "—"}
+                      </div>
+                    </div>
+                  ) : s.sighting_id == null ? (
+                    <div className="mt-1.5 text-pd-text-tertiary">
+                      not persisted (DB offline)
+                    </div>
+                  ) : (
+                    <div className="mt-1.5 flex gap-1.5">
+                      <button
+                        onClick={() => review(s.sighting_id!, "confirm")}
+                        disabled={busy}
+                        className="flex flex-1 items-center justify-center gap-1 rounded border border-pd-success/40 py-1 text-pd-success hover:bg-pd-success/10 disabled:opacity-50"
+                      >
+                        <Check size={11} /> Confirm
+                      </button>
+                      <button
+                        onClick={() => review(s.sighting_id!, "reject")}
+                        disabled={busy}
+                        className="flex flex-1 items-center justify-center gap-1 rounded border border-pd-danger/40 py-1 text-pd-danger hover:bg-pd-danger/10 disabled:opacity-50"
+                      >
+                        <X size={11} /> Reject
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );

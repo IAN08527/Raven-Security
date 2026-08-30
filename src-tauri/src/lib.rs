@@ -52,6 +52,7 @@ pub fn run() {
             commands::cctv::get_routine,
             commands::cctv::start_tracking,
             commands::cctv::lock_on_target,
+            commands::cctv::confirm_sighting,
             commands::cctv::stop_tracking,
             commands::graph::rebuild_graph,
             commands::audit::get_audit_trail,

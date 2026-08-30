@@ -84,6 +84,14 @@ export interface LockResult {
   ledger_status: string;
 }
 
+export interface ConfirmResult {
+  review_id: number;
+  tx_id: string;
+  ledger_status: string;
+  edges_bumped: number;
+  evidence_written: number;
+}
+
 export interface CVBox {
   track_id: number;
   x: number;
