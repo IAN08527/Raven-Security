@@ -6,54 +6,37 @@ import { invokeRaven } from "../../hooks/useInvoke";
 import { useCaseStore } from "../../store/case";
 import type { EgoGraph, GraphNode } from "../../types/generated";
 
-// Matte Technical Color Palette matching Dribbble Reference (Flat, No Blur)
-const MATTE_COLORS: Record<string, string> = {
-  PERSON: "#dc2626",       // Crimson Red (Kingpins / Accused)
-  ACCOUNT: "#2563eb",      // Royal Blue (Hawala / Bank Accounts)
-  ORGANIZATION: "#d97706", // Amber Gold (FIRs / Shell Companies)
-  LOCATION: "#16a34a",     // Emerald Green (Safehouses / Command Base)
-  VEHICLE: "#9333ea",      // Tactical Purple (Crime Vehicles)
-  SATELLITE: "#475569",    // Slate Gray (Micro Evidence Nodes)
+// Color-coded classification
+const ENTITY_COLORS: Record<string, string> = {
+  PERSON: "#dc2626",       // Crimson Red (Dominant Highlight - Criminals/Suspects)
+  ORGANIZATION: "#d97706", // Amber Gold (FIR Cases & Shell Companies)
+  ACCOUNT: "#2563eb",      // Royal Blue (Hawala & Bank Accounts)
+  LOCATION: "#16a34a",     // Forest Green (Safehouses & Bases)
+  VEHICLE: "#9333ea",      // Tactical Purple (Vehicles)
+  SATELLITE: "#475569",    // Slate Gray (Micro Evidence Pings)
 };
 
 export function GraphPane() {
   const caseId = useCaseStore((s) => s.caseId) || "OP-RAVEN-01";
-  const hops = useCaseStore((s) => s.hops);
   const minWeight = useCaseStore((s) => s.minWeight);
-  const setMinWeight = useCaseStore((s) => s.setMinWeight);
   const layerFilters = useCaseStore((s) => s.layerFilters);
   const setLayerFilter = useCaseStore((s) => s.setLayerFilter);
   const openTab = useCaseStore((s) => s.openTab);
 
   const [layoutName, setLayoutName] = useState<string>("cose");
-  const [timelineYear, setTimelineYear] = useState<number>(2024);
   const [zoomScale, setZoomScale] = useState<number>(1.0);
   const [showFilterDrawer, setShowFilterDrawer] = useState<boolean>(false);
   const [showLegend, setShowLegend] = useState<boolean>(false);
 
-  // Selected node for HUD card & intelligence drawer
+  // Intelligence Flyout Panel: INITIALLY CLOSED (null) per user instruction
   const [selectedNodeData, setSelectedNodeData] = useState<{
     id: string;
     label: string;
     type: string;
     degree: number;
     threatWeight: number;
-    x?: number;
-    y?: number;
     evidence: { logId: string; time: string; text: string }[];
-  } | null>({
-    id: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332",
-    label: "Rakesh Sawant",
-    type: "PERSON",
-    degree: 22,
-    threatWeight: 92,
-    evidence: [
-      { logId: "LOG-0842", time: "2024-03-12 14:32", text: "Co-accused with Vikram Patel in FIR-102 (Sec 302/384)" },
-      { logId: "LOG-0843", time: "2024-03-14 09:15", text: "47 Phone calls logged with Mohd. Khan (Tower MH-MUM-0847)" },
-      { logId: "LOG-0844", time: "2024-03-18 22:40", text: "Hawala UPI Transfer Rs 2,40,000 to QuickPay Solutions" },
-      { logId: "LOG-0845", time: "2024-03-20 18:10", text: "CCTV Vehicle match Scorpio MH-02-AB-1234 at Dharavi Tollgate" },
-    ],
-  });
+  } | null>(null);
 
   const cyRef = useRef<Core | null>(null);
 
@@ -70,67 +53,86 @@ export function GraphPane() {
     staleTime: 60_000,
   });
 
-  // Build high-density Cytoscape elements with satellite micro-nodes
+  // Build high-density Cytoscape elements with clear visual hierarchy
   const elements = useMemo<ElementDefinition[]>(() => {
     const data = graphQuery.data;
 
-    // Rich fallback network constellation if backend data is loading
-    const defaultNodes: ElementDefinition[] = [
-      { data: { id: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", label: "Rakesh Sawant", type: "PERSON", degree: 22, size: 48, shape: "hexagon" } },
-      { data: { id: "8c35e396-4191-5369-9c5c-7ec65df27d5e", label: "Vikram Patel", type: "PERSON", degree: 18, size: 44, shape: "hexagon" } },
-      { data: { id: "p3", label: "Mohd. Khan", type: "PERSON", degree: 12, size: 40, shape: "hexagon" } },
-      { data: { id: "p4", label: "FIR-102 (Dharavi)", type: "ORGANIZATION", degree: 15, size: 44, shape: "octagon" } },
-      { data: { id: "p5", label: "QuickPay Hawala", type: "ACCOUNT", degree: 8, size: 36, shape: "hexagon" } },
-      { data: { id: "p6", label: "Dharavi HQ", type: "LOCATION", degree: 7, size: 36, shape: "diamond" } },
-      { data: { id: "p7", label: "MH-02-AB-1234", type: "VEHICLE", degree: 6, size: 34, shape: "round-rectangle" } },
+    // Rich default network constellation
+    // 1. PRIMARY HIGHLIGHT: Suspects / Criminals (Large, high-prominence nodes)
+    const personNodes: ElementDefinition[] = [
+      { data: { id: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", label: "Rakesh Sawant", type: "PERSON", degree: 22, size: 54, shape: "hexagon" } },
+      { data: { id: "8c35e396-4191-5369-9c5c-7ec65df27d5e", label: "Vikram Patel", type: "PERSON", degree: 18, size: 48, shape: "hexagon" } },
+      { data: { id: "p3", label: "Mohd. Khan", type: "PERSON", degree: 12, size: 44, shape: "hexagon" } },
+      { data: { id: "p8", label: "Deepak Gaikwad", type: "PERSON", degree: 8, size: 40, shape: "hexagon" } },
+      { data: { id: "p9", label: "Anita Roy", type: "PERSON", degree: 6, size: 38, shape: "hexagon" } },
     ];
 
+    // 2. SECONDARY ENTITIES: Institutions, Accounts, Vehicles, Locations (Subordinated in size and opacity)
+    const secondaryNodes: ElementDefinition[] = [
+      { data: { id: "p4", label: "FIR-102 (Dharavi)", type: "ORGANIZATION", degree: 15, size: 28, shape: "octagon" } },
+      { data: { id: "p44", label: "FIR-044 (Hawala)", type: "ORGANIZATION", degree: 10, size: 26, shape: "octagon" } },
+      { data: { id: "p5", label: "QuickPay Solutions", type: "ACCOUNT", degree: 8, size: 24, shape: "hexagon" } },
+      { data: { id: "p5b", label: "HDFC-0012948", type: "ACCOUNT", degree: 5, size: 22, shape: "hexagon" } },
+      { data: { id: "p6", label: "Dharavi Base HQ", type: "LOCATION", degree: 7, size: 26, shape: "diamond" } },
+      { data: { id: "p6b", label: "Safehouse-402 (Andheri)", type: "LOCATION", degree: 4, size: 22, shape: "diamond" } },
+      { data: { id: "p7", label: "Scorpio (MH-02-AB-1234)", type: "VEHICLE", degree: 6, size: 24, shape: "round-rectangle" } },
+      { data: { id: "p7b", label: "Creta (MH-01-XX-9900)", type: "VEHICLE", degree: 3, size: 22, shape: "round-rectangle" } },
+    ];
+
+    // Main structural edges
     const defaultEdges: ElementDefinition[] = [
-      { data: { id: "e1", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "8c35e396-4191-5369-9c5c-7ec65df27d5e", label: "CO_ACCUSED (35)", w: 2.5 } },
+      { data: { id: "e1", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "8c35e396-4191-5369-9c5c-7ec65df27d5e", label: "CO_ACCUSED (35)", w: 2.2 } },
       { data: { id: "e2", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "p3", label: "CALLS_47 (20)", w: 1.8 } },
-      { data: { id: "e3", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "p4", label: "NAMED_IN (25)", w: 2.2 } },
-      { data: { id: "e4", source: "8c35e396-4191-5369-9c5c-7ec65df27d5e", target: "p5", label: "WIRE_RS2.4L (18)", w: 1.6 } },
-      { data: { id: "e5", source: "p3", target: "p6", label: "SAFEHOUSE (12)", w: 1.4 } },
-      { data: { id: "e6", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "p7", label: "OWNED_BY (15)", w: 1.5 } },
-      { data: { id: "e7", source: "8c35e396-4191-5369-9c5c-7ec65df27d5e", target: "p4", label: "CO_ACCUSED (30)", w: 2.0 } },
+      { data: { id: "e3", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "p4", label: "NAMED_IN (25)", w: 1.8 } },
+      { data: { id: "e4", source: "8c35e396-4191-5369-9c5c-7ec65df27d5e", target: "p5", label: "WIRE_RS2.4L (18)", w: 1.5 } },
+      { data: { id: "e4b", source: "8c35e396-4191-5369-9c5c-7ec65df27d5e", target: "p5b", label: "DIRECT_TXN (12)", w: 1.2 } },
+      { data: { id: "e5", source: "p3", target: "p6", label: "SAFEHOUSE (12)", w: 1.3 } },
+      { data: { id: "e5b", source: "p3", target: "p6b", label: "STORAGE (8)", w: 1.0 } },
+      { data: { id: "e6", source: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", target: "p7", label: "OWNED_BY (15)", w: 1.4 } },
+      { data: { id: "e6b", source: "8c35e396-4191-5369-9c5c-7ec65df27d5e", target: "p7b", label: "REGISTERED (10)", w: 1.2 } },
+      { data: { id: "e7", source: "8c35e396-4191-5369-9c5c-7ec65df27d5e", target: "p4", label: "CO_ACCUSED (30)", w: 1.8 } },
+      { data: { id: "e8", source: "p8", target: "p7", label: "DRIVER (14)", w: 1.2 } },
+      { data: { id: "e9", source: "p9", target: "p44", label: "DIRECTOR (20)", w: 1.4 } },
+      { data: { id: "e10", source: "p9", target: "8c35e396-4191-5369-9c5c-7ec65df27d5e", label: "ACCOUNTANT (16)", w: 1.3 } },
     ];
 
-    // Add 40+ micro satellite evidence nodes to create the authentic Dribbble spiderweb constellation
-    const hubs = ["0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", "8c35e396-4191-5369-9c5c-7ec65df27d5e", "p3", "p4", "p5", "p6", "p7"];
-    const satelliteLabels = [
-      "CDR-8842", "UPI-2.4L", "Safehouse-402", "Aadhaar-4521", "Wire-8492", "Sim-Jio98", "HDFC-0012",
-      "Toll-Vashi", "CCTV-Cam01", "DK-Deepak", "A.Roy", "S.Gupta", "M.Nair", "R.More", "SIM-Burner2",
-      "Cash-Drop", "NAFIS-Hit", "Arms-9mm", "Bandra-Term", "Gaikwad", "Deshmukh", "Hawala-Dubai", "Call-47x"
+    // Add spaced-out micro satellite evidence nodes
+    const satelliteNodes: ElementDefinition[] = [];
+    const satelliteEdges: ElementDefinition[] = [];
+    const mainHubs = ["0a5f9733-d8c7-5ea7-a36c-94fbba2ec332", "8c35e396-4191-5369-9c5c-7ec65df27d5e", "p3", "p8", "p9"];
+    const satLabels = [
+      "CDR-8842", "UPI-2.4L", "Aadhaar-4521", "Wire-8492", "Sim-Jio98", "HDFC-0012",
+      "Toll-Vashi", "CCTV-Cam01", "Arms-9mm", "Bandra-Term", "Hawala-Dubai", "Call-47x", "Tower-0847"
     ];
 
-    hubs.forEach((hubId, hIdx) => {
-      for (let i = 0; i < 6; i++) {
+    mainHubs.forEach((hubId, hIdx) => {
+      for (let i = 0; i < 4; i++) {
         const satId = `sat-${hubId}-${i}`;
-        const label = satelliteLabels[(hIdx * 6 + i) % satelliteLabels.length];
-        defaultNodes.push({
+        const label = satLabels[(hIdx * 4 + i) % satLabels.length];
+        satelliteNodes.push({
           data: {
             id: satId,
             label,
             type: "SATELLITE",
             degree: 1,
-            size: 14,
+            size: 10,
             shape: "ellipse",
           },
         });
-        defaultEdges.push({
+        satelliteEdges.push({
           data: {
             id: `e-${satId}`,
             source: hubId,
             target: satId,
             label: "",
-            w: 0.6,
+            w: 0.5,
           },
         });
       }
     });
 
     if (!data || !data.nodes || data.nodes.length === 0) {
-      return [...defaultNodes, ...defaultEdges];
+      return [...personNodes, ...secondaryNodes, ...satelliteNodes, ...defaultEdges, ...satelliteEdges];
     }
 
     // Filter nodes based on user layer checkboxes
@@ -142,47 +144,41 @@ export function GraphPane() {
     allowedTypes.add("SATELLITE");
 
     const validNodeIds = new Set<string>();
-    const nodes: ElementDefinition[] = [];
+    const liveNodes: ElementDefinition[] = [];
 
     for (const n of data.nodes) {
       if (allowedTypes.has(n.type)) {
         validNodeIds.add(n.id);
         const isPerson = n.type === "PERSON";
-        nodes.push({
+        liveNodes.push({
           data: {
             id: n.id,
             label: n.label,
             type: n.type,
             degree: n.degree || 5,
-            size: isPerson ? Math.max(38, 38 + (n.degree || 0) * 3) : Math.max(30, 30 + (n.degree || 0) * 2),
+            size: isPerson ? Math.max(46, 46 + (n.degree || 0) * 3) : Math.max(22, 22 + (n.degree || 0) * 1.5),
             shape: isPerson ? "hexagon" : n.type === "ORGANIZATION" ? "octagon" : n.type === "ACCOUNT" ? "hexagon" : n.type === "LOCATION" ? "diamond" : "round-rectangle",
           },
         });
       }
     }
 
-    const edges: ElementDefinition[] = [];
+    const liveEdges: ElementDefinition[] = [];
     for (const e of data.edges) {
       if (validNodeIds.has(e.source) && validNodeIds.has(e.target)) {
-        edges.push({
+        liveEdges.push({
           data: {
             id: e.id,
             source: e.source,
             target: e.target,
             label: `${e.type} (${e.weight})`,
-            w: Math.max(0.6, Math.min(3.5, 0.6 + e.weight / 12)),
+            w: Math.max(0.6, Math.min(3.0, 0.6 + e.weight / 14)),
           },
         });
       }
     }
 
-    // Merge in satellite constellation nodes for rich background density
-    return [
-      ...nodes,
-      ...edges,
-      ...defaultNodes.filter((n) => n.data.type === "SATELLITE"),
-      ...defaultEdges.filter((e) => (e.data.id || "").startsWith("e-sat-")),
-    ];
+    return [...liveNodes, ...liveEdges, ...satelliteNodes, ...satelliteEdges];
   }, [graphQuery.data, layerFilters]);
 
   // Handle Layout & Interactive Events on Cy instance
@@ -190,15 +186,17 @@ export function GraphPane() {
     const cy = cyRef.current;
     if (!cy) return;
 
+    // SPATIOUS FORCE LAYOUT: High node repulsion to keep everything spaced out clearly
     const layout = cy.layout({
       name: layoutName,
       animate: false,
-      padding: 50,
-      nodeRepulsion: () => 9500,
-      idealEdgeLength: () => 90,
+      padding: 70,
+      nodeRepulsion: () => 24000,
+      idealEdgeLength: () => 160,
+      edgeElasticity: () => 32,
+      gravity: 0.25,
     } as any);
     layout.run();
-
 
     // Zoom listener to update HUD zoom scale
     cy.on("zoom", () => {
@@ -209,22 +207,24 @@ export function GraphPane() {
     cy.on("select", "node", (evt) => {
       const node = evt.target;
       const data = node.data();
-      const pos = node.renderedPosition();
 
       setSelectedNodeData({
         id: data.id,
         label: data.label,
         type: data.type,
-        degree: data.degree || 12,
-        threatWeight: data.type === "PERSON" ? 92 : 65,
-        x: pos.x,
-        y: pos.y,
+        degree: data.degree || 8,
+        threatWeight: data.type === "PERSON" ? 92 : data.type === "ORGANIZATION" ? 85 : 60,
         evidence: [
-          { logId: "LOG-0842", time: "2024-03-12 14:32", text: `Active associate linked in FIR-102 record (Weight: ${data.degree || 12})` },
+          { logId: "LOG-0842", time: "2024-03-12 14:32", text: `Active connection established in case record (Connection Weight: ${data.degree || 8})` },
           { logId: "LOG-0843", time: "2024-03-14 09:15", text: `Telecom CDR ping match Tower MH-MUM-0847` },
-          { logId: "LOG-0844", time: "2024-03-18 22:40", text: `Bank wire transaction record verified on-chain` },
+          { logId: "LOG-0844", time: "2024-03-18 22:40", text: `Financial transaction trail verified on-chain` },
         ],
       });
+    });
+
+    // Unselect / click background: close flyout
+    cy.on("unselect", () => {
+      // Keep selected unless explicit close or background tap
     });
 
     // Double-click node: open full suspect profile tab
@@ -262,44 +262,120 @@ export function GraphPane() {
           }}
           className="h-full w-full"
           stylesheet={[
-            // General Node Styles (Flat Technical Precision)
+            // 1. PRIMARY HIGHLIGHT: PERSON / SUSPECT (Prominent, High Intensity)
             {
-              selector: "node",
+              selector: "node[type = 'PERSON']",
               style: {
                 width: "data(size)",
                 height: "data(size)",
-                shape: "data(shape)" as any,
-                "background-color": (ele: any) => MATTE_COLORS[ele.data("type")] || "#475569",
-                "border-width": 1.2,
+                shape: "hexagon",
+                "background-color": ENTITY_COLORS.PERSON,
+                "border-width": 2,
                 "border-color": "#ffffff",
-                label: "data(degree)",
+                label: "data(label)",
                 color: "#ffffff",
-                "font-family": "JetBrains Mono",
+                "font-family": "Inter",
                 "font-size": 11,
                 "font-weight": "bold",
-                "text-valign": "center",
-                "text-halign": "center",
-                opacity: 0.95,
+                "text-valign": "top",
+                "text-margin-y": -6,
+                opacity: 1,
               },
             },
-            // Micro Satellite Nodes (Delicate, faint micro dots)
+            // Secondary Entities: Organizations / FIRs (Subordinated)
+            {
+              selector: "node[type = 'ORGANIZATION']",
+              style: {
+                width: "data(size)",
+                height: "data(size)",
+                shape: "octagon",
+                "background-color": ENTITY_COLORS.ORGANIZATION,
+                "border-width": 1,
+                "border-color": "#ffffff",
+                label: "data(label)",
+                color: "#f59e0b",
+                "font-family": "JetBrains Mono",
+                "font-size": 8.5,
+                "text-valign": "bottom",
+                "text-margin-y": 4,
+                opacity: 0.85,
+              },
+            },
+            // Secondary Entities: Bank Accounts / Hawala (Subordinated)
+            {
+              selector: "node[type = 'ACCOUNT']",
+              style: {
+                width: "data(size)",
+                height: "data(size)",
+                shape: "hexagon",
+                "background-color": ENTITY_COLORS.ACCOUNT,
+                "border-width": 1,
+                "border-color": "#ffffff",
+                label: "data(label)",
+                color: "#60a5fa",
+                "font-family": "JetBrains Mono",
+                "font-size": 8,
+                "text-valign": "bottom",
+                "text-margin-y": 4,
+                opacity: 0.85,
+              },
+            },
+            // Secondary Entities: Locations / Safehouses (Subordinated)
+            {
+              selector: "node[type = 'LOCATION']",
+              style: {
+                width: "data(size)",
+                height: "data(size)",
+                shape: "diamond",
+                "background-color": ENTITY_COLORS.LOCATION,
+                "border-width": 1,
+                "border-color": "#ffffff",
+                label: "data(label)",
+                color: "#4ade80",
+                "font-family": "JetBrains Mono",
+                "font-size": 8,
+                "text-valign": "bottom",
+                "text-margin-y": 4,
+                opacity: 0.85,
+              },
+            },
+            // Secondary Entities: Vehicles (Subordinated)
+            {
+              selector: "node[type = 'VEHICLE']",
+              style: {
+                width: "data(size)",
+                height: "data(size)",
+                shape: "round-rectangle",
+                "background-color": ENTITY_COLORS.VEHICLE,
+                "border-width": 1,
+                "border-color": "#ffffff",
+                label: "data(label)",
+                color: "#c084fc",
+                "font-family": "JetBrains Mono",
+                "font-size": 8,
+                "text-valign": "bottom",
+                "text-margin-y": 4,
+                opacity: 0.85,
+              },
+            },
+            // Micro Satellite Evidence Nodes (Delicate, faint micro dots)
             {
               selector: "node[type = 'SATELLITE']",
               style: {
-                width: 10,
-                height: 10,
-                "background-color": "#475569",
+                width: 8,
+                height: 8,
+                "background-color": ENTITY_COLORS.SATELLITE,
                 "border-width": 0,
                 label: "data(label)",
                 color: "#64748b",
-                "font-size": 7,
+                "font-size": 6.5,
                 "font-family": "JetBrains Mono",
                 "text-valign": "top",
-                "text-margin-y": -3,
-                opacity: 0.45,
+                "text-margin-y": -2,
+                opacity: 0.4,
               },
             },
-            // Selected Node (Flat Neon-Lime Focus)
+            // Selected Node State (Radiant Focus)
             {
               selector: "node:selected",
               style: {
@@ -310,18 +386,18 @@ export function GraphPane() {
                 opacity: 1,
               },
             },
-            // Edges: Hairline Delicate Spiderweb
+            // Delicate Hairline Edges
             {
               selector: "edge",
               style: {
                 width: "data(w)",
                 "line-color": "#1e293b",
                 "curve-style": "bezier",
-                opacity: 0.35,
+                opacity: 0.4,
                 "target-arrow-shape": "none",
               },
             },
-            // Active / Selected Connected Edges
+            // Active Selected Connected Edges
             {
               selector: "edge:selected",
               style: {
@@ -353,7 +429,7 @@ export function GraphPane() {
             onChange={(e) => setLayoutName(e.target.value)}
             className="h-8 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-2.5 text-[11px] font-mono font-semibold uppercase text-pd-text-primary focus:border-pd-accent focus:outline-none shadow-lg cursor-pointer"
           >
-            <option value="cose">LAYOUT: FORCE (COSE)</option>
+            <option value="cose">LAYOUT: FORCE (SPATIOUS)</option>
             <option value="concentric">LAYOUT: CONCENTRIC</option>
             <option value="circle">LAYOUT: CIRCLE</option>
             <option value="breadthfirst">LAYOUT: HIERARCHICAL</option>
@@ -366,7 +442,7 @@ export function GraphPane() {
           <button
             onClick={() => {
               if (cyRef.current) {
-                cyRef.current.fit(undefined, 40);
+                cyRef.current.fit(undefined, 50);
               }
             }}
             className="flex h-8 items-center gap-1.5 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-3 text-[10px] font-mono font-bold uppercase tracking-wider text-pd-text-secondary hover:text-pd-text-primary hover:border-pd-border transition-colors shadow-lg"
@@ -407,22 +483,9 @@ export function GraphPane() {
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-pd-text-primary cursor-pointer">
                 <input type="checkbox" checked disabled className="accent-pd-accent rounded" />
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[#dc2626]" />
-                  People / Suspects (Locked ON)
-                </span>
-              </label>
-
-              <label className="flex items-center gap-2 text-pd-text-secondary hover:text-pd-text-primary cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={layerFilters.accounts}
-                  onChange={(e) => setLayerFilter("accounts", e.target.checked)}
-                  className="accent-pd-accent rounded"
-                />
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-sm bg-[#2563eb]" />
-                  Hawala / Bank Accounts
+                <span className="flex items-center gap-2 font-bold">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#dc2626]" />
+                  People / Suspects (Main Focus)
                 </span>
               </label>
 
@@ -434,8 +497,21 @@ export function GraphPane() {
                   className="accent-pd-accent rounded"
                 />
                 <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-sm bg-[#d97706]" />
+                  <span className="h-2 w-2 rounded-xs bg-[#d97706]" />
                   FIR Cases & Institutions
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 text-pd-text-secondary hover:text-pd-text-primary cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={layerFilters.accounts}
+                  onChange={(e) => setLayerFilter("accounts", e.target.checked)}
+                  className="accent-pd-accent rounded"
+                />
+                <span className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-xs bg-[#2563eb]" />
+                  Hawala / Bank Accounts
                 </span>
               </label>
 
@@ -447,7 +523,7 @@ export function GraphPane() {
                   className="accent-pd-accent rounded"
                 />
                 <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-sm bg-[#9333ea]" />
+                  <span className="h-2 w-2 rounded-xs bg-[#9333ea]" />
                   Vehicle Fleets
                 </span>
               </label>
@@ -455,8 +531,8 @@ export function GraphPane() {
           </div>
         )}
 
-        {/* 5. BOTTOM LEFT HUD (LEGEND BUTTON) */}
-        <div className="absolute bottom-16 left-4 z-30">
+        {/* 5. BOTTOM-LEFT HUD (LEGEND BUTTON) */}
+        <div className="absolute bottom-4 left-4 z-30">
           <button
             onClick={() => setShowLegend(!showLegend)}
             className="flex h-7 items-center gap-1.5 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-2.5 text-[10px] font-mono font-bold uppercase tracking-wider text-pd-text-secondary hover:text-pd-text-primary shadow-lg"
@@ -468,96 +544,66 @@ export function GraphPane() {
           </button>
 
           {showLegend && (
-            <div className="mt-2 rounded-sm border border-pd-border bg-[#0d1117]/95 backdrop-blur p-2.5 text-[10px] font-mono space-y-1.5 shadow-2xl">
-              <div className="flex items-center gap-2 text-pd-text-secondary">
-                <span className="h-2.5 w-2.5 bg-[#dc2626] rounded-xs" />
-                Person (Red Hexagon)
+            <div className="mt-2 rounded-sm border border-pd-border bg-[#0d1117]/95 backdrop-blur p-3 text-[10px] font-mono space-y-2 shadow-2xl">
+              <div className="flex items-center gap-2 text-pd-text-primary font-bold border-b border-pd-border/60 pb-1.5">
+                <span className="h-3 w-3 bg-[#dc2626] rounded-xs border border-white" />
+                <span>Suspect / Criminal (Main Highlight)</span>
               </div>
               <div className="flex items-center gap-2 text-pd-text-secondary">
-                <span className="h-2.5 w-2.5 bg-[#2563eb] rounded-xs" />
-                Hawala / Bank (Blue Hexagon)
+                <span className="h-2 w-2 bg-[#d97706] rounded-xs" />
+                <span>FIR Case / Shell Co (Secondary)</span>
               </div>
               <div className="flex items-center gap-2 text-pd-text-secondary">
-                <span className="h-2.5 w-2.5 bg-[#d97706] rounded-xs" />
-                FIR Case (Amber Octagon)
+                <span className="h-2 w-2 bg-[#2563eb] rounded-xs" />
+                <span>Bank / Hawala Account (Secondary)</span>
               </div>
               <div className="flex items-center gap-2 text-pd-text-secondary">
-                <span className="h-2.5 w-2.5 bg-[#16a34a] rounded-xs" />
-                Location Node (Green Diamond)
+                <span className="h-2 w-2 bg-[#16a34a] rounded-xs" />
+                <span>Safehouse / Location (Secondary)</span>
               </div>
               <div className="flex items-center gap-2 text-pd-text-secondary">
-                <span className="h-2.5 w-2.5 bg-[#9333ea] rounded-xs" />
-                Vehicle (Purple Rect)
+                <span className="h-2 w-2 bg-[#9333ea] rounded-xs" />
+                <span>Vehicle Fleet (Secondary)</span>
+              </div>
+              <div className="flex items-center gap-2 text-pd-text-tertiary">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#475569]" />
+                <span>Micro Evidence Satellite</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* 6. BOTTOM HORIZONTAL TIMELINE HUD BAR */}
-        <div className="absolute bottom-3 inset-x-4 z-30 h-10 rounded-sm border border-pd-border bg-[#0d1117]/95 backdrop-blur px-4 flex items-center justify-between shadow-2xl font-mono text-[11px]">
-          {/* Left Timeline Range Indicator */}
-          <div className="flex items-center gap-2">
-            <span className="text-pd-text-tertiary uppercase font-bold text-[10px] tracking-wider">
-              TIMELINE:
-            </span>
-            <span className="px-2 py-0.5 rounded bg-pd-elevated text-pd-text-primary font-bold border border-pd-border text-[10px]">
-              2021
-            </span>
-            <span className="text-pd-text-tertiary">→</span>
-            <span className="px-2 py-0.5 rounded bg-pd-elevated text-pd-accent font-bold border border-pd-accent/60 text-[10px]">
-              {timelineYear}
-            </span>
-          </div>
-
-          {/* Center Timeline Ruler Slider */}
-          <div className="flex-1 mx-8 flex items-center gap-3">
-            <span className="text-[10px] text-pd-text-tertiary">1980</span>
-            <div className="flex-1 relative flex items-center">
-              <input
-                type="range"
-                min="1980"
-                max="2024"
-                value={timelineYear}
-                onChange={(e) => setTimelineYear(Number(e.target.value))}
-                className="w-full accent-pd-accent h-1.5 bg-[#1e293b] rounded cursor-pointer"
-              />
-            </div>
-            <span className="text-[10px] text-pd-text-tertiary">2024</span>
-          </div>
-
-          {/* Right Interactive Zoom Controls + Scale Display */}
-          <div className="flex items-center gap-2">
-            <span className="text-pd-text-tertiary font-bold text-[10px]">
-              {zoomScale.toFixed(2)}x
-            </span>
-            <button
-              onClick={() => {
-                if (cyRef.current) {
-                  cyRef.current.zoom(cyRef.current.zoom() * 0.85);
-                }
-              }}
-              className="h-6 w-6 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary border border-pd-border flex items-center justify-center font-bold"
-              title="Zoom Out"
-            >
-              -
-            </button>
-            <button
-              onClick={() => {
-                if (cyRef.current) {
-                  cyRef.current.zoom(cyRef.current.zoom() * 1.15);
-                }
-              }}
-              className="h-6 w-6 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary border border-pd-border flex items-center justify-center font-bold"
-              title="Zoom In"
-            >
-              +
-            </button>
-          </div>
+        {/* 6. BOTTOM-RIGHT MINIMAL ZOOM CONTROLS */}
+        <div className="absolute bottom-4 right-4 z-30 flex items-center gap-1.5 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-2.5 py-1 text-pd-xs font-mono shadow-lg">
+          <span className="text-pd-text-tertiary font-bold text-[10px] mr-1">
+            {zoomScale.toFixed(2)}x
+          </span>
+          <button
+            onClick={() => {
+              if (cyRef.current) {
+                cyRef.current.zoom(cyRef.current.zoom() * 0.85);
+              }
+            }}
+            className="h-5 w-5 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary border border-pd-border flex items-center justify-center font-bold text-xs"
+            title="Zoom Out"
+          >
+            -
+          </button>
+          <button
+            onClick={() => {
+              if (cyRef.current) {
+                cyRef.current.zoom(cyRef.current.zoom() * 1.15);
+              }
+            }}
+            className="h-5 w-5 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary border border-pd-border flex items-center justify-center font-bold text-xs"
+            title="Zoom In"
+          >
+            +
+          </button>
         </div>
-
       </div>
 
-      {/* 7. RIGHT CONTEXTUAL INTELLIGENCE FLYOUT DRAWER */}
+      {/* 7. CONTEXTUAL INTELLIGENCE FLYOUT DRAWER (INITIALLY CLOSED, OPENS ON CLICK) */}
       {selectedNodeData && (
         <div className="w-88 border-l border-pd-border bg-[#0d1117] p-5 flex flex-col justify-between select-none shadow-2xl z-30 font-sans animate-in slide-in-from-right-4 duration-150">
           <div className="space-y-4">
@@ -578,8 +624,15 @@ export function GraphPane() {
             <div>
               <div className="text-pd-xl font-bold text-pd-text-primary">{selectedNodeData.label}</div>
               <div className="flex items-center gap-2 mt-1">
-                <span className="rounded bg-pd-danger/15 text-pd-danger font-mono text-[10px] px-2 py-0.5 font-bold border border-pd-danger/30">
-                  {selectedNodeData.type}
+                <span
+                  className="rounded font-mono text-[10px] px-2 py-0.5 font-bold border"
+                  style={{
+                    backgroundColor: `${ENTITY_COLORS[selectedNodeData.type] || "#475569"}20`,
+                    borderColor: `${ENTITY_COLORS[selectedNodeData.type] || "#475569"}50`,
+                    color: ENTITY_COLORS[selectedNodeData.type] || "#c9d1d9",
+                  }}
+                >
+                  {selectedNodeData.type === "PERSON" ? "PRIMARY SUSPECT" : selectedNodeData.type}
                 </span>
                 <span className="font-mono text-pd-xs text-pd-text-tertiary">ID: {selectedNodeData.id.substring(0, 10)}...</span>
               </div>
@@ -589,7 +642,7 @@ export function GraphPane() {
             <div className="grid grid-cols-2 gap-2 font-mono">
               <div className="rounded bg-pd-elevated p-2.5 border border-pd-border">
                 <div className="text-[10px] text-pd-text-tertiary uppercase">Connections</div>
-                <div className="text-pd-lg font-bold text-pd-accent mt-0.5">{selectedNodeData.degree} Deg</div>
+                <div className="text-pd-lg font-bold text-pd-accent mt-0.5">{selectedNodeData.degree} Links</div>
               </div>
               <div className="rounded bg-pd-elevated p-2.5 border border-pd-border">
                 <div className="text-[10px] text-pd-text-tertiary uppercase">Threat Index</div>
