@@ -133,7 +133,21 @@ async def cv_target_register(body: dict):
         body.get("source_camera", ""),
         body.get("watching"),
     )
-    return {"registered": body["target_id"]}
+    # Phase 4 (D8): arm only the adjacent downstream cameras of the source, each
+    # for its travel-time window. A DB hiccup degrades to watching=None (match
+    # everywhere) rather than silently arming nothing.
+    import time as _time
+    from cv import topology
+    source = body.get("source_camera", "")
+    armed = {}
+    if source:
+        try:
+            edges = await topology.predict_handoff(source)
+            armed = topology.compute_windows(edges, _time.time())
+            registry.arm(body["target_id"], armed)
+        except Exception:
+            pass
+    return {"registered": body["target_id"], "armed": list(armed.keys())}
 
 
 @app.delete("/cv/targets/{target_id}")

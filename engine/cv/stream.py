@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from datetime import datetime, timezone
 
 import cv2
@@ -7,6 +8,7 @@ import cv2
 from .detect import detect_persons
 from .match import evaluate_matches
 from .targets import registry
+from . import topology
 
 # Top-level engine module (engine/ is on sys.path when main:app runs). Optional
 # so the stream still serves frames on a box with no asyncpg / DB configured.
@@ -14,6 +16,12 @@ try:
     import db as db_layer
 except Exception:  # pragma: no cover - import guard
     db_layer = None
+
+try:
+    from vram import vram, Lane
+except Exception:  # pragma: no cover - import guard
+    vram = None
+    Lane = None
 
 SIGHTING_DIR = os.path.join("assets", "cctv", "sightings")
 
@@ -31,20 +39,49 @@ def _save_sighting_frame(crop, target_id: str, camera_code: str, ts: str) -> str
         return ""
 
 
-async def _emit_sightings(camera_code, frame, boxes, ws_push) -> None:
-    """Phase 3: match detected people on this camera against active targets.
+async def _rearm_downstream(target_id: str, from_camera: str) -> None:
+    """Phase 4: chain the next hop — arm the sighting camera's downstream cams.
 
-    Above-threshold matches become `reid_sightings` rows + a `cv.sighting` WS
-    event. A DB outage still surfaces the sighting to the officer (D4 posture):
-    the event fires, only the durable row is skipped.
+    A confirmed re-appearance on camN means the target is moving; arm camN's
+    own downstream (cam_02 → cam_04) so the handoff follows the network.
     """
-    targets = registry.for_camera(camera_code)
+    try:
+        import time as _time
+        edges = await topology.predict_handoff(from_camera)
+        windows = topology.compute_windows(edges, _time.time())
+        if windows:
+            registry.arm(target_id, windows)
+    except Exception:
+        pass
+
+
+async def _emit_sightings(camera_code, frame, boxes, ws_push) -> None:
+    """Phase 3 match loop, Phase 4 topology-gated.
+
+    Re-ID runs only on a camera whose travel-time window is currently open for a
+    target (D8) and behind the single CV VRAM lane, so an 8GB GPU never runs
+    more than one Re-ID lane at a time. Above-threshold matches become
+    `reid_sightings` rows + a `cv.sighting` WS event; a match chains the next
+    hop. A DB outage still surfaces the sighting to the officer (D4 posture).
+    """
+    now = time.time()
+    registry.expire(now)  # closed windows free the GPU lane
+    targets = registry.for_camera(camera_code, now)
     if not targets:
         return
     threshold = float(os.environ.get("RAVEN_REID_THRESHOLD", "0.75"))
     cooldown = float(os.environ.get("RAVEN_REID_COOLDOWN_S", "10"))
 
-    for m in evaluate_matches(frame, boxes, targets, threshold):
+    # The embed is the GPU work — hold the CV lane only around it (D8/§6.3).
+    if vram is not None:
+        await vram.acquire(Lane.CV)
+    try:
+        matches = evaluate_matches(frame, boxes, targets, threshold)
+    finally:
+        if vram is not None:
+            vram.release()
+
+    for m in matches:
         target_id = m["target_id"]
         if registry.in_cooldown(target_id, camera_code, cooldown):
             continue
@@ -78,6 +115,10 @@ async def _emit_sightings(camera_code, frame, boxes, ws_push) -> None:
                 "track_id": m.get("track_id"),
             },
         })
+
+        # Phase 4: the target moved — arm this camera's downstream for the
+        # next hop (cam_02 sighting -> arm cam_04).
+        await _rearm_downstream(target_id, camera_code)
 
 
 async def mjpeg_stream(session, ws_push):

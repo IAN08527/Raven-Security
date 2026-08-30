@@ -91,13 +91,17 @@ def main() -> None:
     assert not reg.in_cooldown("t-red", "cam_02", 0), "zero window never suppresses"
     print("cooldown: per-(target, camera), suppresses within window")
 
-    # --- 5. topology gate (Phase 4 seam) ---
+    # --- 5. topology gate (Phase 4): only an armed, in-window camera matches ---
+    # Full window math + expiry + chaining live in tools/test_topology.py; here
+    # we just confirm the registry's camera gate that the match loop rides on.
+    now = 1000.0
     gated = TargetRegistry()
-    register_target(gated, "t-g", RED, watching={"cam_02": {"start": 0}})
-    assert [t["id"] for t in gated.for_camera("cam_02")] == ["t-g"], "armed camera matches"
-    assert gated.for_camera("cam_03") == [], "un-armed camera does not match"
-    assert gated.for_camera("cam_01") == [], "source camera not armed"
-    print("topology gate: only armed downstream camera is matched")
+    win = {"cam_02": {"open_at": now, "close_at": now + 20, "mean_travel_s": 18}}
+    register_target(gated, "t-g", RED, watching=win)
+    assert [t["id"] for t in gated.for_camera("cam_02", now + 5)] == ["t-g"], "armed camera matches in-window"
+    assert gated.for_camera("cam_03", now + 5) == [], "un-armed camera does not match"
+    assert gated.for_camera("cam_02", now + 30) == [], "closed window does not match"
+    print("topology gate: only an armed, in-window camera is matched")
 
     print("\nPHASE 3 PROOF (match loop): PASS")
 

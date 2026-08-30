@@ -108,7 +108,7 @@ The two things that make this *Raven* and not a generic tracker: **D8** (topolog
 
 ---
 
-## Phase 4 — Topology-gated handoff (D8)
+## Phase 4 — Topology-gated handoff (D8) — ✅ DONE (code + mock proof; DB/GPU on demo machine)
 
 **Goal:** Re-ID runs only where and when it should — the VRAM-safety core.
 
@@ -116,7 +116,17 @@ The two things that make this *Raven* and not a generic tracker: **D8** (topolog
 - The match loop (Phase 3) runs Re-ID **only** on cameras currently in `watching`, and only inside the time window. Everything stays behind the existing `vram.acquire(Lane.CV)` mutex.
 - Window expiry clears the watch so the GPU lane frees.
 
-**Exit criteria:** with a target locked on cam_01, only cam_02 (and its window) is armed; cam_03/cam_04 are not running Re-ID; the watch expires on schedule.
+**Exit criteria:** with a target locked on cam_01, only cam_02 (and its window) is armed; cam_03/cam_04 are not running Re-ID; the watch expires on schedule. ✅
+
+**Delivered:**
+- `engine/cv/topology.py` — `predict_handoff(from_camera)` refactored onto the shared `db.get_pool()` (was a raw `asyncpg.connect`), now joins through to the downstream `code`. New pure `compute_windows(edges, now, sigma, pad_s)` → `{cam_code: {open_at, close_at, mean_travel_s}}`; window = `now + mean ± (sigma·stddev + pad)`, floored at `now`. Env `RAVEN_REID_WINDOW_SIGMA` (2.0) / `RAVEN_REID_WINDOW_PAD_S` (3.0).
+- `engine/cv/targets.py` — `watching` is now **time windows**, not a flat set. `arm(target_id, windows)` merges downstream windows (lock-on + each sighting hop); `for_camera(camera, now)` matches only while the camera's window is open; `expire(now)` prunes closed windows so the GPU lane frees; `has_open_windows` reports whether a target is still live. `watching=None` still means match-everywhere (pre-arm only).
+- `engine/main.py` — `/cv/targets/register` now calls `predict_handoff(source_camera)` + `compute_windows` and arms the target with the real downstream windows. DB hiccup degrades to `watching=None`, never silently arms nothing. Returns the `armed` camera list.
+- `engine/cv/stream.py` — `_emit_sightings` is topology-gated: `registry.expire(now)` then `for_camera(camera, now)`; the embed (the GPU work) runs behind `vram.acquire(Lane.CV)` so an 8GB GPU never runs more than one Re-ID lane at a time; `_rearm_downstream` chains the next hop on each sighting (cam_02 sighting → arm cam_04).
+
+**Proof:** `tools/test_topology.py` (mock, no GPU/DB) **PASS** — window math exact (cam_02 `[9,27]s`, cam_03 `[19,41]s`); lock-on cam_01 arms cam_02+cam_03, cam_04 dark; `for_camera` matches cam_02 only inside its window (before/after = no Re-ID); `expire` drops cam_02 at +30s and frees the lane at +50s; a cam_02 sighting chains cam_04. Phases 1–3 proofs still PASS.
+
+**Remaining (demo machine, by design):** live `predict_handoff` DB read + real GPU lane contention across concurrent feeds (the mock proves the gate math + registry state machine). Rust untouched this phase.
 
 ---
 
@@ -171,7 +181,7 @@ _Last updated: 2026-08-30_
 | 1 | Real Re-ID embedding | ✅ Done + proven (mock) |
 | 2 | Lock-on persist + ledger anchor (D9) | ✅ Code done + payload proof · DB/ledger + cargo check pending demo machine |
 | 3 | Sighting match loop | ✅ Code done + proven (mock) · DB/WS + cargo check pending demo machine |
-| 4 | Topology-gated handoff (D8) | ⬜ Not started |
+| 4 | Topology-gated handoff (D8) | ✅ Code done + proven (mock) · DB/GPU pending demo machine |
 | 5 | Human-in-loop confirm + evidence | ⬜ Not started |
 | 6 | Proof & documentation | ⬜ Not started |
 
@@ -204,9 +214,16 @@ _Last updated: 2026-08-30_
 - `src/types/generated.ts`: `CVSighting` shape.
 - Proof `tools/test_sighting.py` PASSES: same outfit = 1 sighting (sim `1.0000`); different outfit = 0; two-person frame attributes only the target; cooldown per-camera; topology gate arms only the right camera. Phases 1 & 2 still PASS.
 
+**Phase 4 — topology-gated handoff (done + proven).**
+- `topology.py`: `predict_handoff` moved onto the shared pool + joins to the downstream code; new pure `compute_windows(edges, now, sigma, pad)` builds `[open, close]` travel-time windows (`now + mean ± (sigma·stddev + pad)`, floored at `now`). Env `RAVEN_REID_WINDOW_SIGMA` / `RAVEN_REID_WINDOW_PAD_S`.
+- `targets.py`: `watching` became time windows. `arm` merges downstream windows (lock-on + sighting chain), `for_camera(cam, now)` gates on the open window, `expire(now)` frees closed windows, `has_open_windows` reports liveness.
+- `main.py`: `/cv/targets/register` arms the real downstream windows via `predict_handoff` + `compute_windows` (DB down → `watching=None`).
+- `stream.py`: `_emit_sightings` expires + gates by window, holds `vram.acquire(Lane.CV)` around the embed (one GPU lane), and `_rearm_downstream` chains the next hop on each sighting.
+- Proof `tools/test_topology.py` PASSES: window math exact; cam_01 lock arms cam_02+cam_03 (cam_04 dark); cam_02 matched only in-window; expiry frees the lane; cam_02 sighting chains cam_04. Phases 1–3 still PASS.
+
 ### What remains
 
-- **Phases 4–6:** not started (see each phase section above for the plan + exit criteria).
+- **Phases 5–6:** not started (see each phase section above for the plan + exit criteria).
 - **Demo-machine-only work (deferred by design, not blockers to building 3–6):**
   - `cargo check -p raven -p raven-core` (no Rust toolchain in this sandbox) + one live lock-on writing the `reid_targets` + `audit_log` rows.
   - Run `python tools/seed_cctv.py` against cloud Supabase (needs `.env` + `pip install -r engine/requirements.txt`). Expect `seeded cameras=4 camera_edges=4`.
