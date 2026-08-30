@@ -32,7 +32,7 @@ interface WebEdge {
   isMain?: boolean;
 }
 
-// 6 Major Tactical Hubs matching the high-contrast geometric style of the Dribbble reference
+// 6 Major Tactical Hubs with flat, crisp matte colors (No glow filters)
 const PRIMARY_HUBS: HubNode[] = [
   {
     id: "hub-sawant",
@@ -42,8 +42,8 @@ const PRIMARY_HUBS: HubNode[] = [
     threatScore: 0.92,
     badgeCount: 22,
     x: 680,
-    y: 160,
-    color: "#e63946", // Crimson Red
+    y: 180,
+    color: "#dc2626", // Matte Crimson Red
     subLabel: "SYNDICATE LEADER",
   },
   {
@@ -53,9 +53,9 @@ const PRIMARY_HUBS: HubNode[] = [
     type: "HAWALA",
     threatScore: 0.62,
     badgeCount: 18,
-    x: 540,
-    y: 220,
-    color: "#2563eb", // Royal Electric Blue
+    x: 520,
+    y: 240,
+    color: "#2563eb", // Matte Electric Blue
     subLabel: "HAWALA OPERATOR",
   },
   {
@@ -64,9 +64,9 @@ const PRIMARY_HUBS: HubNode[] = [
     type: "ORGANIZATION",
     threatScore: 0.85,
     badgeCount: 15,
-    x: 720,
-    y: 200,
-    color: "#dc2626", // Deep Red
+    x: 740,
+    y: 230,
+    color: "#b91c1c", // Matte Deep Red
     subLabel: "ARMED CONSPIRACY",
   },
   {
@@ -77,8 +77,8 @@ const PRIMARY_HUBS: HubNode[] = [
     threatScore: 0.51,
     badgeCount: 12,
     x: 430,
-    y: 450,
-    color: "#d97706", // Amber Gold
+    y: 440,
+    color: "#d97706", // Matte Amber Gold
     subLabel: "ARMS & LOGISTICS",
   },
   {
@@ -87,9 +87,9 @@ const PRIMARY_HUBS: HubNode[] = [
     type: "ORGANIZATION",
     threatScore: 0.44,
     badgeCount: 8,
-    x: 610,
-    y: 310,
-    color: "#0284c7", // Sky Blue
+    x: 600,
+    y: 330,
+    color: "#0284c7", // Matte Sky Blue
     subLabel: "SHELL ROUTING",
   },
   {
@@ -99,13 +99,13 @@ const PRIMARY_HUBS: HubNode[] = [
     threatScore: 0.70,
     badgeCount: 7,
     x: 560,
-    y: 580,
-    color: "#16a34a", // Emerald Green
+    y: 560,
+    color: "#16a34a", // Matte Emerald Green
     subLabel: "COMMAND BASE",
   },
 ];
 
-// Generate dense constellation of 60+ micro satellite nodes clustered organically around hubs
+// Generate dense constellation of 65+ micro satellite nodes clustered organically around hubs
 function generateSatellites(): { satellites: SatelliteNode[]; edges: WebEdge[] } {
   const satellites: SatelliteNode[] = [];
   const edges: WebEdge[] = [];
@@ -129,11 +129,10 @@ function generateSatellites(): { satellites: SatelliteNode[]; edges: WebEdge[] }
   ];
 
   PRIMARY_HUBS.forEach((hub, hIdx) => {
-    // Generate 8-12 satellite nodes orbiting each hub
-    const count = 9;
+    const count = 10;
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * 2 * Math.PI + (hIdx * 0.4);
-      const dist = 45 + ((i * 17) % 55);
+      const dist = 48 + ((i * 19) % 65);
       const satId = `sat-${hub.id}-${i}`;
       const satX = hub.x + Math.cos(angle) * dist + (Math.sin(i * 3) * 10);
       const satY = hub.y + Math.sin(angle) * dist + (Math.cos(i * 2) * 10);
@@ -181,9 +180,15 @@ export function GraphPane() {
   const [selectedHubId, setSelectedHubId] = useState<string>("hub-sawant");
   const [timelineYear, setTimelineYear] = useState<number>(2024);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [zoom, setZoom] = useState<number>(0.88);
   const [showFilterDrawer, setShowFilterDrawer] = useState<boolean>(false);
   const [showLegend, setShowLegend] = useState<boolean>(false);
+
+  // Pan and Zoom interactive state
+  const [zoom, setZoom] = useState<number>(1.0);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const { satellites, edges } = useMemo(() => generateSatellites(), []);
 
@@ -204,53 +209,73 @@ export function GraphPane() {
     return `M ${points.join(" L ")} Z`;
   };
 
+  // Mouse wheel zoom handler (smoothly zooms within the canvas around center/cursor)
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
+    setZoom((prevZoom) => {
+      const nextZoom = Math.min(3.5, Math.max(0.35, prevZoom * zoomFactor));
+      return nextZoom;
+    });
+  };
+
+  // Pan mouse down
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Only pan on left click
+    if (e.button !== 0) return;
+    setIsDragging(true);
+    dragStartRef.current = {
+      x: e.clientX - pan.x,
+      y: e.clientY - pan.y,
+    };
+  };
+
+  // Pan mouse move
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    setPan({
+      x: e.clientX - dragStartRef.current.x,
+      y: e.clientY - dragStartRef.current.y,
+    });
+  };
+
+  // Pan mouse up
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
   return (
     <div className="flex h-full w-full bg-[#05080d] text-pd-text-primary overflow-hidden relative select-none font-sans">
-      {/* FULL CANVAS GRAPH WORKSPACE (DENSE SPIDERWEB MESH) */}
-      <div className="flex-1 h-full relative flex items-center justify-center overflow-hidden">
-        {/* SVG Network Graph Canvas */}
+      {/* INTERACTIVE PAN & ZOOM CANVAS WORKSPACE */}
+      <div
+        ref={containerRef}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        className={`flex-1 h-full relative flex items-center justify-center overflow-hidden ${
+          isDragging ? "cursor-grabbing" : "cursor-grab"
+        }`}
+      >
+        {/* Transformable Canvas Layer */}
         <div
-          className="w-full h-full relative flex items-center justify-center transition-transform duration-300"
-          style={{ transform: `scale(${zoom})` }}
+          className="w-full h-full relative flex items-center justify-center origin-center transition-transform duration-75"
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          }}
         >
           <svg className="w-full h-full" viewBox="0 0 1100 750">
-            <defs>
-              {/* Radial glow filter for major nodes */}
-              <filter id="glow-red" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-              <filter id="glow-lime" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-
-              {/* Radial backdrop glow */}
-              <radialGradient id="mesh-center-glow" cx="60%" cy="40%" r="50%">
-                <stop offset="0%" stopColor="#1e293b" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#05080d" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-
-            {/* Canvas Ambient Center Glow */}
-            <circle cx="580" cy="380" r="450" fill="url(#mesh-center-glow)" />
-
             {/* Micro grid coordinate dots */}
-            <g opacity="0.15">
-              {Array.from({ length: 22 }).map((_, r) =>
-                Array.from({ length: 30 }).map((_, c) => (
-                  <circle key={`dot-${r}-${c}`} cx={c * 40} cy={r * 38} r="0.75" fill="#64748b" />
+            <g opacity="0.12">
+              {Array.from({ length: 24 }).map((_, r) =>
+                Array.from({ length: 34 }).map((_, c) => (
+                  <circle key={`dot-${r}-${c}`} cx={c * 35} cy={r * 34} r="0.7" fill="#64748b" />
                 ))
               )}
             </g>
 
-            {/* 1. DELICATE BACKGROUND SPIDERWEB EDGES (HAIRLINE LINES) */}
+            {/* 1. DELICATE BACKGROUND SPIDERWEB EDGES (HAIRLINE FLAT LINES - NO GLOW) */}
             <g>
               {edges.map((e) => {
                 const srcNode =
@@ -265,7 +290,7 @@ export function GraphPane() {
                 const isConnectedToSelected =
                   e.source === selectedHubId || e.target === selectedHubId;
 
-                // Glowing Neon-Lime Ray line if connected to active node
+                // Crisp Flat Neon-Lime Ray line if connected to active node
                 if (isConnectedToSelected) {
                   return (
                     <line
@@ -274,10 +299,10 @@ export function GraphPane() {
                       y1={srcNode.y}
                       x2={dstNode.x}
                       y2={dstNode.y}
-                      stroke="#86efac"
-                      strokeWidth="1.5"
-                      strokeDasharray="4 3"
-                      opacity="0.9"
+                      stroke="#4ade80"
+                      strokeWidth="1.2"
+                      strokeDasharray="3 3"
+                      opacity="0.95"
                     />
                   );
                 }
@@ -290,8 +315,8 @@ export function GraphPane() {
                     x2={dstNode.x}
                     y2={dstNode.y}
                     stroke={e.isMain ? "#334155" : "#1e293b"}
-                    strokeWidth={e.isMain ? "1.0" : "0.6"}
-                    opacity={e.isMain ? 0.6 : 0.25}
+                    strokeWidth={e.isMain ? "0.9" : "0.5"}
+                    opacity={e.isMain ? 0.6 : 0.22}
                   />
                 );
               })}
@@ -306,18 +331,18 @@ export function GraphPane() {
                     <circle
                       cx={sat.x}
                       cy={sat.y}
-                      r={isSelectedCluster ? sat.size + 1 : sat.size}
-                      fill={isSelectedCluster ? "#86efac" : "#64748b"}
-                      opacity={isSelectedCluster ? 0.9 : 0.5}
+                      r={isSelectedCluster ? sat.size + 0.8 : sat.size}
+                      fill={isSelectedCluster ? "#4ade80" : "#64748b"}
+                      opacity={isSelectedCluster ? 0.95 : 0.45}
                     />
                     <text
                       x={sat.x}
                       y={sat.y - 4}
                       textAnchor="middle"
                       fill={isSelectedCluster ? "#cbd5e1" : "#475569"}
-                      fontSize="7.5"
+                      fontSize="7"
                       fontFamily="JetBrains Mono"
-                      opacity={isSelectedCluster ? 0.9 : 0.4}
+                      opacity={isSelectedCluster ? 0.9 : 0.35}
                     >
                       {sat.label}
                     </text>
@@ -326,48 +351,37 @@ export function GraphPane() {
               })}
             </g>
 
-            {/* 3. PRIMARY GEOMETRIC HEXAGON HUBS (MATCHING DRIBBLE DESIGN) */}
+            {/* 3. PRIMARY FLAT GEOMETRIC HEXAGON HUBS (NO GLOW, CRISP SOLID FILLS) */}
             <g>
               {PRIMARY_HUBS.map((hub) => {
                 const isSelected = hub.id === selectedHubId;
-                const hexRadius = isSelected ? 24 : 20;
+                const hexRadius = isSelected ? 22 : 19;
 
                 return (
                   <g
                     key={hub.id}
-                    onClick={() => setSelectedHubId(hub.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedHubId(hub.id);
+                    }}
                     className="cursor-pointer group"
                   >
-                    {/* Outer radiant halo if selected */}
-                    {isSelected && (
-                      <path
-                        d={getHexagonPath(hub.x, hub.y, hexRadius + 8)}
-                        fill="none"
-                        stroke="#86efac"
-                        strokeWidth="1.5"
-                        strokeDasharray="4 3"
-                        className="animate-spin"
-                        style={{ transformOrigin: `${hub.x}px ${hub.y}px` }}
-                      />
-                    )}
-
-                    {/* Main Hexagon Body */}
+                    {/* Main Flat Hexagon Body */}
                     <path
                       d={getHexagonPath(hub.x, hub.y, hexRadius)}
-                      fill={isSelected ? "#15803d" : hub.color}
-                      stroke={isSelected ? "#86efac" : "#ffffff"}
-                      strokeWidth={isSelected ? "2.5" : "1.5"}
-                      filter={isSelected ? "url(#glow-lime)" : "url(#glow-red)"}
-                      opacity={isSelected ? 1 : 0.92}
+                      fill={isSelected ? "#16a34a" : hub.color}
+                      stroke={isSelected ? "#4ade80" : "#ffffff"}
+                      strokeWidth={isSelected ? "2" : "1.2"}
+                      opacity={isSelected ? 1 : 0.95}
                     />
 
                     {/* White Numerical Badge / Degree Count inside Hexagon */}
                     <text
                       x={hub.x}
-                      y={hub.y + 4.5}
+                      y={hub.y + 4}
                       textAnchor="middle"
                       fill="#ffffff"
-                      fontSize="12"
+                      fontSize="11"
                       fontFamily="JetBrains Mono"
                       fontWeight="bold"
                     >
@@ -377,10 +391,10 @@ export function GraphPane() {
                     {/* Uppercase Name Label Floating Directly Above */}
                     <text
                       x={hub.x}
-                      y={hub.y - hexRadius - 6}
+                      y={hub.y - hexRadius - 5}
                       textAnchor="middle"
-                      fill={isSelected ? "#86efac" : "#f1f5f9"}
-                      fontSize="10"
+                      fill={isSelected ? "#4ade80" : "#f1f5f9"}
+                      fontSize="9.5"
                       fontFamily="Inter"
                       fontWeight="700"
                       className="uppercase tracking-wider"
@@ -391,10 +405,10 @@ export function GraphPane() {
                     {/* Sub-label Role */}
                     <text
                       x={hub.x}
-                      y={hub.y + hexRadius + 11}
+                      y={hub.y + hexRadius + 10}
                       textAnchor="middle"
                       fill="#94a3b8"
-                      fontSize="7.5"
+                      fontSize="7"
                       fontFamily="JetBrains Mono"
                       className="uppercase tracking-tight"
                     >
@@ -405,59 +419,59 @@ export function GraphPane() {
               })}
             </g>
 
-            {/* 4. PINNED IN-CANVAS HUD TOOLTIP CARD (MATCHING KAWASAKI HUD IN DRIBBLE PHOTO) */}
+            {/* 4. PINNED IN-CANVAS HUD TOOLTIP CARD (FLAT CRISP RETICLE) */}
             {selectedHub && (
-              <g transform={`translate(${selectedHub.x + 36}, ${selectedHub.y - 65})`}>
+              <g transform={`translate(${selectedHub.x + 32}, ${selectedHub.y - 60})`}>
                 {/* HUD Background Box */}
                 <rect
                   width="180"
-                  height="135"
-                  rx="3"
+                  height="130"
+                  rx="2"
                   fill="#090d14"
                   stroke="#1e293b"
-                  strokeWidth="1.2"
-                  filter="drop-shadow(0 12px 24px rgba(0,0,0,0.85))"
+                  strokeWidth="1"
                 />
 
                 {/* Top Green Accent Line */}
-                <line x1="0" y1="0" x2="180" y2="0" stroke="#86efac" strokeWidth="2.5" />
+                <line x1="0" y1="0" x2="180" y2="0" stroke="#4ade80" strokeWidth="2" />
 
                 {/* Subtitle / Category */}
-                <text x="12" y="18" fill="#64748b" fontSize="8" fontFamily="JetBrains Mono" fontWeight="700" className="uppercase tracking-widest">
+                <text x="12" y="16" fill="#64748b" fontSize="7.5" fontFamily="JetBrains Mono" fontWeight="700" className="uppercase tracking-widest">
                   CONSTRUCTOR / SYNDICATE
                 </text>
 
                 {/* Timeline Range */}
-                <text x="12" y="32" fill="#94a3b8" fontSize="9" fontFamily="JetBrains Mono">
+                <text x="12" y="30" fill="#94a3b8" fontSize="8.5" fontFamily="JetBrains Mono">
                   1987 — 2024
                 </text>
 
                 {/* Main Name */}
-                <text x="12" y="48" fill="#f8fafc" fontSize="13" fontFamily="Inter" fontWeight="800">
+                <text x="12" y="46" fill="#f8fafc" fontSize="12" fontFamily="Inter" fontWeight="800">
                   {selectedHub.label}
                 </text>
 
                 {/* Divider */}
-                <line x1="12" y1="56" x2="168" y2="56" stroke="#1e293b" strokeWidth="0.8" />
+                <line x1="12" y1="53" x2="168" y2="53" stroke="#1e293b" strokeWidth="0.8" />
 
                 {/* TOTALS Metrics */}
-                <text x="12" y="68" fill="#64748b" fontSize="7.5" fontFamily="JetBrains Mono" fontWeight="700" className="uppercase">
+                <text x="12" y="65" fill="#64748b" fontSize="7" fontFamily="JetBrains Mono" fontWeight="700" className="uppercase">
                   TOTALS
                 </text>
 
-                <text x="12" y="82" fill="#94a3b8" fontSize="8.5" fontFamily="Inter">
+                <text x="12" y="78" fill="#94a3b8" fontSize="8" fontFamily="Inter">
                   Threat Score: <tspan fill="#ef4444" fontWeight="bold">0.92</tspan>
                 </text>
-                <text x="12" y="96" fill="#94a3b8" fontSize="8.5" fontFamily="Inter">
-                  Connected Entities: <tspan fill="#86efac" fontWeight="bold">28</tspan>
+                <text x="12" y="91" fill="#94a3b8" fontSize="8" fontFamily="Inter">
+                  Connected Entities: <tspan fill="#4ade80" fontWeight="bold">28</tspan>
                 </text>
-                <text x="12" y="110" fill="#94a3b8" fontSize="8.5" fontFamily="Inter">
+                <text x="12" y="104" fill="#94a3b8" fontSize="8" fontFamily="Inter">
                   Cases: <tspan fill="#f1f5f9" fontWeight="bold">4</tspan>
                 </text>
 
                 {/* Clickable CTA in HUD */}
                 <g
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     openTab({
                       id: `profile-0a5f9733-d8c7-5ea7-a36c-94fbba2ec332`,
                       type: "profile",
@@ -470,8 +484,8 @@ export function GraphPane() {
                   }}
                   className="cursor-pointer"
                 >
-                  <rect x="12" y="118" width="156" height="12" rx="2" fill="#1e293b" />
-                  <text x="90" y="127" textAnchor="middle" fill="#86efac" fontSize="7.5" fontFamily="Inter" fontWeight="bold">
+                  <rect x="12" y="112" width="156" height="12" rx="2" fill="#1e293b" />
+                  <text x="90" y="121" textAnchor="middle" fill="#4ade80" fontSize="7" fontFamily="Inter" fontWeight="bold">
                     EXPAND FULL PROFILE →
                   </text>
                 </g>
@@ -509,11 +523,12 @@ export function GraphPane() {
           </div>
         </div>
 
-        {/* TOP-RIGHT FLOATING HUD (RESET VIEW / FULLSCREEN) */}
+        {/* TOP-RIGHT FLOATING HUD (RESET VIEW / PAN-ZOOM HELPER) */}
         <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
           <button
             onClick={() => {
-              setZoom(0.88);
+              setZoom(1.0);
+              setPan({ x: 0, y: 0 });
               setSelectedHubId("hub-sawant");
             }}
             className="flex h-8 items-center gap-1.5 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-3 text-[10px] font-mono font-bold uppercase tracking-wider text-pd-text-secondary hover:text-pd-text-primary hover:border-pd-border transition-colors shadow-lg"
@@ -522,15 +537,6 @@ export function GraphPane() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             RESET VIEW
-          </button>
-
-          <button
-            onClick={() => setZoom(zoom === 1 ? 0.88 : 1)}
-            className="flex h-8 w-8 items-center justify-center rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur text-pd-text-secondary hover:text-pd-text-primary shadow-lg"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-            </svg>
           </button>
         </div>
 
@@ -546,7 +552,7 @@ export function GraphPane() {
               <label className="flex items-center gap-2 text-pd-text-primary cursor-pointer">
                 <input type="checkbox" checked disabled className="accent-pd-accent rounded" />
                 <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[#e63946]" />
+                  <span className="h-2 w-2 rounded-full bg-[#dc2626]" />
                   Kingpin Hubs (Locked ON)
                 </span>
               </label>
@@ -608,7 +614,7 @@ export function GraphPane() {
           {showLegend && (
             <div className="mt-2 rounded-sm border border-pd-border bg-[#0d1117]/95 backdrop-blur p-2.5 text-[10px] font-mono space-y-1.5 shadow-2xl">
               <div className="flex items-center gap-2 text-pd-text-secondary">
-                <span className="h-2.5 w-2.5 bg-[#e63946] rounded-xs" />
+                <span className="h-2.5 w-2.5 bg-[#dc2626] rounded-xs" />
                 Kingpin Leader
               </div>
               <div className="flex items-center gap-2 text-pd-text-secondary">
@@ -631,7 +637,7 @@ export function GraphPane() {
           )}
         </div>
 
-        {/* BOTTOM HORIZONTAL TIMELINE HUD BAR (EXACTLY LIKE THE DRIBBLE REFERENCE) */}
+        {/* BOTTOM HORIZONTAL TIMELINE HUD BAR */}
         <div className="absolute bottom-3 inset-x-4 z-30 h-10 rounded-sm border border-pd-border bg-[#0d1117]/95 backdrop-blur px-4 flex items-center justify-between shadow-2xl font-mono text-[11px]">
           {/* Left Playback & Year Controls */}
           <div className="flex items-center gap-2.5">
@@ -668,20 +674,22 @@ export function GraphPane() {
             <span className="text-[10px] text-pd-text-tertiary">2024</span>
           </div>
 
-          {/* Right Zoom Controls */}
+          {/* Right Interactive Zoom Controls + Scale Display */}
           <div className="flex items-center gap-2">
             <span className="text-pd-text-tertiary font-bold text-[10px]">
-              {zoom.toFixed(2)}
+              {zoom.toFixed(2)}x
             </span>
             <button
-              onClick={() => setZoom(Math.max(0.6, zoom - 0.1))}
+              onClick={() => setZoom((z) => Math.max(0.35, z * 0.85))}
               className="h-6 w-6 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary border border-pd-border flex items-center justify-center font-bold"
+              title="Zoom Out (or use mousewheel)"
             >
               -
             </button>
             <button
-              onClick={() => setZoom(Math.min(1.6, zoom + 0.1))}
+              onClick={() => setZoom((z) => Math.min(3.5, z * 1.15))}
               className="h-6 w-6 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary border border-pd-border flex items-center justify-center font-bold"
+              title="Zoom In (or use mousewheel)"
             >
               +
             </button>
