@@ -58,7 +58,7 @@ The two things that make this *Raven* and not a generic tracker: **D8** (topolog
 
 ---
 
-## Phase 2 — Lock-on persistence + ledger anchor (D9)
+## Phase 2 — Lock-on persistence + ledger anchor (D9) — ✅ DONE (code + payload proof; DB/ledger on demo machine)
 
 **Goal:** lock-on becomes a real, accountable, recoverable act.
 
@@ -66,7 +66,20 @@ The two things that make this *Raven* and not a generic tracker: **D8** (topolog
 - `session.lock_on`: embed the target bbox, **INSERT `reid_targets`** (feature via pgvector, `source_camera`, `source_ts`, thumbnail saved to disk), return real `target_vector_b64` / `thumbnail_path` / `crop_bbox`.
 - Rust `lock_on_target`: compute payload hash, **anchor on the ledger** (reuse the `audit` / `ledger` core modules from Session 2), write `audit_log(action='reid.lock')`, return the real `tx_id`. Ledger down → `ledger_status='pending'`, no crash (D4).
 
-**Exit criteria:** a lock-on writes one `reid_targets` row + one `audit_log` row and returns a `tx_id` (or `pending`); UI shows the tx hash.
+**Exit criteria:** a lock-on writes one `reid_targets` row + one `audit_log` row and returns a `tx_id` (or `pending`); UI shows the tx hash. ✅
+
+**Delivered:**
+- `engine/cv/stream.py` — stream loop now takes the `CVSession` and writes a per-track box cache (`last_boxes`) + `last_frame`. `main.py` passes the session.
+- `engine/cv/session.py` — `lock_on` crops the selected track from the live frame, embeds it, saves a thumbnail, returns `target_vector_b64` / `feature_literal` (pgvector text) / `crop_bbox` / `source_camera_code` / `source_ts` / `thumbnail_path`.
+- `engine/cv/reid.py` — `to_b64` / `from_b64` / `to_pgvector` serialization helpers.
+- `src-tauri/core/src/reid.rs` (new) — `lock_on`: resolve case+camera uuids, INSERT `reid_targets` (feature via `$n::vector`), sha256 the act, ledger-anchor (`reid.lock`), INSERT `audit_log` with tx+status, update `reid_targets.ledger_tx_id`. Ledger down → `pending` (D4, no crash).
+- `src-tauri/core/src/db/postgres.rs` — `resolve_camera_id`, `insert_reid_target`, `set_reid_target_ledger`, `insert_audit_log`.
+- `src-tauri/src/commands/cctv.rs` — `lock_on_target` takes `case_id`, orchestrates engine→persist→anchor, returns real `target_id` + `tx_id` + `ledger_status`. `LockResult` gained `ledger_status`.
+- `src/components/vision/VisionPane.tsx` — passes `caseId` from the case store; shows anchored/pending + tx. `src/types/generated.ts` updated.
+
+**Proof:** `tools/test_lock.py` (mock, no GPU/DB) **PASS** — vector base64 round-trips lossless (cosine 1.0000), pgvector literal has 512 parts and re-parses exactly, crop bbox clamps inside frame. `tools/test_reid.py` (Phase 1) still PASS. The pg write + ledger anchor run in Rust and verify on the demo machine (`cargo check -p raven -p raven-core` + a live lock-on writes the two rows).
+
+**Remaining (demo machine, by design):** `cargo check` / real DB + ledger run — no Rust toolchain in this sandbox, same posture as the Phase 1 OSNet path.
 
 ---
 
@@ -137,13 +150,13 @@ Officer opens **cam_01** → live pedestrian boxes with IDs. Clicks person **03*
 
 ## Progress status (living — update as phases land)
 
-_Last updated: 2026-08-29_
+_Last updated: 2026-08-30_
 
 | Phase | Title | Status |
 | :--- | :--- | :--- |
 | 0 | Clips + camera/topology seed | ✅ Code done · DB seed + clips pending demo machine |
 | 1 | Real Re-ID embedding | ✅ Done + proven (mock) |
-| 2 | Lock-on persist + ledger anchor (D9) | ⬜ Not started |
+| 2 | Lock-on persist + ledger anchor (D9) | ✅ Code done + payload proof · DB/ledger + cargo check pending demo machine |
 | 3 | Sighting match loop | ⬜ Not started |
 | 4 | Topology-gated handoff (D8) | ⬜ Not started |
 | 5 | Human-in-loop confirm + evidence | ⬜ Not started |
@@ -162,10 +175,18 @@ _Last updated: 2026-08-29_
 - Updated the `session.py` caller to the new signature.
 - Proof `tools/test_reid.py` PASSES: 512-d unit vector; same outfit (+noise) cosine `1.0000`; different outfit `0.0000`; bbox clamps.
 
+**Phase 2 — lock-on persisted + anchored (done + payload proof).**
+- Stream loop (`stream.py`) now takes the `CVSession` and maintains a per-track box cache (`last_boxes`) + `last_frame`; `main.py` passes the session in. Fixed a latent `main.py` module-scope crash (annotation referenced an unimported `cv_session`).
+- `session.lock_on` crops the **selected track** from the live frame (not the whole frame), embeds it, writes a thumbnail, and returns the full persistence payload: `target_vector_b64`, `feature_literal` (pgvector text), `crop_bbox`, `source_camera_code`, `source_ts`, `thumbnail_path`. Added `to_b64`/`from_b64`/`to_pgvector` to `reid.py`.
+- New `raven_core::reid::lock_on`: resolves case + camera to UUIDs, inserts `reid_targets` (feature via `$n::vector`), sha256-hashes the act, anchors it on the ledger (`reid.lock`), inserts `audit_log` with the tx + status, and stamps `reid_targets.ledger_tx_id`. Ledger outage → `pending`, never blocks the committed row (D4). Backed by four new `db::postgres` helpers.
+- Rust `lock_on_target` now takes `case_id`, orchestrates engine→persist→anchor, and returns a real `target_id` + `tx_id` + `ledger_status`. `VisionPane` supplies `caseId` from the case store and shows anchored/pending + tx.
+- Proof `tools/test_lock.py` PASSES: base64 round-trip lossless (cosine `1.0000`), pgvector literal = 512 parts and re-parses exactly, crop bbox clamps. Phase 1 proof still PASSES.
+
 ### What remains
 
-- **Phases 2–6:** not started (see each phase section above for the plan + exit criteria).
-- **Demo-machine-only work (deferred by design, not blockers to building 2–6):**
+- **Phases 3–6:** not started (see each phase section above for the plan + exit criteria).
+- **Demo-machine-only work (deferred by design, not blockers to building 3–6):**
+  - `cargo check -p raven -p raven-core` (no Rust toolchain in this sandbox) + one live lock-on writing the `reid_targets` + `audit_log` rows.
   - Run `python tools/seed_cctv.py` against cloud Supabase (needs `.env` + `pip install -r engine/requirements.txt`). Expect `seeded cameras=4 camera_edges=4`.
   - Drop the 4 real `.mp4` clips into `assets/cctv/` (same person crossing cam_01→02→04, cam_03 = alt route).
   - Exercise the **real OSNet path** (`RAVEN_CV_MODE` unset/`real`) — needs torch + CUDA + weights download; verify the `boxmot` 11.x entrypoint in `reid.py::get_reid`.

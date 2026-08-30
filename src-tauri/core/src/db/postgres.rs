@@ -179,6 +179,106 @@ pub async fn get_case_code(pool: &PgPool, case_uuid: &str) -> Result<String, Str
     code.ok_or_else(|| "case code not found".to_string())
 }
 
+/// Resolve a camera id that may be a UUID or a `code` (e.g. 'cam_01') to a UUID.
+pub async fn resolve_camera_id(pool: &PgPool, camera: &str) -> Result<String, String> {
+    if let Ok(u) = uuid::Uuid::parse_str(camera) {
+        let exists: Option<String> =
+            sqlx::query_scalar("SELECT id::text FROM cameras WHERE id = $1::uuid")
+                .bind(u)
+                .persistent(false)
+                .fetch_optional(pool)
+                .await
+                .map_err(|e| e.to_string())?;
+        if let Some(id) = exists {
+            return Ok(id);
+        }
+    }
+    let by_code: Option<String> =
+        sqlx::query_scalar("SELECT id::text FROM cameras WHERE code = $1")
+            .bind(camera)
+            .persistent(false)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+    by_code.ok_or_else(|| format!("camera not found: {camera}"))
+}
+
+/// Insert a `reid_targets` row (D9 lock-on). `feature_literal` is a pgvector
+/// text literal ('[..]') produced by the engine and cast to `vector` here, so
+/// the DB layer does no float parsing. Returns the new target id.
+pub async fn insert_reid_target(
+    pool: &PgPool,
+    case_uuid: &str,
+    label: &str,
+    feature_literal: &str,
+    camera_uuid: &str,
+    source_ts: &str,
+    thumbnail_path: Option<&str>,
+) -> Result<String, String> {
+    let id: String = sqlx::query_scalar(
+        "INSERT INTO reid_targets \
+         (case_id, label, feature, source_camera, source_ts, thumbnail_path) \
+         VALUES ($1::uuid, $2, $3::vector, $4::uuid, $5::timestamptz, $6) \
+         RETURNING id::text",
+    )
+    .bind(case_uuid)
+    .bind(label)
+    .bind(feature_literal)
+    .bind(camera_uuid)
+    .bind(source_ts)
+    .bind(thumbnail_path)
+    .persistent(false)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(id)
+}
+
+/// Record the ledger outcome of a lock-on on the target row.
+pub async fn set_reid_target_ledger(
+    pool: &PgPool,
+    target_id: &str,
+    tx: Option<&str>,
+) -> Result<(), String> {
+    sqlx::query("UPDATE reid_targets SET ledger_tx_id=$2 WHERE id=$1::uuid")
+        .bind(target_id)
+        .bind(tx)
+        .persistent(false)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Insert an `audit_log` row with an explicit ledger tx + status (D9). Unlike
+/// `audit::emit`, this captures the tx id so lock-on can surface it in the UI.
+pub async fn insert_audit_log(
+    pool: &PgPool,
+    action: &str,
+    object_type: &str,
+    object_id: &str,
+    payload_hash: &str,
+    tx: Option<&str>,
+    ledger_status: &str,
+) -> Result<(), String> {
+    sqlx::query(
+        "INSERT INTO audit_log \
+         (action, object_type, object_id, payload_hash, ledger_tx_id, ledger_status) \
+         VALUES ($1,$2,$3::uuid,$4,$5,$6)",
+    )
+    .bind(action)
+    .bind(object_type)
+    .bind(object_id)
+    .bind(payload_hash)
+    .bind(tx)
+    .bind(ledger_status)
+    .persistent(false)
+    .execute(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// Validate a `source_node` enum value; default to `MANUAL` if unknown.
 fn normalize_source(s: &str) -> String {
     const OK: [&str; 7] = [

@@ -18,6 +18,7 @@ different outfit yields a low one. That makes the persist/match/topology logic
 (Phases 2-4) provable on a machine with no GPU. Pure-numpy: the mock path pulls
 in neither cv2 nor torch.
 """
+import base64
 import os
 import numpy as np
 
@@ -107,6 +108,26 @@ def embed(frame, bbox):
                 raise
             # auto: fall through to the mock backend
     return _embed_mock(crop), crop, cbbox
+
+
+def to_b64(vec) -> str:
+    """Serialize a 512-d float32 vector to base64 (the lock-on wire payload)."""
+    return base64.b64encode(np.asarray(vec, dtype="float32").tobytes()).decode("ascii")
+
+
+def from_b64(s: str) -> np.ndarray:
+    """Inverse of `to_b64`: base64 -> float32 512-vec."""
+    return np.frombuffer(base64.b64decode(s), dtype="float32")
+
+
+def to_pgvector(vec) -> str:
+    """Format a 512-vec as a pgvector text literal: '[0.1,0.2,...]'.
+
+    Bound on the Rust side to `$n::vector`, so the DB layer needs no float
+    parsing — the engine is the single source of truth for the fingerprint.
+    """
+    arr = np.asarray(vec, dtype="float32").reshape(-1)
+    return "[" + ",".join(repr(float(x)) for x in arr) + "]"
 
 
 def cosine_sim(a, b) -> float:

@@ -2,6 +2,7 @@ pub mod audit;
 pub mod db;
 pub mod ledger;
 pub mod model;
+pub mod reid;
 pub mod saga;
 
 use serde::Serialize;
@@ -90,6 +91,7 @@ pub struct TrackingResult {
 pub struct LockResult {
     pub target_id: String,
     pub tx_id: String,
+    pub ledger_status: String,
 }
 
 #[derive(Serialize)]

@@ -1,10 +1,19 @@
 import asyncio
+
 import cv2
+
 from .detect import detect_persons
 
 
-async def mjpeg_stream(camera_code: str, feed_uri: str, ws_push):
-    cap = cv2.VideoCapture(feed_uri)
+async def mjpeg_stream(session, ws_push):
+    """MJPEG stream + detection broadcast for one CVSession.
+
+    Also maintains the session's per-track box cache (`last_boxes`) and the most
+    recent frame (`last_frame`) so a Phase 2 lock-on can crop the actual selected
+    track from the frame the officer is looking at.
+    """
+    camera_code = session.camera_code
+    cap = cv2.VideoCapture(session.feed_uri)
     while cap.isOpened():
         ok, frame = cap.read()
         if not ok:
@@ -17,6 +26,8 @@ async def mjpeg_stream(camera_code: str, feed_uri: str, ws_push):
             boxes = detect_persons(frame)
         except Exception:
             boxes = []
+        session.last_frame = frame
+        session.last_boxes = {b["track_id"]: [b["x"], b["y"], b["w"], b["h"]] for b in boxes}
         await ws_push({
             "type": "cv.detections",
             "payload": {

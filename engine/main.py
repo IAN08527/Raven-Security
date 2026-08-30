@@ -15,7 +15,7 @@ import nlp.extract as extract
 PG_DSN = db_layer.build_dsn()
 
 app = FastAPI(title="Raven Intelligence Engine")
-sessions: dict[str, cv_session.CVSession] = {}
+sessions: "dict[str, object]" = {}
 _subscribers: list[WebSocket] = []
 
 
@@ -135,7 +135,7 @@ async def cv_stream(camera_code: str):
     from cv import stream as cv_stream
     s = sessions[camera_code]
     return StreamingResponse(
-        cv_stream.mjpeg_stream(camera_code, s.feed_uri, broadcast),
+        cv_stream.mjpeg_stream(s, broadcast),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
 

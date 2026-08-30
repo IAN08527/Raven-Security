@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Crosshair, Loader2, Square, Video } from "lucide-react";
 import { invokeRaven } from "../../hooks/useInvoke";
 import { useRavenSocket } from "../../hooks/useRavenSocket";
+import { useCaseStore } from "../../store/case";
 import type {
   CVBox,
   CVDetections,
@@ -22,6 +23,7 @@ export function VisionPane() {
   const [lock, setLock] = useState<LockResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const caseId = useCaseStore((s) => s.caseId);
 
   // Detection boxes arrive over the shared engine WS (cv.detections). Only
   // keep the ones for the camera we are currently viewing.
@@ -67,6 +69,10 @@ export function VisionPane() {
 
   async function lockOn(trackId: number) {
     if (!session || busy) return;
+    if (!caseId) {
+      setError("lock_on failed: no active case selected");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -74,6 +80,7 @@ export function VisionPane() {
         sessionId: session.session_id,
         trackId,
         label: `Target ${String(trackId).padStart(2, "0")}`,
+        caseId,
       });
       setLocked(trackId);
       setLock(res);
@@ -243,7 +250,9 @@ export function VisionPane() {
 
         {lock && (
           <div className="border-t border-pd-border px-3 py-2 text-pd-xs">
-            <div className="text-pd-text-tertiary">Lock anchored</div>
+            <div className="text-pd-text-tertiary">
+              Lock {lock.ledger_status === "anchored" ? "anchored" : "pending"}
+            </div>
             <div className="mt-1 truncate font-mono text-pd-text-secondary" title={lock.tx_id}>
               tx: {lock.tx_id || "—"}
             </div>

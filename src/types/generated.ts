@@ -81,6 +81,7 @@ export interface TrackingResult {
 export interface LockResult {
   target_id: string;
   tx_id: string;
+  ledger_status: string;
 }
 
 export interface CVBox {
