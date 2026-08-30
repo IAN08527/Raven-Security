@@ -10,21 +10,26 @@ export interface HealthStatus {
 export interface EgoGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  source: string;
+  case_id: string;
 }
 
 export interface GraphNode {
   id: string;
   label: string;
-  type?: string;
-  weight?: number;
+  type: string;
+  risk_score: number;
+  degree: number;
 }
 
 export interface GraphEdge {
   id: string;
   source: string;
   target: string;
+  type: string;
   weight: number;
-  kind?: string;
+  evidence_count: number;
+  dominant_kind: string | null;
 }
 
 export interface IngestResult {
@@ -38,9 +43,33 @@ export interface IngestStatus {
   error_detail: string | null;
 }
 
+export interface RelationshipMeta {
+  id: string;
+  type: string;
+  weight: number;
+  evidence_count: number;
+  src_id: string;
+  src_name: string;
+  dst_id: string;
+  dst_name: string;
+}
+
+export interface Identifier {
+  itype: string;
+  value: string;
+}
+
 export interface EdgeEvidence {
+  relationship: RelationshipMeta | null;
   evidence: Evidence[];
   source_files: SourceFile[];
+}
+
+export interface EntityDetails {
+  entity: GraphNode;
+  identifiers: Identifier[];
+  evidence: Evidence[];
+  linked_files: SourceFile[];
 }
 
 export interface Evidence {
@@ -50,12 +79,14 @@ export interface Evidence {
   char_end: number | null;
   page_no: number | null;
   kind: string;
+  source_file_id: string;
 }
 
 export interface SourceFile {
   id: string;
   filename: string;
   sha256: string;
+  status: string;
 }
 
 export interface VerifyResult {

@@ -14,9 +14,10 @@
 - **Session: Backlog #1 — Ingest/Storage baseline — DONE (see Session 1b).**
 - **Session: Backlog #2 — Ingest saga (Rust) — DONE (see Session 2).**
 - **Session: Backlog #3 — NLP extraction (Python) — DONE (see Session 3).**
+- **Session: Backlog #4 — Graph engine (Rust + Cytoscape + evidence panel) — DONE (see Session 4).**
 - **Rule (one feature per session):** each session builds exactly ONE backlog item end-to-end.
-- **Next up:** **Backlog #4 — Graph engine** Rust `get_ego_graph`/`get_macro_graph` (Bolt +
-  batched evidence hydrate), Cytoscape micro/macro + evidence side panel in frontend (§6.2, §9.2).
+- **Next up:** **Backlog #5 — CCTV Re-ID** (YOLOv8n + ByteTrack MJPEG, human-in-loop lock-on,
+  topology-gated handoff across 4-cam network, §6.3, D8/D9).
 - Note on the health gate: `HealthBoard.tsx` already reads `health_check` and shows
   `supabase`/`neo4j`/`ollama`/`fabric`/`python` rows; the `supabase` row is now driven by a real
   `pg_health` probe (Backlog #1). Neo4j/ollama/fabric rows will only go green when those services
@@ -219,6 +220,59 @@
   main:app`) because `main.py` does `from vram import ...` / `import db` (modules
   live under `engine/`, not repo root).
 
+### Session 4 — Graph engine (Rust + Cytoscape + evidence panel) (DONE)
+- **Goal:** implement the §6.2 graph query flow + §9.2 criminal-net visualization:
+  `get_ego_graph`/`get_macro_graph` (Bolt + batched evidence hydrate), the Cytoscape
+  micro/macro UI, and the evidence side panel.
+- **Rust (`raven-core`):** new `src-tauri/core/src/db/graph.rs` — canonical Postgres
+  graph path: `ego_graph_pg` (recursive-CTE walk, N hops, weight floor),
+  `macro_graph_pg` (top-N by weight), `edge_evidence_pg`, `entity_details_pg`,
+  `list_entities_pg`, and `hydrate_evidence` (ONE batched `WHERE relationship_id =
+  ANY($1)` query, never N+1). `db/neo4j.rs` gained Bolt paths `ego_subgraph` /
+  `macro_edges` (variable-length `LINKED_TO` traversal) used when Neo4j is up; the
+  dispatch in `graph.rs` falls back to Postgres on any Bolt error (D4). Every result
+  carries `source: "neo4j" | "postgres"`. `lib.rs` `EgoGraph`/`EdgeEvidence` made
+  strongly typed; added `EntityDetails`.
+- **Tauri commands:** `src-tauri/src/commands/graph.rs` now implements
+  `get_ego_graph`/`get_macro_graph`/`list_entities`/`get_entity_details` (audit
+  `graph.query` / `file.read` best-effort); `audit.rs::get_edge_evidence` implemented
+  (was a stub). All registered in `src-tauri/src/lib.rs`.
+- **Headless proof:** new `tools/raven_graph_cli` (GNU toolchain) — `--macro`,
+  `--ego`, `--edge`, `--entity`, `--entities`, `--case`. Live against cloud Supabase:
+  `--macro OP-RAVEN-01` → 14 nodes / 16 edges `source:"postgres"`; `--ego` of Rakesh
+  Sawant → 9 nodes / 11 edges; `--edge` → relationship meta + 1 evidence snippet +
+  source file. `cargo check -p raven-core` and `cargo check -p raven` both clean.
+- **Python engine dev-mirror:** new `engine/graph.py` + routes in `main.py`
+  (`POST /graph/{macro,ego,edge_evidence,entity,entities}`) running the SAME SQL so
+  the browser UI works without the Rust shell. Live-verified (macro 14/16, ego 9/11,
+  edge evidence) — matches the Rust output exactly.
+- **Frontend:** `src/hooks/useInvoke.ts` auto-routes `invoke` → Tauri → engine HTTP →
+  embedded mock (`src/dev/mockGraph.ts`) so `npm run dev` always renders a network.
+  `GraphPane.tsx` rewritten: micro/macro toggle, hops stepper, weight-floor slider,
+  layout picker (fcose/cose-bilkent/circle/grid), entity search, legend, node
+  shapes/colours by `entity_type`, edge width/colour by weight/`dominant_kind`,
+  click node → ego (micro) / click edge → evidence panel. `EvidencePane.tsx` rewritten
+  for node (identifiers + entity evidence) and edge (relationship header + evidence +
+  source files) modes. `main.tsx` registers `cytoscape-fcose` + `cytoscape-cose-bilkent`;
+  `types/generated.ts` updated; `store/case.ts` gained graph view controls.
+  `npm run build` (tsc + vite) PASSES; `npm run dev` serves and transforms all modules.
+- **Demo data:** `tools/seed_graph_demo.py` seeded a 20-entity / 20-relation network for
+  `OP-RAVEN-01` (kingpin Rakesh Sawant + syndicate, CDR/structured-transfer/CCTV
+  links) with ids UUID5-derived from the SAME namespace as `engine/nlp/ids.py` (so
+  re-ingest collapses onto the same rows). Weights re-derived via `recompute_weight`
+  (§7.1): fir_text base 25, txn_row/cctv_sighting 10, cdr_row 1, with time decay.
+  Idempotent (relationships deduped; seeded evidence cleared+reinserted).
+- **Caveat:** the sandbox has NO Docker, so the Neo4j Bolt path was NOT exercised
+  live (only compiled + fallback path proven). On the demo machine with
+  `docker compose -f infra/docker-compose.neo4j.yml up -d`, responses will report
+  `source:"neo4j"`. The Postgres path is the always-available fallback.
+- **Test guide:** `docs/GRAPH_TESTING.md` (3 ways to test: CLI, browser+engine, full
+  Tauri). 
+- **Handoff for next owner:** Backlog #4 is proven. Next is **Backlog #5 (CCTV Re-ID)**
+  — YOLOv8n + ByteTrack MJPEG, human-in-loop lock-on, topology-gated handoff across
+  the 4-cam network (§6.3, D8/D9). The `get_edge_evidence`/`entity_details` panel is
+  already wired and can show CCTV-sighting evidence once Re-ID writes it.
+
 ## Backlog (one feature per session, dependency-ordered)
 1. **Ingest/Storage baseline** — [DONE] Schema applied (Session 1a). Rust (`sqlx`) + Python
    (`asyncpg`) layers wired to read/write the cloud Supabase via `RAVEN_PG_DSN` (`.env`). Startup
@@ -242,8 +296,9 @@
    Live end-to-end against cloud Supabase proven (4 entities / 3 relations /
    8 evidence). Real Ollama LLM path implemented but not exercised live (no GPU);
    `ollama pull phi3:mini` + `RAVEN_NLP_MODE=auto` enables it on the demo machine.
- 4. **Graph engine** — Rust `get_ego_graph`/`get_macro_graph` (Bolt + batched evidence
-   hydrate), Cytoscape micro/macro + evidence side panel in frontend (§6.2, §9.2).
+  4. **Graph engine** — [DONE] See Session 4. Rust `get_ego_graph`/`get_macro_graph`
+   (Bolt + batched evidence hydrate), Cytoscape micro/macro + evidence side panel in
+   frontend (§6.2, §9.2). Proven live against cloud Supabase.
 5. **CCTV Re-ID** — YOLOv8n + ByteTrack MJPEG, human-in-loop lock-on, topology-gated
    handoff across 4-cam network (§6.3, D8/D9).
 6. **Geospatial routine** — MapLibre + local PMTiles, CDR ping loop + hotspots (D6, §6.6).

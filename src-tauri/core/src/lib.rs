@@ -34,8 +34,12 @@ pub struct HealthStatus {
 
 #[derive(Serialize)]
 pub struct EgoGraph {
-    pub nodes: Vec<serde_json::Value>,
-    pub edges: Vec<serde_json::Value>,
+    pub nodes: Vec<db::graph::GraphNode>,
+    pub edges: Vec<db::graph::GraphEdge>,
+    /// Which store served the traversal: "neo4j" (Bolt) or "postgres" (D4
+    /// fallback). Surfaced in the UI so the operator knows the graph state.
+    pub source: String,
+    pub case_id: String,
 }
 
 #[derive(Serialize)]
@@ -53,8 +57,17 @@ pub struct IngestStatus {
 
 #[derive(Serialize)]
 pub struct EdgeEvidence {
-    pub evidence: Vec<serde_json::Value>,
-    pub source_files: Vec<serde_json::Value>,
+    pub relationship: Option<db::graph::RelationshipMeta>,
+    pub evidence: Vec<db::graph::EvidenceRow>,
+    pub source_files: Vec<db::graph::SourceFileRow>,
+}
+
+#[derive(Serialize)]
+pub struct EntityDetails {
+    pub entity: db::graph::GraphNode,
+    pub identifiers: Vec<db::graph::IdentifierRow>,
+    pub evidence: Vec<db::graph::EvidenceRow>,
+    pub linked_files: Vec<db::graph::SourceFileRow>,
 }
 
 #[derive(Serialize)]

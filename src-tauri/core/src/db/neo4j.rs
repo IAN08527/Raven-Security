@@ -1,6 +1,18 @@
 use crate::AppState;
 use neo4rs::query;
 
+/// An edge row returned by a Bolt traversal (Backlog #4). Node details and
+/// per-edge evidence are hydrated from Postgres by `db::graph` afterwards.
+#[derive(Debug, Clone)]
+pub struct BoltEdge {
+    pub id: String,
+    pub src: String,
+    pub dst: String,
+    pub rtype: String,
+    pub weight: f64,
+    pub evidence_count: i64,
+}
+
 /// Merge a `Document` node for an ingested file. Always safe to replay (D4).
 pub async fn merge_document(
     state: &AppState,
@@ -132,4 +144,127 @@ pub async fn rebuild_graph(state: &AppState, case_id: &str) -> Result<(usize, us
     }
 
     Ok((nodes, edges))
+}
+
+// ------------------------------------------------- Bolt graph queries ----
+// (Backlog #4, architecture §6.2.) The traversal runs in Neo4j; `db::graph`
+// then hydrates node details + per-edge evidence from Postgres in ONE batch.
+
+async fn rows_to_edges(neo: &neo4rs::Graph, q: neo4rs::Query) -> Result<Vec<BoltEdge>, String> {
+    let mut stream = neo.execute(q).await.map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    loop {
+        match stream.next().await {
+            Ok(Some(row)) => out.push(BoltEdge {
+                src: row.get::<String>("src").map_err(|e| e.to_string())?,
+                dst: row.get::<String>("dst").map_err(|e| e.to_string())?,
+                id: row.get::<String>("rid").map_err(|e| e.to_string())?,
+                rtype: row
+                    .get::<Option<String>>("rtype")
+                    .map_err(|e| e.to_string())?
+                    .unwrap_or_else(|| "LINKED_TO".into()),
+                weight: row.get::<f64>("w").map_err(|e| e.to_string())?,
+                evidence_count: row.get::<i64>("ec").map_err(|e| e.to_string())?,
+            }),
+            Ok(None) => break,
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    Ok(out)
+}
+
+async fn collect_ids(neo: &neo4rs::Graph, q: neo4rs::Query) -> Result<Vec<String>, String> {
+    let mut stream = neo.execute(q).await.map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    loop {
+        match stream.next().await {
+            Ok(Some(row)) => out.push(row.get::<String>("id").map_err(|e| e.to_string())?),
+            Ok(None) => break,
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    Ok(out)
+}
+
+/// Ego subgraph via Bolt: all `LINKED_TO` edges within `hops` of the entity
+/// whose weight clears the floor. Returns `(node_ids, edges)`.
+pub async fn ego_subgraph(
+    neo: &neo4rs::Graph,
+    entity_id: &str,
+    hops: u32,
+    min_weight: f64,
+) -> Result<(Vec<String>, Vec<BoltEdge>), String> {
+    let hops = hops.clamp(1, 5);
+
+    let edges = rows_to_edges(
+        neo,
+        query(&format!(
+            "MATCH (e:Entity {{entity_id:$id}})-[rs:LINKED_TO*1..{hops}]-(n:Entity) \
+             WHERE all(r IN rs WHERE r.weight >= $minw) \
+             UNWIND rs AS r \
+             WITH DISTINCT r, startNode(r) AS a, endNode(r) AS b \
+             RETURN a.entity_id AS src, b.entity_id AS dst, r.rel_id AS rid, \
+                    r.type AS rtype, r.weight AS w, r.evidence_count AS ec"
+        ))
+        .param("id", entity_id)
+        .param("minw", min_weight),
+    )
+    .await?;
+
+    let ids = collect_ids(
+        neo,
+        query(&format!(
+            "MATCH (e:Entity {{entity_id:$id}})-[rs:LINKED_TO*1..{hops}]-(n) \
+             WHERE all(r IN rs WHERE r.weight >= $minw) \
+             WITH e, collect(n) AS ns \
+             UNWIND ([e] + ns) AS x \
+             RETURN DISTINCT x.entity_id AS id"
+        ))
+        .param("id", entity_id)
+        .param("minw", min_weight),
+    )
+    .await?;
+
+    Ok((ids, edges))
+}
+
+/// Macro subgraph via Bolt: top-N heaviest `LINKED_TO` edges of a case.
+/// Returns `(node_ids, edges)`.
+pub async fn macro_edges(
+    neo: &neo4rs::Graph,
+    case_id: &str,
+    min_weight: f64,
+    limit: u32,
+) -> Result<(Vec<String>, Vec<BoltEdge>), String> {
+    let edges = rows_to_edges(
+        neo,
+        query(
+            "MATCH (a:Entity {case_id:$case})-[r:LINKED_TO]->(b:Entity) \
+             WHERE r.weight >= $minw \
+             WITH a, b, r ORDER BY r.weight DESC LIMIT $lim \
+             RETURN a.entity_id AS src, b.entity_id AS dst, r.rel_id AS rid, \
+                    r.type AS rtype, r.weight AS w, r.evidence_count AS ec",
+        )
+        .param("case", case_id)
+        .param("minw", min_weight)
+        .param("lim", limit as i64),
+    )
+    .await?;
+
+    let ids = collect_ids(
+        neo,
+        query(
+            "MATCH (a:Entity {case_id:$case})-[r:LINKED_TO]->(b:Entity) \
+             WHERE r.weight >= $minw \
+             WITH r ORDER BY r.weight DESC LIMIT $lim \
+             UNWIND [startNode(r), endNode(r)] AS x \
+             RETURN DISTINCT x.entity_id AS id",
+        )
+        .param("case", case_id)
+        .param("minw", min_weight)
+        .param("lim", limit as i64),
+    )
+    .await?;
+
+    Ok((ids, edges))
 }

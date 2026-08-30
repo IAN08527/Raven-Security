@@ -12,9 +12,19 @@ from vram import vram, Lane
 import db as db_layer
 import nlp.extract as extract
 
+# Apply the sandbox DNS DoH patch (no-op when real DNS resolves). Lets the
+# engine reach cloud Supabase even when the sandbox resolver is flaky.
+try:
+    import probe_db  # noqa: F401
+except Exception:
+    pass
+
+import graph as graph_api  # noqa: E402
+
 PG_DSN = db_layer.build_dsn()
 
 app = FastAPI(title="Raven Intelligence Engine")
+app.include_router(graph_api.router)
 sessions: dict[str, cv_session.CVSession] = {}
 _subscribers: list[WebSocket] = []
 

@@ -46,6 +46,8 @@ pub fn run() {
             commands::ingest::get_ingest_status,
             commands::graph::get_ego_graph,
             commands::graph::get_macro_graph,
+            commands::graph::list_entities,
+            commands::graph::get_entity_details,
             commands::audit::get_edge_evidence,
             commands::audit::verify_evidence,
             commands::audit::review_insight,

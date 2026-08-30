@@ -1,4 +1,4 @@
-import { useCaseStore } from "../../store/case";
+import { useCaseStore } from "../store/case";
 
 const items = [
   { id: "graph", label: "Criminal Net", icon: "graph" },

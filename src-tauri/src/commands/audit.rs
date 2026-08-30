@@ -3,13 +3,25 @@ use tauri::State;
 
 #[tauri::command]
 pub async fn get_edge_evidence(
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
     rel_id: String,
 ) -> Result<EdgeEvidence, String> {
-    // Backlog #8: read evidence + source_files for the edge (Postgres only).
+    // Postgres only — clicking an edge must never re-query the graph (§6.2).
+    // Audit `file.read` is best-effort.
+    let (relationship, evidence, source_files) =
+        raven_core::db::graph::edge_evidence_pg(&state.pg, &rel_id).await?;
+    let _ = raven_core::audit::emit(
+        state.inner(),
+        "file.read",
+        "relationship",
+        &rel_id,
+        &format!("{{\"evidence_rows\":{}}}", evidence.len()),
+    )
+    .await;
     Ok(EdgeEvidence {
-        evidence: vec![],
-        source_files: vec![],
+        relationship,
+        evidence,
+        source_files,
     })
 }
 
