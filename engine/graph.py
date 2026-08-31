@@ -11,6 +11,7 @@ Routes:
   POST /graph/edge_evidence {rel_id}
   POST /graph/entity       {entity_id}
   POST /graph/entities     {case_id}
+  GET  /graph/entities/{case_code}
 """
 import uuid
 
@@ -225,6 +226,8 @@ async def list_entities(case_id: str):
         ]
 
 
+# ─── HTTP Route Handlers ───────────────────────────────────────────────────────
+
 @router.post("/macro")
 async def post_macro(body: dict):
     case_key = body.get("case_id") or body.get("case_code") or "OP-RAVEN-01"
@@ -233,10 +236,13 @@ async def post_macro(body: dict):
     )
 
 
-
 @router.post("/ego")
 async def post_ego(body: dict):
-    return await ego_graph(body["entity_id"], int(body.get("hops", 2)), float(body.get("min_weight", 5.0)))
+    entity_id = body.get("entity_id")
+    if not entity_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=422, detail="entity_id is required")
+    return await ego_graph(entity_id, int(body.get("hops", 2)), float(body.get("min_weight", 5.0)))
 
 
 @router.post("/edge_evidence")
@@ -252,3 +258,81 @@ async def post_entity(body: dict):
 @router.post("/entities")
 async def post_entities(body: dict):
     return await list_entities(body.get("case_id", "OP-RAVEN-01"))
+
+
+# Junk names that the NLP mock can occasionally emit as entity names
+_JUNK_WORDS = {
+    "accused", "persons", "complainant", "victim", "witness", "informant",
+    "person", "organizations", "organization", "upi", "bank", "account",
+    "full name", "phone", "vehicle", "imei", "identifier", "section",
+    "date", "officer", "investigating",
+}
+
+_JUNK_PREFIXES = ("upi ", "hdfc ", "icici ", "sbi ", "mh0", "mh1", "mh2",
+                  "9820", "9900", "9811", "9912", "quickpay@")
+
+
+def _is_valid_entity_name(name: str) -> bool:
+    """Return True if the name looks like a real person/org name."""
+    if not name or "\n" in name:
+        return False
+    stripped = name.strip()
+    if len(stripped) < 3:
+        return False
+    lower = stripped.lower()
+    if lower in _JUNK_WORDS:
+        return False
+    if stripped.isupper() and " " not in stripped:
+        return False
+    if any(lower.startswith(p) for p in _JUNK_PREFIXES):
+        return False
+    # Must have at least one letter
+    if not any(c.isalpha() for c in stripped):
+        return False
+    return True
+
+
+@router.get("/entities/{case_code}")
+async def get_entities(case_code: str):
+    """GET endpoint for the profiles directory — returns all PERSON/ORG entities
+    with their identifiers, aliases, and relationship count, filtered to remove
+    NLP extraction artefacts (generic labels, multiline OCR text, identifier values)."""
+    pool = await db_layer.get_pool()
+    async with pool.acquire() as conn:
+        case_uuid = await _resolve_case(conn, case_code)
+        rows = await conn.fetch(
+            "SELECT id::text, type::text, canonical_name, risk_score::float8, centrality::float8 "
+            "FROM entities WHERE case_id = $1::uuid AND type IN ('PERSON','ORGANIZATION') "
+            "ORDER BY COALESCE(risk_score, 0) DESC, canonical_name",
+            case_uuid,
+        )
+        result = []
+        for r in rows:
+            name = r["canonical_name"] or ""
+            if not _is_valid_entity_name(name):
+                continue
+            eid = r["id"]
+            identifiers = await conn.fetch(
+                "SELECT type::text AS itype, value FROM identifiers WHERE entity_id = $1::uuid ORDER BY type",
+                eid,
+            )
+            aliases = await conn.fetch(
+                "SELECT alias FROM entity_aliases WHERE entity_id = $1::uuid",
+                eid,
+            )
+            rel_count = await conn.fetchval(
+                "SELECT count(*) FROM relationships "
+                "WHERE src_entity_id = $1::uuid OR dst_entity_id = $1::uuid",
+                eid,
+            )
+            result.append({
+                "id": eid,
+                "name": name.strip(),
+                "type": r["type"],
+                "risk_score": float(r["risk_score"] or 0),
+                "centrality": float(r["centrality"] or 0),
+                "relationship_count": int(rel_count or 0),
+                "identifiers": [{"type": i["itype"], "value": i["value"]} for i in identifiers],
+                "aliases": [a["alias"] for a in aliases],
+            })
+        return result

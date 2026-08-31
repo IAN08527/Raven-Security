@@ -1,7 +1,10 @@
-import asyncio
-import json
 import os
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import asyncio
+import hashlib
+import uuid
+import httpx
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import dotenv
@@ -24,7 +27,15 @@ import graph as graph_api  # noqa: E402
 PG_DSN = db_layer.build_dsn()
 
 app = FastAPI(title="Raven Intelligence Engine")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(graph_api.router)
+
 sessions: "dict[str, object]" = {}
 _subscribers: list[WebSocket] = []
 
@@ -58,6 +69,120 @@ async def db_cases():
 @app.get("/vram/status")
 async def vram_status():
     return vram.status()
+
+
+@app.post("/pipeline/upload")
+async def pipeline_upload(
+    file: UploadFile = File(...),
+    case_id: str = Form("OP-RAVEN-01"),
+    category: str = Form("fir"),
+    source: str = Form("WEB_UPLOAD"),
+):
+    """Dynamic document/data ingest pipeline handler for real OCR, NER, and ledger anchoring."""
+    contents = await file.read()
+    filename = file.filename or "upload.bin"
+    sha256 = hashlib.sha256(contents).hexdigest()
+    byte_size = len(contents)
+    mime = file.content_type or "application/octet-stream"
+    if filename.lower().endswith(".pdf") and mime in ("application/octet-stream", "application/x-pdf"):
+        mime = "application/pdf"
+    elif filename.lower().endswith(".csv") and mime in ("application/octet-stream", "text/plain"):
+        mime = "text/csv"
+
+    # Save to assets/uploads
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    upload_dir = os.path.join(repo_root, "assets", "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    file_id = f"doc-{uuid.uuid4().hex[:12]}"
+    saved_path = os.path.join(upload_dir, f"{file_id}_{filename}")
+    with open(saved_path, "wb") as f:
+        f.write(contents)
+
+    # 1. Best-effort Ledger anchor
+    ledger_port = os.environ.get("LEDGER_PORT", "8801")
+    ledger_tx = None
+    ledger_anchored = False
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.post(
+                f"http://127.0.0.1:{ledger_port}/ledger/anchor",
+                json={
+                    "docId": file_id,
+                    "sha256": sha256,
+                    "caseCode": case_id,
+                    "sourceNode": source,
+                    "badge": "IO-KUMAR-992",
+                },
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                ledger_tx = data.get("txId")
+                ledger_anchored = True
+    except Exception:
+        pass
+
+    if not ledger_tx:
+        ledger_tx = f"0x{sha256[:16]}...merkle"
+
+    # 2. Real text & entity extraction
+    extraction = await extract.run_extraction(
+        saved_path,
+        mime,
+        file_id,
+        dpi=300,
+        mode=os.environ.get("RAVEN_NLP_MODE", "auto"),
+    )
+
+    # If CSV, parse tabular rows as well
+    csv_rows_count = 0
+    csv_headers = []
+    if mime == "text/csv" or filename.lower().endswith(".csv"):
+        try:
+            import csv
+            import io
+            text_content = contents.decode("utf-8", errors="replace")
+            reader = csv.reader(io.StringIO(text_content))
+            rows = list(reader)
+            if rows:
+                csv_headers = rows[0]
+                csv_rows_count = max(0, len(rows) - 1)
+        except Exception:
+            pass
+
+    # 3. Persist extraction results to Supabase Postgres
+    db_result = {}
+    try:
+        db_result = await db_layer.persist_extraction_to_db(
+            case_code=case_id,
+            file_id=file_id,
+            filename=filename,
+            mime_type=mime,
+            byte_size=byte_size,
+            sha256=sha256,
+            ledger_tx_id=ledger_tx or "",
+            ledger_status="anchored" if ledger_anchored else "pending",
+            extraction=extraction,
+        )
+    except Exception as e:
+        db_result = {"persisted": False, "error": str(e)}
+
+    return {
+        "status": "ok",
+        "file_id": file_id,
+        "filename": filename,
+        "category": category,
+        "case_id": case_id,
+        "sha256": sha256,
+        "byte_size": byte_size,
+        "mime": mime,
+        "storage_path": f"cases/{case_id}/{file_id}",
+        "ledger_tx_id": ledger_tx,
+        "ledger_anchored": ledger_anchored,
+        "csv_headers": csv_headers,
+        "csv_rows_count": csv_rows_count,
+        "extraction": extraction,
+        "db_persistence": db_result,
+    }
 
 
 @app.post("/ocr/extract")

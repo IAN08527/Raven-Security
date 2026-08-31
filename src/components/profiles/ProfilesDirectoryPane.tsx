@@ -1,310 +1,464 @@
-import { useState } from "react";
+import { CSSProperties, useState, useEffect, useCallback } from "react";
 import { useCaseStore } from "../../store/case";
 
-interface ProfileRecord {
+interface LiveEntity {
   id: string;
   name: string;
-  alias: string;
-  role: string;
-  roleTier: "leader" | "operator" | "logistics" | "mule" | "associate";
-  aadhaar: string;
-  phone: string;
-  vehicle: string;
-  cases: string;
-  riskScore: number;
-  riskLevel: "HIGH" | "MED" | "LOW";
-  status: "Active Suspect" | "Under Watch" | "Detained";
+  type: string;
+  risk_score: number;
+  centrality: number;
+  relationship_count: number;
+  identifiers: { type: string; value: string }[];
+  aliases: string[];
 }
 
-const DEMO_PROFILES: ProfileRecord[] = [
-  {
-    id: "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332",
-    name: "Rakesh Sawant",
-    alias: "Ricky",
-    role: "Syndicate Leader",
-    roleTier: "leader",
-    aadhaar: "XXXX-XXXX-4521",
-    phone: "+91 98765 43210",
-    vehicle: "MH-02-AB-1234",
-    cases: "OP-RAVEN-01, FIR-102",
-    riskScore: 0.84,
-    riskLevel: "HIGH",
-    status: "Active Suspect",
-  },
-  {
-    id: "8c35e396-4191-5369-9c5c-7ec65df27d5e",
-    name: "Vikram Patel",
-    alias: "Vicky",
-    role: "Hawala Operator",
-    roleTier: "operator",
-    aadhaar: "XXXX-XXXX-8912",
-    phone: "+91 98111 22334",
-    vehicle: "MH-01-CD-5678",
-    cases: "OP-RAVEN-01",
-    riskScore: 0.62,
-    riskLevel: "MED",
-    status: "Active Suspect",
-  },
-  {
-    id: "5761aefc-da70-5883-999a-00e998a4d468",
-    name: "Mohd. Khan",
-    alias: "Bhai",
-    role: "Logistics Coordinator",
-    roleTier: "logistics",
-    aadhaar: "XXXX-XXXX-3341",
-    phone: "+91 99222 44556",
-    vehicle: "MH-04-EF-9012",
-    cases: "OP-RAVEN-01",
-    riskScore: 0.51,
-    riskLevel: "MED",
-    status: "Under Watch",
-  },
-  {
-    id: "3e46c76c-3dc4-5264-a0c5-ee169992f4ad",
-    name: "Sunil Gupta",
-    alias: "Doctor",
-    role: "Money Mule",
-    roleTier: "mule",
-    aadhaar: "XXXX-XXXX-7729",
-    phone: "+91 98333 66778",
-    vehicle: "MH-03-GH-3456",
-    cases: "OP-RAVEN-01",
-    riskScore: 0.40,
-    riskLevel: "LOW",
-    status: "Under Watch",
-  },
-  {
-    id: "9c3e41b9-8e7c-50f9-bd17-91a5f4c6e93b",
-    name: "Anita Roy",
-    alias: "Madam",
-    role: "Shell Company Director",
-    roleTier: "operator",
-    aadhaar: "XXXX-XXXX-1123",
-    phone: "+91 98444 88990",
-    vehicle: "MH-02-JK-7890",
-    cases: "OP-RAVEN-01",
-    riskScore: 0.35,
-    riskLevel: "LOW",
-    status: "Under Watch",
-  },
-  {
-    id: "7b4c92a1-3d5f-51e8-9c12-34e56f789abc",
-    name: "Deepak Kumar",
-    alias: "DK",
-    role: "Field Associate",
-    roleTier: "associate",
-    aadhaar: "XXXX-XXXX-9980",
-    phone: "+91 98555 11223",
-    vehicle: "MH-01-LM-2345",
-    cases: "OP-RAVEN-01",
-    riskScore: 0.28,
-    riskLevel: "LOW",
-    status: "Detained",
-  },
+// ── theme tokens ──
+const AC = "#e8c15a";
+const hexA = (h: string, a: number) => h + Math.round(a * 255).toString(16).padStart(2, "0");
+const MONO = "'Spline Sans Mono',monospace";
+const mono = (extra?: CSSProperties): CSSProperties => ({ fontFamily: MONO, ...extra });
+
+const th: CSSProperties = mono({
+  padding: "0 10px",
+  fontSize: 9,
+  fontWeight: 500,
+  letterSpacing: ".18em",
+  color: "#5c6773",
+  textAlign: "left",
+});
+
+function getRiskLevel(score: number): "HIGH" | "MED" | "LOW" {
+  if (score >= 0.65) return "HIGH";
+  if (score >= 0.35) return "MED";
+  return "LOW";
+}
+
+const RISK_C = { HIGH: "#ff5a3c", MED: "#e0a63d", LOW: "#5ecf9a" };
+
+function getPhone(entity: LiveEntity): string {
+  return entity.identifiers.find((i) => i.type === "PHONE")?.value || "—";
+}
+function getVehicle(entity: LiveEntity): string {
+  return entity.identifiers.find((i) => i.type === "VEHICLE")?.value || "—";
+}
+function getAccount(entity: LiveEntity): string {
+  return entity.identifiers.find((i) => i.type === "ACCOUNT")?.value || "—";
+}
+
+const TYPE_FILTERS = [
+  { id: "all", label: "ALL" },
+  { id: "PERSON", label: "PERSONS" },
+  { id: "ORGANIZATION", label: "ORGANIZATIONS" },
 ];
+const RISK_FILTERS = [
+  { id: "all", label: "ALL RISK" },
+  { id: "HIGH", label: "HIGH" },
+  { id: "MED", label: "MEDIUM" },
+  { id: "LOW", label: "LOW" },
+];
+
+const ENGINE = "http://127.0.0.1:8756";
 
 export function ProfilesDirectoryPane() {
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [riskFilter, setRiskFilter] = useState("all");
+  const [entities, setEntities] = useState<LiveEntity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState(0);
+
   const openTab = useCaseStore((s) => s.openTab);
+  const caseId = useCaseStore((s) => s.caseId);
+  const setIngestModalOpen = useCaseStore((s) => s.setIngestModalOpen);
+  const lastIngestTime = useCaseStore((s) => s.lastIngestTime);
 
-  const filtered = DEMO_PROFILES.filter((p) => {
+  const fetchEntities = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${ENGINE}/graph/entities/${encodeURIComponent(caseId)}`);
+      if (!res.ok) throw new Error(`Engine returned ${res.status}`);
+      const data: LiveEntity[] = await res.json();
+      setEntities(data);
+      setLastRefresh(Date.now());
+    } catch (e: any) {
+      setError(e.message || "Failed to load profiles from engine");
+    } finally {
+      setLoading(false);
+    }
+  }, [caseId]);
+
+  // Initial load + re-fetch whenever an ingest completes (bumpIngestTime)
+  useEffect(() => {
+    fetchEntities();
+  }, [fetchEntities, lastIngestTime]);
+
+  // Auto-refresh every 15 seconds to pick up newly ingested data
+  useEffect(() => {
+    const interval = setInterval(fetchEntities, 15_000);
+    return () => clearInterval(interval);
+  }, [fetchEntities]);
+
+  const filtered = entities.filter((e) => {
+    const q = search.toLowerCase();
     const matchesSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.alias.toLowerCase().includes(search.toLowerCase()) ||
-      p.aadhaar.toLowerCase().includes(search.toLowerCase()) ||
-      p.phone.toLowerCase().includes(search.toLowerCase()) ||
-      p.vehicle.toLowerCase().includes(search.toLowerCase());
-
-    const matchesRole = roleFilter === "all" || p.roleTier === roleFilter;
-    const matchesStatus = statusFilter === "all" || p.status === statusFilter;
-    return matchesSearch && matchesRole && matchesStatus;
+      !q ||
+      e.name.toLowerCase().includes(q) ||
+      e.aliases.some((a) => a.toLowerCase().includes(q)) ||
+      e.identifiers.some((i) => i.value.toLowerCase().includes(q));
+    const matchesType = typeFilter === "all" || e.type === typeFilter;
+    const matchesRisk = riskFilter === "all" || getRiskLevel(e.risk_score) === riskFilter;
+    return matchesSearch && matchesType && matchesRisk;
   });
 
-  const handleOpenProfile = (p: ProfileRecord) => {
+  const handleOpenProfile = (e: LiveEntity) => {
     openTab({
-      id: `profile-${p.id}`,
+      id: `profile-${e.id}`,
       type: "profile",
-      title: `Profile: ${p.name}`,
+      title: `Profile: ${e.name}`,
       data: {
-        entityId: p.id,
-        entityName: p.name,
-        role: p.role,
-        riskScore: p.riskScore,
+        entityId: e.id,
+        entityName: e.name,
+        role: e.type === "ORGANIZATION" ? "Shell Organization" : "Suspect",
+        riskScore: e.risk_score,
       },
     });
   };
 
+  const segBtn = (active: boolean): CSSProperties =>
+    mono({
+      height: 30,
+      padding: "0 12px",
+      background: active ? hexA(AC, 0.12) : "transparent",
+      color: active ? AC : "#5c6773",
+      border: "none",
+      borderRight: "1px solid #1b212b",
+      fontSize: 10,
+      letterSpacing: ".1em",
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+    });
+
+  const timeSince = lastRefresh
+    ? Math.round((Date.now() - lastRefresh) / 1000) + "s ago"
+    : "—";
+
   return (
-    <div className="flex h-full flex-col bg-pd-base text-pd-text-primary p-4 overflow-y-auto">
-      {/* Top Search & Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-pd-border">
-        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[300px]">
-          {/* Search Input */}
-          <div className="relative flex-1 min-w-[280px] max-w-md">
-            <svg
-              className="absolute left-2.5 top-2.5 h-4 w-4 text-pd-text-tertiary"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by Name, Alias, Aadhaar, Phone, Vehicle..."
-              className="h-8.5 w-full rounded-sm border border-pd-border bg-pd-surface pl-8 pr-3 text-pd-base text-pd-text-primary placeholder:text-pd-text-tertiary focus:border-pd-accent focus:outline-none"
-            />
-          </div>
-
-          {/* Role Filter */}
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="h-8.5 rounded-sm border border-pd-border bg-pd-surface px-2.5 text-pd-sm text-pd-text-secondary focus:border-pd-accent focus:outline-none"
-          >
-            <option value="all">All Roles</option>
-            <option value="leader">Syndicate Leader</option>
-            <option value="operator">Hawala / Operator</option>
-            <option value="logistics">Logistics</option>
-            <option value="mule">Money Mule</option>
-            <option value="associate">Associate</option>
-          </select>
-
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-8.5 rounded-sm border border-pd-border bg-pd-surface px-2.5 text-pd-sm text-pd-text-secondary focus:border-pd-accent focus:outline-none"
-          >
-            <option value="all">All Statuses</option>
-            <option value="Active Suspect">Active Suspect</option>
-            <option value="Under Watch">Under Watch</option>
-            <option value="Detained">Detained</option>
-          </select>
-
-          <span className="text-pd-xs text-pd-text-tertiary">
-            Showing {filtered.length} of {DEMO_PROFILES.length} Profiles
-          </span>
+    <div
+      style={{
+        display: "flex",
+        height: "100%",
+        flexDirection: "column",
+        overflow: "hidden",
+        background: "#060809",
+        color: "#e8edf2",
+        fontFamily: "'Instrument Sans',system-ui,sans-serif",
+        fontSize: 13,
+      }}
+    >
+      {/* ─── Header ─── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "12px 24px",
+          borderBottom: "1px solid #1b212b",
+          flexWrap: "wrap",
+        }}
+      >
+        {/* Search */}
+        <div style={{ position: "relative", width: 280 }}>
+          <span style={{ position: "absolute", left: 10, top: 9, color: "#5c6773", ...mono({ fontSize: 11 }) }}>⌕</span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="name · alias · phone · account"
+            style={{
+              height: 32,
+              width: "100%",
+              background: "#0b0e12",
+              border: "1px solid #1b212b",
+              padding: "0 12px 0 28px",
+              fontSize: 12,
+              ...mono(),
+              color: "#e8edf2",
+              outline: "none",
+              boxSizing: "border-box",
+              letterSpacing: ".02em",
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = hexA(AC, 0.35))}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "#1b212b")}
+          />
         </div>
 
-        {/* Action Button */}
+        {/* Type filter */}
+        <div style={{ display: "flex", alignItems: "center", border: "1px solid #1b212b" }}>
+          {TYPE_FILTERS.map((f) => (
+            <button key={f.id} onClick={() => setTypeFilter(f.id)} style={segBtn(typeFilter === f.id)}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Risk filter */}
+        <div style={{ display: "flex", alignItems: "center", border: "1px solid #1b212b" }}>
+          {RISK_FILTERS.map((f) => (
+            <button key={f.id} onClick={() => setRiskFilter(f.id)} style={segBtn(riskFilter === f.id)}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Stats */}
+        <span style={mono({ fontSize: 10, letterSpacing: ".1em", color: "#5c6773" })}>
+          {loading ? "Loading…" : `${filtered.length}/${entities.length} SUBJECTS`}
+        </span>
+
+        {/* Refresh button */}
         <button
-          onClick={() => alert("Create Profile modal: Ingest FIR / NAFIS match")}
-          className="flex h-8 items-center gap-1.5 rounded-sm bg-pd-accent px-3 text-pd-sm font-medium text-pd-base hover:bg-pd-accent-hover transition-colors shadow-sm"
+          onClick={fetchEntities}
+          disabled={loading}
+          style={mono({
+            height: 30,
+            padding: "0 12px",
+            background: "transparent",
+            border: "1px solid #1b212b",
+            color: loading ? "#5c6773" : "#98a4b3",
+            fontSize: 10,
+            letterSpacing: ".1em",
+            cursor: loading ? "default" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          })}
+          title={`Last refreshed: ${timeSince}`}
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          New Profile
+          <span style={{ display: "inline-block", animation: loading ? "spin 1s linear infinite" : "none" }}>⟳</span>
+          {loading ? "LOADING" : "REFRESH"}
+        </button>
+
+        {/* Ingest new data */}
+        <button
+          onClick={() => setIngestModalOpen(true)}
+          style={mono({
+            marginLeft: "auto",
+            height: 32,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "0 16px",
+            background: hexA(AC, 0.1),
+            border: `1px solid ${hexA(AC, 0.35)}`,
+            color: AC,
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: ".12em",
+            cursor: "pointer",
+          })}
+        >
+          + INGEST DATA
         </button>
       </div>
 
-      {/* Profiles Data Table */}
-      <div className="mt-4 flex-1 rounded-sm border border-pd-border bg-pd-surface overflow-hidden flex flex-col">
-        <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left border-collapse">
+      {/* ─── Error banner ─── */}
+      {error && (
+        <div
+          style={{
+            padding: "10px 24px",
+            background: "#1a0808",
+            borderBottom: "1px solid #3a1515",
+            color: "#ff7070",
+            fontSize: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span>⚠ Engine unreachable: {error}</span>
+          <button
+            onClick={fetchEntities}
+            style={{ background: "none", border: "none", color: AC, cursor: "pointer", fontSize: 11 }}
+          >
+            RETRY
+          </button>
+        </div>
+      )}
+
+      {/* ─── Loading skeleton ─── */}
+      {loading && entities.length === 0 && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+          <div style={{ width: 32, height: 32, border: `2px solid ${AC}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+          <span style={mono({ fontSize: 11, color: "#5c6773", letterSpacing: ".14em" })}>FETCHING PROFILES FROM DATABASE…</span>
+        </div>
+      )}
+
+      {/* ─── Empty state ─── */}
+      {!loading && entities.length === 0 && !error && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+          <div style={{ fontSize: 40 }}>📂</div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#e8edf2", marginBottom: 6 }}>No Profiles Found</div>
+            <div style={mono({ fontSize: 11, color: "#5c6773", letterSpacing: ".06em" })}>
+              Upload an FIR or document to automatically populate suspect profiles
+            </div>
+          </div>
+          <button
+            onClick={() => setIngestModalOpen(true)}
+            style={mono({
+              height: 36,
+              padding: "0 20px",
+              background: hexA(AC, 0.12),
+              border: `1px solid ${hexA(AC, 0.4)}`,
+              color: AC,
+              fontSize: 12,
+              letterSpacing: ".1em",
+              cursor: "pointer",
+              fontWeight: 600,
+            })}
+          >
+            + INGEST FIR / DOCUMENT
+          </button>
+        </div>
+      )}
+
+      {/* ─── Profiles Table ─── */}
+      {entities.length > 0 && (
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 24px 24px" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
             <thead>
-              <tr className="h-8 border-b border-pd-border bg-pd-elevated text-pd-xs uppercase tracking-wider text-pd-text-secondary select-none">
-                <th className="px-3 py-1 font-semibold w-12 text-center">Avatar</th>
-                <th className="px-3 py-1 font-semibold">Name</th>
-                <th className="px-3 py-1 font-semibold">Primary Alias</th>
-                <th className="px-3 py-1 font-semibold">Role / Syndicate Tier</th>
-                <th className="px-3 py-1 font-semibold font-mono">Aadhaar / ID</th>
-                <th className="px-3 py-1 font-semibold">Connected Cases</th>
-                <th className="px-3 py-1 font-semibold">Risk Score</th>
-                <th className="px-3 py-1 font-semibold text-right">Actions</th>
+              <tr style={{ height: 36, borderBottom: "1px solid #232b37" }}>
+                <th style={{ ...th, width: 34 }}>##</th>
+                <th style={th}>SUBJECT</th>
+                <th style={th}>TYPE</th>
+                <th style={th}>ALIASES</th>
+                <th style={th}>PHONE</th>
+                <th style={th}>VEHICLE / ACCOUNT</th>
+                <th style={th}>LINKS</th>
+                <th style={{ ...th, width: 160 }}>RISK INDEX</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-pd-border/40 text-pd-sm">
-              {filtered.map((p) => (
-                <tr
-                  key={p.id}
-                  onDoubleClick={() => handleOpenProfile(p)}
-                  className="h-10 hover:bg-pd-elevated/70 transition-colors cursor-pointer group"
-                >
-                  <td className="px-3 py-1 text-center">
-                    <div className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-pd-accent/15 text-[10px] font-bold text-pd-accent border border-pd-accent/30">
-                      {p.name.substring(0, 2).toUpperCase()}
-                    </div>
-                  </td>
-                  <td className="px-3 py-1 font-medium text-pd-text-primary group-hover:text-pd-accent transition-colors">
-                    {p.name}
-                  </td>
-                  <td className="px-3 py-1 text-pd-text-secondary italic">
-                    "{p.alias}"
-                  </td>
-                  <td className="px-3 py-1">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                        p.roleTier === "leader"
-                          ? "bg-pd-danger/15 text-pd-danger border border-pd-danger/30"
-                          : p.roleTier === "operator"
-                          ? "bg-pd-warning/15 text-pd-warning border border-pd-warning/30"
-                          : p.roleTier === "logistics"
-                          ? "bg-pd-accent/15 text-pd-accent border border-pd-accent/30"
-                          : "bg-pd-surface text-pd-text-secondary border border-pd-border"
-                      }`}
-                    >
-                      {p.role}
-                    </span>
-                  </td>
-                  <td className="px-3 py-1 font-mono text-pd-xs text-pd-text-tertiary">
-                    {p.aadhaar}
-                  </td>
-                  <td className="px-3 py-1 text-pd-text-secondary font-mono text-pd-xs">
-                    {p.cases}
-                  </td>
-                  <td className="px-3 py-1">
-                    <span
-                      className={`font-mono text-pd-xs font-semibold ${
-                        p.riskLevel === "HIGH"
-                          ? "text-pd-danger"
-                          : p.riskLevel === "MED"
-                          ? "text-pd-warning"
-                          : "text-pd-success"
-                      }`}
-                    >
-                      {p.riskScore.toFixed(2)} {p.riskLevel}
-                    </span>
-                  </td>
-                  <td className="px-3 py-1 text-right">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenProfile(p);
-                      }}
-                      className="inline-flex items-center gap-1 rounded border border-pd-border bg-pd-elevated px-2 py-1 text-pd-xs font-medium text-pd-accent hover:border-pd-accent hover:bg-pd-accent/10 transition-colors"
-                    >
-                      Open Profile
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </td>
-                </tr>
-              ))}
+            <tbody>
+              {filtered.map((p, i) => {
+                const rl = getRiskLevel(p.risk_score);
+                const rc = RISK_C[rl];
+                const filledBars = Math.round(p.risk_score * 10);
+                const phone = getPhone(p);
+                const vehicle = getVehicle(p);
+                const account = getAccount(p);
+                const identLabel = vehicle !== "—" ? vehicle : account;
+
+                return (
+                  <tr
+                    key={p.id}
+                    onDoubleClick={() => handleOpenProfile(p)}
+                    onClick={() => handleOpenProfile(p)}
+                    style={{ height: 44, borderBottom: "1px solid #12161d", cursor: "pointer", transition: "background 0.1s" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#0b0e12")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    {/* Row number */}
+                    <td style={mono({ padding: "0 10px", fontSize: 10, color: "#5c6773" })}>
+                      {String(i + 1).padStart(2, "0")}
+                    </td>
+
+                    {/* Name */}
+                    <td style={{ padding: "0 10px" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#e8edf2" }}>{p.name}</div>
+                    </td>
+
+                    {/* Type badge */}
+                    <td style={{ padding: "0 10px" }}>
+                      <span
+                        style={mono({
+                          display: "inline-block",
+                          fontSize: 9,
+                          letterSpacing: ".1em",
+                          padding: "2px 6px",
+                          background: p.type === "PERSON" ? hexA("#4a9eff", 0.12) : hexA("#a855f7", 0.12),
+                          color: p.type === "PERSON" ? "#4a9eff" : "#a855f7",
+                          border: `1px solid ${p.type === "PERSON" ? hexA("#4a9eff", 0.3) : hexA("#a855f7", 0.3)}`,
+                        })}
+                      >
+                        {p.type}
+                      </span>
+                    </td>
+
+                    {/* Aliases */}
+                    <td style={mono({ padding: "0 10px", fontSize: 10, color: "#98a4b3" })}>
+                      {p.aliases.length > 0 ? `"${p.aliases[0]}"` : "—"}
+                    </td>
+
+                    {/* Phone */}
+                    <td style={mono({ padding: "0 10px", fontSize: 10, color: "#5c6773" })}>
+                      {phone}
+                    </td>
+
+                    {/* Vehicle / Account */}
+                    <td style={mono({ padding: "0 10px", fontSize: 10, color: "#5c6773" })}>
+                      {identLabel}
+                    </td>
+
+                    {/* Relationship count */}
+                    <td style={{ padding: "0 10px" }}>
+                      <span
+                        style={mono({
+                          fontSize: 10,
+                          color: p.relationship_count > 0 ? "#e8c15a" : "#5c6773",
+                          fontWeight: p.relationship_count > 5 ? 700 : 400,
+                        })}
+                      >
+                        {p.relationship_count} links
+                      </span>
+                    </td>
+
+                    {/* Risk bar */}
+                    <td style={{ padding: "0 10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ display: "flex", gap: 2, flex: 1, maxWidth: 80 }}>
+                          {Array.from({ length: 10 }, (_, k) => (
+                            <span key={k} style={{ height: 10, flex: 1, background: k < filledBars ? rc : "#161c25" }} />
+                          ))}
+                        </div>
+                        <span style={mono({ fontSize: 10, fontWeight: 600, color: rc, minWidth: 28 })}>
+                          {p.risk_score > 0 ? p.risk_score.toFixed(2) : rl}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-        </div>
 
-        {/* Footer Hint & Pagination */}
-        <div className="flex items-center justify-between border-t border-pd-border bg-pd-elevated px-3 py-2 text-pd-xs text-pd-text-tertiary">
-          <span className="italic">Tip: Double-click any suspect row to open their dedicated Profile tab.</span>
-          <div className="flex items-center gap-2">
-            <span>1-6 of {DEMO_PROFILES.length}</span>
-            <button className="rounded px-1.5 py-0.5 border border-pd-border bg-pd-surface hover:bg-pd-elevated disabled:opacity-40" disabled>
-              Prev
-            </button>
-            <button className="rounded px-1.5 py-0.5 border border-pd-border bg-pd-surface hover:bg-pd-elevated disabled:opacity-40" disabled>
-              Next
-            </button>
+          {filtered.length === 0 && !loading && (
+            <div style={{ padding: "32px 0", textAlign: "center", color: "#5c6773", ...mono({ fontSize: 11, letterSpacing: ".1em" }) }}>
+              NO SUBJECTS MATCH CURRENT FILTERS
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingTop: 14,
+              ...mono({ fontSize: 9 }),
+              letterSpacing: ".12em",
+              color: "#5c6773",
+            }}
+          >
+            <span>CLICK ROW → OPEN DOSSIER · LIVE DATA FROM SUPABASE</span>
+            <span>
+              {filtered.length} / {entities.length} RECORDS · REFRESHED {timeSince}
+            </span>
           </div>
         </div>
-      </div>
+      )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
