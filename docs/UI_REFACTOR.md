@@ -1,14 +1,22 @@
 # RAVEN UI Refactor
 
 A ground-up visual refactor of the RAVEN operator console, ported from the Claude
-Design canvas project **"RAVEN Refactor.dc.html"** into a self-contained React
-component at `src/refactor/RavenRefactor.tsx`. It is mounted as the app entry
-(`src/main.tsx`) so the whole team can navigate every module and review the new look.
+Design canvas project **"RAVEN Refactor.dc.html"**.
 
-> **Scope:** This is a **visual preview**. All data is mock/static and baked into the
-> component. Backend wiring (real queries, live cameras, ledger, uploads) is
-> intentionally out of scope for this pass. The previous production shell
-> (`src/App.tsx` + panes) is untouched — restore it by reverting `main.tsx`.
+Two forms exist:
+
+- **`src/refactor/RavenShell.tsx`** — the **live** refactor. The new chrome (top
+  command bar, numbered module nav, yellow accent, status ticker) wrapping the **real**
+  feature panes via the same dispatcher `App.tsx` uses. Reachable at `?refactor`.
+- **`src/refactor/RavenRefactor.tsx`** — the original pure design mockup (mock data, no
+  backend). Kept only as a data-free visual reference.
+
+> **Gate:** the real `App` (sidebar shell) is the default at `/`. Add `?refactor` to the
+> URL to load `RavenShell`. So the working product is never replaced — the new UI runs
+> side by side for review. Flip the default in `main.tsx` once the migration is signed off.
+
+**Pane migration status** (each real pane restyled to the new theme, logic unchanged):
+Profiles ✅ · Network ✅ · Optics ✅ · Ledger ✅ · Sources ✅ (all done).
 
 ---
 
@@ -192,8 +200,10 @@ that is an environment issue, not a UI bug.
 
 | File | Role |
 | --- | --- |
-| `src/refactor/RavenRefactor.tsx` | The entire refactor UI + mock data |
-| `src/main.tsx` | Mounts `RavenRefactor` as the app entry |
+| `src/refactor/RavenShell.tsx` | Live refactor shell — new chrome wrapping the real panes |
+| `src/refactor/RavenRefactor.tsx` | Original pure mockup (mock data) — visual reference only |
+| `src/main.tsx` | Gate: `App` by default, `RavenShell` at `?refactor` |
+| `src/components/**/*Pane.tsx`, `AuditPanel.tsx` | Real panes, restyled to the new theme |
 
 ## Restoring the production shell
 
@@ -204,20 +214,16 @@ sidebar + tab-bar production console.
 
 ## Recommendations / open decisions
 
-1. **This is a mockup with its own hardcoded data — it shadows the real app.**
-   Two copies of the UI will drift (mock store names, counts, pipeline steps vs. the
-   real panes). Decide the fork before it rots:
-   - **Preview only** — hide behind a flag (e.g. `?refactor` URL param or env var) so the
-     real `App` stays the default; never ship it as the entry on `main`.
-   - **Adopt (preferred)** — keep only the shell + styling (top command bar, numbered
-     nav, palette, fonts, status ticker) and mount the **real** panes
-     (`ProfilesDirectoryPane`, `GraphPane`, `VisionPane`, `AuditPanel`, `DatabasesPane`)
-     inside the new frame. Reuses real logic + backend instead of duplicating it; drops
-     the refactor from ~700 lines to a thin shell.
+1. ~~Decide the mockup-vs-real fork.~~ **Done — adopted the shell.** `RavenShell` mounts
+   the real panes and is gated behind `?refactor`; all five panes are restyled to the
+   new theme. The mock `RavenRefactor` is kept only as a visual reference. Remaining:
+   flip the `main.tsx` default from `App` to `RavenShell` (and retire the old sidebar
+   chrome) once the team signs off.
 
 2. **Fix the narrow-width nav overflow.** Below ~1000px, Ledger + Sources fall off the
    header and become unreachable. Port the source design's collapse-to-number behavior
-   for inactive tabs (~5 lines). See QA Finding 2.
+   for inactive tabs (~5 lines). Applies to both `RavenShell` and `RavenRefactor`. See
+   QA Finding 2.
 
 3. **Move colors to design tokens.** The palette is hardcoded hex throughout
    (`#e8c15a`, `#ff5a3c`, …). Lift it into `tailwind.config.js` (alongside the existing
