@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { CSSProperties, useState } from "react";
 import { useCaseStore } from "../../store/case";
 
 interface ProfileRecord {
@@ -103,6 +103,50 @@ const DEMO_PROFILES: ProfileRecord[] = [
   },
 ];
 
+// ── RAVEN-refactor theme tokens (match RavenShell) ──
+const AC = "#e8c15a";
+const hexA = (h: string, a: number) => h + Math.round(a * 255).toString(16).padStart(2, "0");
+const MONO = "'Spline Sans Mono',monospace";
+const mono = (extra?: CSSProperties): CSSProperties => ({ fontFamily: MONO, ...extra });
+
+const ROLE_C: Record<ProfileRecord["roleTier"], string> = {
+  leader: "#ff5a3c",
+  operator: "#e0a63d",
+  logistics: AC,
+  mule: "#98a4b3",
+  associate: "#98a4b3",
+};
+const RISK_C: Record<ProfileRecord["riskLevel"], string> = { HIGH: "#ff5a3c", MED: "#e0a63d", LOW: "#5ecf9a" };
+const STATUS_C: Record<ProfileRecord["status"], string> = {
+  "Active Suspect": "#ff5a3c",
+  "Under Watch": "#e0a63d",
+  Detained: "#5c6773",
+};
+
+const ROLE_FILTERS: { id: string; label: string }[] = [
+  { id: "all", label: "ALL" },
+  { id: "leader", label: "LEADER" },
+  { id: "operator", label: "OPERATOR" },
+  { id: "logistics", label: "LOGISTICS" },
+  { id: "mule", label: "MULE" },
+  { id: "associate", label: "ASSOCIATE" },
+];
+const STATUS_FILTERS: { id: string; label: string }[] = [
+  { id: "all", label: "ALL" },
+  { id: "Active Suspect", label: "ACTIVE" },
+  { id: "Under Watch", label: "WATCH" },
+  { id: "Detained", label: "DETAINED" },
+];
+
+const th: CSSProperties = mono({
+  padding: "0 10px",
+  fontSize: 9,
+  fontWeight: 500,
+  letterSpacing: ".18em",
+  color: "#5c6773",
+  textAlign: "left",
+});
+
 export function ProfilesDirectoryPane() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -136,173 +180,205 @@ export function ProfilesDirectoryPane() {
     });
   };
 
+  const segBtn = (active: boolean): CSSProperties =>
+    mono({
+      height: 32,
+      padding: "0 12px",
+      background: active ? hexA(AC, 0.12) : "transparent",
+      color: active ? AC : "#5c6773",
+      border: "none",
+      borderRight: "1px solid #1b212b",
+      fontSize: 10,
+      letterSpacing: ".1em",
+      cursor: "pointer",
+    });
+
   return (
-    <div className="flex h-full flex-col bg-pd-base text-pd-text-primary p-4 overflow-y-auto">
-      {/* Top Search & Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-pd-border">
-        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[300px]">
-          {/* Search Input */}
-          <div className="relative flex-1 min-w-[280px] max-w-md">
-            <svg
-              className="absolute left-2.5 top-2.5 h-4 w-4 text-pd-text-tertiary"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by Name, Alias, Aadhaar, Phone, Vehicle..."
-              className="h-8.5 w-full rounded-sm border border-pd-border bg-pd-surface pl-8 pr-3 text-pd-base text-pd-text-primary placeholder:text-pd-text-tertiary focus:border-pd-accent focus:outline-none"
-            />
-          </div>
-
-          {/* Role Filter */}
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="h-8.5 rounded-sm border border-pd-border bg-pd-surface px-2.5 text-pd-sm text-pd-text-secondary focus:border-pd-accent focus:outline-none"
-          >
-            <option value="all">All Roles</option>
-            <option value="leader">Syndicate Leader</option>
-            <option value="operator">Hawala / Operator</option>
-            <option value="logistics">Logistics</option>
-            <option value="mule">Money Mule</option>
-            <option value="associate">Associate</option>
-          </select>
-
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-8.5 rounded-sm border border-pd-border bg-pd-surface px-2.5 text-pd-sm text-pd-text-secondary focus:border-pd-accent focus:outline-none"
-          >
-            <option value="all">All Statuses</option>
-            <option value="Active Suspect">Active Suspect</option>
-            <option value="Under Watch">Under Watch</option>
-            <option value="Detained">Detained</option>
-          </select>
-
-          <span className="text-pd-xs text-pd-text-tertiary">
-            Showing {filtered.length} of {DEMO_PROFILES.length} Profiles
-          </span>
+    <div
+      style={{
+        display: "flex",
+        height: "100%",
+        flexDirection: "column",
+        overflow: "hidden",
+        background: "#060809",
+        color: "#e8edf2",
+        fontFamily: "'Instrument Sans',system-ui,sans-serif",
+        fontSize: 13,
+      }}
+    >
+      {/* Toolbar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          padding: "14px 24px",
+          borderBottom: "1px solid #1b212b",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ position: "relative", width: 320 }}>
+          <span style={{ position: "absolute", left: 12, top: 9, color: "#5c6773", ...mono({ fontSize: 11 }) }}>/</span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="name · alias · aadhaar · phone · vehicle"
+            style={{
+              height: 34,
+              width: "100%",
+              background: "#0b0e12",
+              border: "1px solid #1b212b",
+              padding: "0 12px 0 26px",
+              fontSize: 12,
+              ...mono(),
+              color: "#e8edf2",
+              outline: "none",
+              boxSizing: "border-box",
+              letterSpacing: ".02em",
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = hexA(AC, 0.35))}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "#1b212b")}
+          />
         </div>
 
-        {/* Action Button */}
+        {/* Role filter */}
+        <div style={{ display: "flex", alignItems: "center", border: "1px solid #1b212b" }}>
+          {ROLE_FILTERS.map((rf) => (
+            <button key={rf.id} onClick={() => setRoleFilter(rf.id)} style={segBtn(roleFilter === rf.id)}>
+              {rf.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Status filter */}
+        <div style={{ display: "flex", alignItems: "center", border: "1px solid #1b212b" }}>
+          {STATUS_FILTERS.map((sf) => (
+            <button key={sf.id} onClick={() => setStatusFilter(sf.id)} style={segBtn(statusFilter === sf.id)}>
+              {sf.label}
+            </button>
+          ))}
+        </div>
+
+        <span style={mono({ fontSize: 10, letterSpacing: ".1em", color: "#5c6773" })}>
+          {filtered.length}/{DEMO_PROFILES.length} SUBJECTS
+        </span>
+
         <button
-          onClick={() => alert("Create Profile modal: Ingest FIR / NAFIS match")}
-          className="flex h-8 items-center gap-1.5 rounded-sm bg-pd-accent px-3 text-pd-sm font-medium text-pd-base hover:bg-pd-accent-hover transition-colors shadow-sm"
+          onClick={() => alert("Create Profile: Ingest FIR / NAFIS match")}
+          style={mono({
+            marginLeft: "auto",
+            height: 34,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "0 16px",
+            background: hexA(AC, 0.1),
+            border: `1px solid ${hexA(AC, 0.35)}`,
+            color: AC,
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: ".12em",
+            cursor: "pointer",
+          })}
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          New Profile
+          + NEW SUBJECT
         </button>
       </div>
 
-      {/* Profiles Data Table */}
-      <div className="mt-4 flex-1 rounded-sm border border-pd-border bg-pd-surface overflow-hidden flex flex-col">
-        <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="h-8 border-b border-pd-border bg-pd-elevated text-pd-xs uppercase tracking-wider text-pd-text-secondary select-none">
-                <th className="px-3 py-1 font-semibold w-12 text-center">Avatar</th>
-                <th className="px-3 py-1 font-semibold">Name</th>
-                <th className="px-3 py-1 font-semibold">Primary Alias</th>
-                <th className="px-3 py-1 font-semibold">Role / Syndicate Tier</th>
-                <th className="px-3 py-1 font-semibold font-mono">Aadhaar / ID</th>
-                <th className="px-3 py-1 font-semibold">Connected Cases</th>
-                <th className="px-3 py-1 font-semibold">Risk Score</th>
-                <th className="px-3 py-1 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-pd-border/40 text-pd-sm">
-              {filtered.map((p) => (
+      {/* Table */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 24px 24px" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+          <thead>
+            <tr style={{ height: 38, borderBottom: "1px solid #232b37" }}>
+              <th style={{ ...th, width: 34 }}>##</th>
+              <th style={th}>SUBJECT</th>
+              <th style={th}>ALIAS</th>
+              <th style={th}>ROLE / TIER</th>
+              <th style={th}>AADHAAR</th>
+              <th style={th}>CASES</th>
+              <th style={{ ...th, width: 170 }}>RISK INDEX</th>
+              <th style={{ ...th, width: 100, textAlign: "right" }}>STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((p, i) => {
+              const rc = RISK_C[p.riskLevel];
+              const filledBars = Math.round(p.riskScore * 10);
+              return (
                 <tr
                   key={p.id}
                   onDoubleClick={() => handleOpenProfile(p)}
-                  className="h-10 hover:bg-pd-elevated/70 transition-colors cursor-pointer group"
+                  style={{ height: 46, borderBottom: "1px solid #12161d", cursor: "pointer" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#0b0e12")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
-                  <td className="px-3 py-1 text-center">
-                    <div className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-pd-accent/15 text-[10px] font-bold text-pd-accent border border-pd-accent/30">
-                      {p.name.substring(0, 2).toUpperCase()}
+                  <td style={mono({ padding: "0 10px", fontSize: 10, color: "#5c6773" })}>
+                    {String(i + 1).padStart(2, "0")}
+                  </td>
+                  <td style={{ padding: "0 10px" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#e8edf2", letterSpacing: ".01em" }}>{p.name}</span>
+                  </td>
+                  <td style={mono({ padding: "0 10px", fontSize: 11, color: "#98a4b3" })}>"{p.alias}"</td>
+                  <td style={{ padding: "0 10px" }}>
+                    <span
+                      style={mono({
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 7,
+                        fontSize: 10,
+                        letterSpacing: ".08em",
+                        color: ROLE_C[p.roleTier],
+                      })}
+                    >
+                      <span
+                        style={{
+                          width: 7,
+                          height: 7,
+                          background: ROLE_C[p.roleTier],
+                          clipPath: "polygon(0 0,100% 0,100% 65%,65% 100%,0 100%)",
+                        }}
+                      />
+                      {p.role.toUpperCase()}
+                    </span>
+                  </td>
+                  <td style={mono({ padding: "0 10px", fontSize: 10, color: "#5c6773" })}>{p.aadhaar}</td>
+                  <td style={mono({ padding: "0 10px", fontSize: 10, color: "#98a4b3" })}>{p.cases}</td>
+                  <td style={{ padding: "0 10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                      <div style={{ display: "flex", gap: 2, flex: 1, maxWidth: 96 }}>
+                        {Array.from({ length: 10 }, (_, k) => (
+                          <span key={k} style={{ height: 12, flex: 1, background: k < filledBars ? rc : "#161c25" }} />
+                        ))}
+                      </div>
+                      <span style={mono({ fontSize: 10, fontWeight: 600, color: rc })}>{p.riskScore.toFixed(2)}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-1 font-medium text-pd-text-primary group-hover:text-pd-accent transition-colors">
-                    {p.name}
-                  </td>
-                  <td className="px-3 py-1 text-pd-text-secondary italic">
-                    "{p.alias}"
-                  </td>
-                  <td className="px-3 py-1">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                        p.roleTier === "leader"
-                          ? "bg-pd-danger/15 text-pd-danger border border-pd-danger/30"
-                          : p.roleTier === "operator"
-                          ? "bg-pd-warning/15 text-pd-warning border border-pd-warning/30"
-                          : p.roleTier === "logistics"
-                          ? "bg-pd-accent/15 text-pd-accent border border-pd-accent/30"
-                          : "bg-pd-surface text-pd-text-secondary border border-pd-border"
-                      }`}
-                    >
-                      {p.role}
+                  <td style={{ padding: "0 10px", textAlign: "right" }}>
+                    <span style={mono({ fontSize: 9, letterSpacing: ".12em", color: STATUS_C[p.status] })}>
+                      {p.status.toUpperCase()}
                     </span>
-                  </td>
-                  <td className="px-3 py-1 font-mono text-pd-xs text-pd-text-tertiary">
-                    {p.aadhaar}
-                  </td>
-                  <td className="px-3 py-1 text-pd-text-secondary font-mono text-pd-xs">
-                    {p.cases}
-                  </td>
-                  <td className="px-3 py-1">
-                    <span
-                      className={`font-mono text-pd-xs font-semibold ${
-                        p.riskLevel === "HIGH"
-                          ? "text-pd-danger"
-                          : p.riskLevel === "MED"
-                          ? "text-pd-warning"
-                          : "text-pd-success"
-                      }`}
-                    >
-                      {p.riskScore.toFixed(2)} {p.riskLevel}
-                    </span>
-                  </td>
-                  <td className="px-3 py-1 text-right">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenProfile(p);
-                      }}
-                      className="inline-flex items-center gap-1 rounded border border-pd-border bg-pd-elevated px-2 py-1 text-pd-xs font-medium text-pd-accent hover:border-pd-accent hover:bg-pd-accent/10 transition-colors"
-                    >
-                      Open Profile
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+          </tbody>
+        </table>
 
-        {/* Footer Hint & Pagination */}
-        <div className="flex items-center justify-between border-t border-pd-border bg-pd-elevated px-3 py-2 text-pd-xs text-pd-text-tertiary">
-          <span className="italic">Tip: Double-click any suspect row to open their dedicated Profile tab.</span>
-          <div className="flex items-center gap-2">
-            <span>1-6 of {DEMO_PROFILES.length}</span>
-            <button className="rounded px-1.5 py-0.5 border border-pd-border bg-pd-surface hover:bg-pd-elevated disabled:opacity-40" disabled>
-              Prev
-            </button>
-            <button className="rounded px-1.5 py-0.5 border border-pd-border bg-pd-surface hover:bg-pd-elevated disabled:opacity-40" disabled>
-              Next
-            </button>
-          </div>
+        {/* Footer hint & pagination */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingTop: 14,
+            ...mono({ fontSize: 9 }),
+            letterSpacing: ".12em",
+            color: "#5c6773",
+          }}
+        >
+          <span>DBL-CLICK ROW → OPEN DOSSIER</span>
+          <span>PAGE 1/1 · {DEMO_PROFILES.length} RECORDS</span>
         </div>
       </div>
     </div>
