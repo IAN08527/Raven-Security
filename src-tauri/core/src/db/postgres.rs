@@ -179,6 +179,267 @@ pub async fn get_case_code(pool: &PgPool, case_uuid: &str) -> Result<String, Str
     code.ok_or_else(|| "case code not found".to_string())
 }
 
+/// Resolve a camera id that may be a UUID or a `code` (e.g. 'cam_01') to a UUID.
+pub async fn resolve_camera_id(pool: &PgPool, camera: &str) -> Result<String, String> {
+    if let Ok(u) = uuid::Uuid::parse_str(camera) {
+        let exists: Option<String> =
+            sqlx::query_scalar("SELECT id::text FROM cameras WHERE id = $1::uuid")
+                .bind(u)
+                .persistent(false)
+                .fetch_optional(pool)
+                .await
+                .map_err(|e| e.to_string())?;
+        if let Some(id) = exists {
+            return Ok(id);
+        }
+    }
+    let by_code: Option<String> =
+        sqlx::query_scalar("SELECT id::text FROM cameras WHERE code = $1")
+            .bind(camera)
+            .persistent(false)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+    by_code.ok_or_else(|| format!("camera not found: {camera}"))
+}
+
+/// Insert a `reid_targets` row (D9 lock-on). `feature_literal` is a pgvector
+/// text literal ('[..]') produced by the engine and cast to `vector` here, so
+/// the DB layer does no float parsing. Returns the new target id.
+pub async fn insert_reid_target(
+    pool: &PgPool,
+    case_uuid: &str,
+    label: &str,
+    feature_literal: &str,
+    camera_uuid: &str,
+    source_ts: &str,
+    thumbnail_path: Option<&str>,
+) -> Result<String, String> {
+    let id: String = sqlx::query_scalar(
+        "INSERT INTO reid_targets \
+         (case_id, label, feature, source_camera, source_ts, thumbnail_path) \
+         VALUES ($1::uuid, $2, $3::vector, $4::uuid, $5::timestamptz, $6) \
+         RETURNING id::text",
+    )
+    .bind(case_uuid)
+    .bind(label)
+    .bind(feature_literal)
+    .bind(camera_uuid)
+    .bind(source_ts)
+    .bind(thumbnail_path)
+    .persistent(false)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(id)
+}
+
+/// Record the ledger outcome of a lock-on on the target row.
+pub async fn set_reid_target_ledger(
+    pool: &PgPool,
+    target_id: &str,
+    tx: Option<&str>,
+) -> Result<(), String> {
+    sqlx::query("UPDATE reid_targets SET ledger_tx_id=$2 WHERE id=$1::uuid")
+        .bind(target_id)
+        .bind(tx)
+        .persistent(false)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Insert an `audit_log` row with an explicit ledger tx + status (D9). Unlike
+/// `audit::emit`, this captures the tx id so lock-on can surface it in the UI.
+pub async fn insert_audit_log(
+    pool: &PgPool,
+    action: &str,
+    object_type: &str,
+    object_id: &str,
+    payload_hash: &str,
+    tx: Option<&str>,
+    ledger_status: &str,
+) -> Result<(), String> {
+    sqlx::query(
+        "INSERT INTO audit_log \
+         (action, object_type, object_id, payload_hash, ledger_tx_id, ledger_status) \
+         VALUES ($1,$2,$3::uuid,$4,$5,$6)",
+    )
+    .bind(action)
+    .bind(object_type)
+    .bind(object_id)
+    .bind(payload_hash)
+    .bind(tx)
+    .bind(ledger_status)
+    .persistent(false)
+    .execute(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Resolve an officer badge (e.g. 'MH-1188') to its uuid. Confirm is an
+/// accountable act, so `insight_reviews.officer_id` must be a real officer.
+pub async fn resolve_officer_id(pool: &PgPool, badge: &str) -> Result<String, String> {
+    let id: Option<String> = sqlx::query_scalar("SELECT id::text FROM officers WHERE badge_no = $1")
+        .bind(badge)
+        .persistent(false)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    id.ok_or_else(|| format!("officer not found for badge: {badge}"))
+}
+
+/// Link a locked target to a case entity so a confirmed sighting can bump that
+/// entity's graph edges (Phase 5, recommendation B). No-op when `entity` is None.
+pub async fn set_reid_target_entity(
+    pool: &PgPool,
+    target_id: &str,
+    entity: Option<&str>,
+) -> Result<(), String> {
+    let Some(entity_id) = entity else { return Ok(()) };
+    sqlx::query("UPDATE reid_targets SET entity_id = $2::uuid WHERE id = $1::uuid")
+        .bind(target_id)
+        .bind(entity_id)
+        .persistent(false)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// A sighting joined to its parent target (Phase 5 confirm inputs).
+pub struct SightingRow {
+    pub case_id: String,
+    pub target_id: String,
+    pub entity_id: Option<String>,
+    pub similarity: f64,
+    /// True once an officer has confirmed it — guards against a double-confirm
+    /// minting duplicate evidence (there is no enclosing transaction).
+    pub already_confirmed: bool,
+}
+
+/// Load a sighting + its target's case/entity. Errors if the sighting is absent.
+pub async fn get_sighting(pool: &PgPool, sighting_id: i64) -> Result<SightingRow, String> {
+    let row: Option<(String, String, Option<String>, f64, bool)> = sqlx::query_as(
+        "SELECT t.case_id::text, t.id::text, t.entity_id::text, s.similarity::float8, \
+                (s.confirmed_by IS NOT NULL) \
+         FROM reid_sightings s JOIN reid_targets t ON t.id = s.target_id \
+         WHERE s.id = $1",
+    )
+    .bind(sighting_id)
+    .persistent(false)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    let (case_id, target_id, entity_id, similarity, already_confirmed) =
+        row.ok_or_else(|| format!("sighting not found: {sighting_id}"))?;
+    Ok(SightingRow { case_id, target_id, entity_id, similarity, already_confirmed })
+}
+
+/// Stamp `confirmed_by` on a sighting (the officer who confirmed it).
+pub async fn set_sighting_confirmed(
+    pool: &PgPool,
+    sighting_id: i64,
+    officer_id: &str,
+) -> Result<(), String> {
+    sqlx::query("UPDATE reid_sightings SET confirmed_by = $2::uuid WHERE id = $1")
+        .bind(sighting_id)
+        .bind(officer_id)
+        .persistent(false)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Insert an `insight_reviews` row (FR-2.3). Returns the new review id.
+#[allow(clippy::too_many_arguments)]
+pub async fn insert_insight_review(
+    pool: &PgPool,
+    object_type: &str,
+    object_id: &str,
+    action: &str,
+    note: Option<&str>,
+    officer_id: &str,
+    tx: Option<&str>,
+) -> Result<i64, String> {
+    let id: i64 = sqlx::query_scalar(
+        "INSERT INTO insight_reviews \
+         (object_type, object_id, action, note, officer_id, ledger_tx_id) \
+         VALUES ($1,$2,$3,$4,$5::uuid,$6) RETURNING id",
+    )
+    .bind(object_type)
+    .bind(object_id)
+    .bind(action)
+    .bind(note)
+    .bind(officer_id)
+    .bind(tx)
+    .persistent(false)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(id)
+}
+
+/// Relationship ids in a case that touch `entity_id` (as src or dst). These are
+/// the edges a confirmed sighting of that entity corroborates.
+pub async fn relationships_for_entity(
+    pool: &PgPool,
+    case_id: &str,
+    entity_id: &str,
+) -> Result<Vec<String>, String> {
+    let rows: Vec<(String,)> = sqlx::query_as(
+        "SELECT id::text FROM relationships \
+         WHERE case_id = $1::uuid AND ($2::uuid IN (src_entity_id, dst_entity_id))",
+    )
+    .bind(case_id)
+    .bind(entity_id)
+    .persistent(false)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(rows.into_iter().map(|(id,)| id).collect())
+}
+
+/// Insert one `cctv_sighting` evidence row (no source file — Phase 5 migration
+/// 002 relaxes that for this kind only). `confidence` carries the match similarity.
+pub async fn insert_cctv_evidence(
+    pool: &PgPool,
+    relationship_id: &str,
+    entity_id: &str,
+    snippet: &str,
+    confidence: f64,
+) -> Result<i64, String> {
+    let id: i64 = sqlx::query_scalar(
+        "INSERT INTO evidence \
+         (relationship_id, entity_id, source_file_id, kind, snippet, confidence) \
+         VALUES ($1::uuid, $2::uuid, NULL, 'cctv_sighting', $3, $4) RETURNING id",
+    )
+    .bind(relationship_id)
+    .bind(entity_id)
+    .bind(snippet)
+    .bind(confidence)
+    .persistent(false)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(id)
+}
+
+/// Recompute an edge's decayed weight from its evidence (§7.1 SQL function).
+/// Returns the new weight.
+pub async fn call_recompute_weight(pool: &PgPool, rel_id: &str) -> Result<f64, String> {
+    let w: f64 = sqlx::query_scalar("SELECT recompute_weight($1::uuid)::float8")
+        .bind(rel_id)
+        .persistent(false)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(w)
+}
+
 /// Validate a `source_node` enum value; default to `MANUAL` if unknown.
 fn normalize_source(s: &str) -> String {
     const OK: [&str; 7] = [

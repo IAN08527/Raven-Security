@@ -25,7 +25,7 @@ PG_DSN = db_layer.build_dsn()
 
 app = FastAPI(title="Raven Intelligence Engine")
 app.include_router(graph_api.router)
-sessions: dict[str, cv_session.CVSession] = {}
+sessions: "dict[str, object]" = {}
 _subscribers: list[WebSocket] = []
 
 
@@ -127,6 +127,61 @@ async def cv_lock(sid: str, body: dict):
         vram.release()
 
 
+@app.get("/cv/sightings/{name}")
+async def cv_sighting_frame(name: str):
+    """Serve a saved sighting crop for the Phase 5 review panel. `name` is a bare
+    basename — reject any path separators so the officer UI can only read frames
+    inside the sightings dir (no traversal)."""
+    from fastapi.responses import FileResponse
+    from fastapi import HTTPException
+    from cv.stream import SIGHTING_DIR
+    from cv.frames import resolve_frame
+    path = resolve_frame(name, SIGHTING_DIR)
+    if path is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return FileResponse(path, media_type="image/jpeg")
+
+
+@app.post("/cv/targets/register")
+async def cv_target_register(body: dict):
+    """Arm a locked target for the Phase 3 match loop.
+
+    Called by Rust right after `reid::lock_on` persists + anchors the target, so
+    the engine's live match loop knows the real `target_id` (assigned DB-side)
+    and its fingerprint. Phase 4 will pass `watching` to gate cameras.
+    """
+    from cv.targets import registry
+    registry.register(
+        body["target_id"],
+        body["feature_b64"],
+        body.get("case_id", ""),
+        body.get("source_camera", ""),
+        body.get("watching"),
+    )
+    # Phase 4 (D8): arm only the adjacent downstream cameras of the source, each
+    # for its travel-time window. A DB hiccup degrades to watching=None (match
+    # everywhere) rather than silently arming nothing.
+    import time as _time
+    from cv import topology
+    source = body.get("source_camera", "")
+    armed = {}
+    if source:
+        try:
+            edges = await topology.predict_handoff(source)
+            armed = topology.compute_windows(edges, _time.time())
+            registry.arm(body["target_id"], armed)
+        except Exception:
+            pass
+    return {"registered": body["target_id"], "armed": list(armed.keys())}
+
+
+@app.delete("/cv/targets/{target_id}")
+async def cv_target_unregister(target_id: str):
+    from cv.targets import registry
+    registry.unregister(target_id)
+    return {"unregistered": target_id}
+
+
 @app.post("/cv/session/{sid}/watch")
 async def cv_watch(sid: str, body: dict):
     s = sessions[sid]
@@ -145,7 +200,7 @@ async def cv_stream(camera_code: str):
     from cv import stream as cv_stream
     s = sessions[camera_code]
     return StreamingResponse(
-        cv_stream.mjpeg_stream(camera_code, s.feed_uri, broadcast),
+        cv_stream.mjpeg_stream(s, broadcast),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
 

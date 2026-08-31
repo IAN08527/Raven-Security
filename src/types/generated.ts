@@ -119,5 +119,46 @@ export interface TrackingResult {
   ws_url: string;
 }
 
+export interface LockResult {
+  target_id: string;
+  tx_id: string;
+  ledger_status: string;
+}
+
+export interface ConfirmResult {
+  review_id: number;
+  tx_id: string;
+  ledger_status: string;
+  edges_bumped: number;
+  evidence_written: number;
+}
+
+export interface CVBox {
+  track_id: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  conf: number;
+}
+
+export interface CVDetections {
+  camera_code: string;
+  boxes: CVBox[];
+  frame_w?: number;
+  frame_h?: number;
+}
+
+export interface CVSighting {
+  sighting_id: number | null;
+  target_id: string;
+  camera_code: string;
+  similarity: number;
+  bbox: number[];
+  frame_path: string;
+  ts: string;
+  track_id?: number;
+}
+
 export type WebSocketEvent =
   | { v: number; type: string; ts: string; payload: Record<string, unknown> };

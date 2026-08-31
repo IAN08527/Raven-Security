@@ -15,9 +15,9 @@
 - **Session: Backlog #2 — Ingest saga (Rust) — DONE (see Session 2).**
 - **Session: Backlog #3 — NLP extraction (Python) — DONE (see Session 3).**
 - **Session: Backlog #4 — Graph engine (Rust + Cytoscape + evidence panel) — DONE (see Session 4).**
+- **Session: Backlog #5 — CCTV Re-ID — CODE DONE (all phases 0–6) + mock-proven (see Session 5).**
 - **Rule (one feature per session):** each session builds exactly ONE backlog item end-to-end.
-- **Next up:** **Backlog #5 — CCTV Re-ID** (YOLOv8n + ByteTrack MJPEG, human-in-loop lock-on,
-  topology-gated handoff across 4-cam network, §6.3, D8/D9).
+- **Next up:** **Backlog #6 — Geospatial routine** (MapLibre + local PMTiles, CDR ping loop + hotspots, D6, §6.6).
 - Note on the health gate: `HealthBoard.tsx` already reads `health_check` and shows
   `supabase`/`neo4j`/`ollama`/`fabric`/`python` rows; the `supabase` row is now driven by a real
   `pg_health` probe (Backlog #1). Neo4j/ollama/fabric rows will only go green when those services
@@ -268,10 +268,31 @@
   `source:"neo4j"`. The Postgres path is the always-available fallback.
 - **Test guide:** `docs/GRAPH_TESTING.md` (3 ways to test: CLI, browser+engine, full
   Tauri). 
-- **Handoff for next owner:** Backlog #4 is proven. Next is **Backlog #5 (CCTV Re-ID)**
-  — YOLOv8n + ByteTrack MJPEG, human-in-loop lock-on, topology-gated handoff across
-  the 4-cam network (§6.3, D8/D9). The `get_edge_evidence`/`entity_details` panel is
-  already wired and can show CCTV-sighting evidence once Re-ID writes it.
+- **Handoff for next owner:** Backlog #4 is proven.
+
+### Session 5 — CCTV Re-ID (DONE — code + mock proof)
+- **Goal:** §6.3 spatio-temporal CCTV tracking + human-in-the-loop Re-ID across a 4-camera
+  network — lock-on (D9, accountable/ledger-anchored), OSNet fingerprint, topology-gated
+  handoff (D8, the 8GB-VRAM safety core), officer confirm → `cctv_sighting` evidence (+10).
+  Built in seven phases; full detail per phase in `docs/cctv-roadmap.md`.
+- **What landed (all mock-proven, GPU/DB-less):** real OSNet embed behind `RAVEN_CV_MODE`
+  (mock = deterministic color-histogram) [P1]; lock-on persists `reid_targets` + ledger anchor
+  + `audit_log`, Rust `raven_core::reid::lock_on` [P2]; cross-camera sighting match loop +
+  `reid_sightings` + `cv.sighting` WS [P3]; topology-gated handoff — travel-time windows,
+  `arm`/`for_camera`/`expire`, one `vram.acquire(Lane.CV)` lane [P4]; `confirm_sighting`
+  (confirm/reject → `insight_reviews` + evidence + `recompute_weight`, idempotency guard,
+  migration `002_cctv_evidence.sql`) [P5]; end-to-end seam proof + demo runbook [P6].
+- **Proofs (all PASS):** `tools/test_reid.py`, `test_lock.py`, `test_sighting.py`,
+  `test_topology.py`, `test_confirm.py`, and the Phase 6 `test_e2e.py` (18 seam checks —
+  lock→arm→sighting→gate→chain→confirm/+10→re-confirm guard→reject). Ran in a scratchpad
+  numpy venv (macOS dev box has no GPU/cv2/torch/asyncpg, PEP 668 blocks system pip).
+- **Deferred to demo machine (by design, scripted in `docs/cctv-demo-run.md`):**
+  `cargo check -p raven -p raven-core`, `tsc --noEmit`, apply migration 002, `seed_cctv.py`
+  (cameras+edges), seed `officers` row for `RAVEN_BADGE`, drop 4 `.mp4` clips, real OSNet
+  weights + boxmot 11.x entrypoint check, bring up Ledger+Neo4j (else `pending`, D4).
+- **Handoff for next owner:** Backlog #5 is code-complete + proven. Run the demo runbook to go
+  live-green, then **Backlog #6 (Geospatial routine)** — MapLibre + local PMTiles, CDR ping
+  loop + hotspots (D6, §6.6).
 
 ## Backlog (one feature per session, dependency-ordered)
 1. **Ingest/Storage baseline** — [DONE] Schema applied (Session 1a). Rust (`sqlx`) + Python
@@ -296,11 +317,16 @@
    Live end-to-end against cloud Supabase proven (4 entities / 3 relations /
    8 evidence). Real Ollama LLM path implemented but not exercised live (no GPU);
    `ollama pull phi3:mini` + `RAVEN_NLP_MODE=auto` enables it on the demo machine.
-  4. **Graph engine** — [DONE] See Session 4. Rust `get_ego_graph`/`get_macro_graph`
+4. **Graph engine** — [DONE] See Session 4. Rust `get_ego_graph`/`get_macro_graph`
    (Bolt + batched evidence hydrate), Cytoscape micro/macro + evidence side panel in
    frontend (§6.2, §9.2). Proven live against cloud Supabase.
-5. **CCTV Re-ID** — YOLOv8n + ByteTrack MJPEG, human-in-loop lock-on, topology-gated
-   handoff across 4-cam network (§6.3, D8/D9).
+5. **CCTV Re-ID** — [DONE (code + mock proof)] YOLOv8n + ByteTrack MJPEG, human-in-loop lock-on,
+   topology-gated handoff across 4-cam network (§6.3, D8/D9). Phased build tracked in
+   `docs/cctv-roadmap.md`. All phases 0–6 code done + mock-proven (seed, real OSNet embed, lock-on
+   persist+ledger anchor, sighting match loop, topology-gated handoff D8, human confirm+evidence,
+   end-to-end proof + docs). Six `tools/test_*.py` proofs PASS. Demo-machine live run (deferred by
+   design) is scripted in `docs/cctv-demo-run.md`: `cargo check`, migration 002, live DB/ledger/OSNet,
+   camera + officer seed, `.mp4` clips.
 6. **Geospatial routine** — MapLibre + local PMTiles, CDR ping loop + hotspots (D6, §6.6).
 7. **Tamper + audit UI** — verify-evidence flow, red tamper state, audit ledger view (§6.4).
 8. **Rehearsal hardening** — mock ledger fallback, `rebuild_graph` dev button, golden
