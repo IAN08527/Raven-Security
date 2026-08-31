@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import CytoscapeComponent from "react-cytoscapejs";
 import type { Core, ElementDefinition } from "cytoscape";
 import { useQuery } from "@tanstack/react-query";
@@ -6,14 +6,38 @@ import { invokeRaven } from "../../hooks/useInvoke";
 import { useCaseStore } from "../../store/case";
 import type { EgoGraph } from "../../types/generated";
 
-// Curated Forensic Technical Palette (Matte, Refined)
+// ── RAVEN-refactor theme tokens (match RavenShell) ──
+const AC = "#e8c15a";
+const hexA = (h: string, a: number) => h + Math.round(a * 255).toString(16).padStart(2, "0");
+const acBorder = hexA(AC, 0.35);
+const MONO = "'Spline Sans Mono',monospace";
+const mono = (extra?: CSSProperties): CSSProperties => ({ fontFamily: MONO, ...extra });
+const CANVAS_BG = "#060809";
+
+// Entity palette — refactor theme
 const ENTITY_COLORS: Record<string, { fill: string; stroke: string; text: string }> = {
-  PERSON: { fill: "#dc2626", stroke: "#fca5a5", text: "#f8fafc" },       // Crimson Red (Criminals)
-  ORGANIZATION: { fill: "#d97706", stroke: "#fde68a", text: "#fef3c7" }, // Amber Gold (FIRs / Shell Co)
-  ACCOUNT: { fill: "#2563eb", stroke: "#bfdbfe", text: "#dbeafe" },      // Royal Blue (Hawala / Bank)
-  LOCATION: { fill: "#16a34a", stroke: "#bbf7d0", text: "#dcfce7" },     // Forest Green (Safehouses)
-  VEHICLE: { fill: "#9333ea", stroke: "#e9d5ff", text: "#f3e8ff" },      // Tactical Purple (Vehicles)
+  PERSON: { fill: "#ff5a3c", stroke: "#ff5a3c", text: "#e8edf2" }, // suspect red
+  ORGANIZATION: { fill: "#e0a63d", stroke: "#e0a63d", text: "#e0a63d" }, // FIR / shell amber
+  ACCOUNT: { fill: AC, stroke: AC, text: AC }, // account yellow (accent)
+  LOCATION: { fill: "#5ecf9a", stroke: "#5ecf9a", text: "#5ecf9a" }, // location green
+  VEHICLE: { fill: "#b18cff", stroke: "#b18cff", text: "#b18cff" }, // vehicle purple
 };
+
+// Floating HUD control style
+const hudBtn: CSSProperties = mono({
+  display: "flex",
+  alignItems: "center",
+  gap: 7,
+  height: 28,
+  padding: "0 11px",
+  background: "#0b0e12",
+  border: "1px solid #1b212b",
+  color: "#98a4b3",
+  fontSize: 9,
+  fontWeight: 700,
+  letterSpacing: ".12em",
+  cursor: "pointer",
+});
 
 export function GraphPane() {
   const caseId = useCaseStore((s) => s.caseId) || "OP-RAVEN-01";
@@ -22,7 +46,7 @@ export function GraphPane() {
   const setLayerFilter = useCaseStore((s) => s.setLayerFilter);
   const openTab = useCaseStore((s) => s.openTab);
 
-  const [layoutName, setLayoutName] = useState<string>("cose");
+  const [layoutName, setLayoutName] = useState<string>("fcose");
   const [zoomScale, setZoomScale] = useState<number>(1.0);
   const [showFilterDrawer, setShowFilterDrawer] = useState<boolean>(false);
   const [showLegend, setShowLegend] = useState<boolean>(false);
@@ -159,17 +183,29 @@ export function GraphPane() {
     const cy = cyRef.current;
     if (!cy) return;
 
-    // HIGH REPULSION SPATIOUS PHYSICS: Spreads nodes comfortably across the canvas
-    const layout = cy.layout({
-      name: layoutName,
-      animate: false,
-      padding: 90,
-      nodeRepulsion: () => 65000,
-      idealEdgeLength: () => 210,
-      edgeElasticity: () => 16,
-      gravity: 0.12,
-      numIter: 1000,
-    } as any);
+    // Spread nodes comfortably across the canvas. fcose gives a much more even
+    // force layout than plain cose and packs disconnected components instead of
+    // flinging them to one side; fit-to-view once it settles so it fills the frame.
+    const isForce = layoutName === "fcose" || layoutName === "cose";
+    const opts = isForce
+      ? {
+          name: "fcose",
+          quality: "proof",
+          animate: false,
+          randomize: true,
+          padding: 60,
+          nodeSeparation: 95,
+          idealEdgeLength: () => 130,
+          nodeRepulsion: () => 14000,
+          edgeElasticity: () => 0.5,
+          gravity: 0.35,
+          gravityRange: 3.6,
+          numIter: 2500,
+          packComponents: true,
+        }
+      : { name: layoutName, animate: false, padding: 60 };
+    const layout = cy.layout(opts as any);
+    layout.one("layoutstop", () => cy.fit(undefined, 60));
     layout.run();
 
     // Zoom listener to update HUD zoom scale
@@ -220,10 +256,57 @@ export function GraphPane() {
     };
   }, [elements, layoutName, openTab]);
 
+  // Build a cytoscape node style block for one entity type
+  const nodeStyle = (type: keyof typeof ENTITY_COLORS, top: boolean) => ({
+    selector: `node[type = '${type}']`,
+    style: {
+      width: "data(size)",
+      height: "data(size)",
+      "background-color": ENTITY_COLORS[type].fill,
+      "background-opacity": type === "PERSON" ? 0.32 : 0.2,
+      "border-width": type === "PERSON" ? 1.5 : 1,
+      "border-color": ENTITY_COLORS[type].stroke,
+      label: "data(label)",
+      color: ENTITY_COLORS[type].text,
+      "font-family": "Spline Sans Mono, ui-monospace, monospace",
+      "font-size": type === "PERSON" ? 9.5 : 7.5,
+      "font-weight": type === "PERSON" ? 700 : 600,
+      "text-valign": top ? "top" : "bottom",
+      "text-margin-y": top ? -7 : 5,
+      "text-background-opacity": 0.85,
+      "text-background-color": CANVAS_BG,
+      "text-background-padding": "3px",
+      "text-background-shape": "roundrectangle",
+      "text-border-width": 0.5,
+      "text-border-color": "#232b37",
+      opacity: 1,
+    },
+  });
+
   return (
-    <div className="flex h-full w-full bg-[#05080d] text-pd-text-primary overflow-hidden relative select-none font-sans">
+    <div
+      style={{
+        display: "flex",
+        height: "100%",
+        width: "100%",
+        overflow: "hidden",
+        position: "relative",
+        userSelect: "none",
+        background: CANVAS_BG,
+        color: "#e8edf2",
+        fontFamily: "'Instrument Sans',system-ui,sans-serif",
+      }}
+    >
       {/* 1. MAIN INTERACTIVE CYTOSCAPE CANVAS */}
-      <div className="flex-1 h-full relative">
+      <div
+        style={{
+          flex: 1,
+          height: "100%",
+          position: "relative",
+          backgroundImage: "radial-gradient(#10141a 1px,transparent 1px)",
+          backgroundSize: "26px 26px",
+        }}
+      >
         <CytoscapeComponent
           elements={elements}
           cy={(cy: Core) => {
@@ -231,164 +314,39 @@ export function GraphPane() {
           }}
           className="h-full w-full"
           stylesheet={[
-            // 1. PRIMARY HIGHLIGHT: PERSON / SUSPECT (Small, Refined Matte Hexagon)
-            {
-              selector: "node[type = 'PERSON']",
-              style: {
-                width: "data(size)",
-                height: "data(size)",
-                shape: "hexagon",
-                "background-color": ENTITY_COLORS.PERSON.fill,
-                "border-width": 1.5,
-                "border-color": ENTITY_COLORS.PERSON.stroke,
-                label: "data(label)",
-                color: "#ffffff",
-                "font-family": "Inter, system-ui, -apple-system, sans-serif",
-                "font-size": 9.5,
-                "font-weight": 700,
-                "text-valign": "top",
-                "text-margin-y": -7,
-                "text-background-opacity": 0.85,
-                "text-background-color": "#05080d",
-                "text-background-padding": "3px",
-                "text-background-shape": "roundrectangle",
-                "text-border-width": 0.5,
-                "text-border-color": "#334155",
-                opacity: 1,
-              },
-            },
-            // Secondary Entities: Organizations / FIRs (Small Amber Octagon)
-            {
-              selector: "node[type = 'ORGANIZATION']",
-              style: {
-                width: "data(size)",
-                height: "data(size)",
-                shape: "octagon",
-                "background-color": ENTITY_COLORS.ORGANIZATION.fill,
-                "border-width": 1,
-                "border-color": ENTITY_COLORS.ORGANIZATION.stroke,
-                label: "data(label)",
-                color: "#fde68a",
-                "font-family": "JetBrains Mono, ui-monospace, monospace",
-                "font-size": 7.5,
-                "font-weight": 600,
-                "text-valign": "bottom",
-                "text-margin-y": 5,
-                "text-background-opacity": 0.85,
-                "text-background-color": "#05080d",
-                "text-background-padding": "2.5px",
-                "text-background-shape": "roundrectangle",
-                "text-border-width": 0.5,
-                "text-border-color": "#334155",
-                opacity: 0.9,
-              },
-            },
-            // Secondary Entities: Bank Accounts / Hawala (Small Blue Hexagon)
-            {
-              selector: "node[type = 'ACCOUNT']",
-              style: {
-                width: "data(size)",
-                height: "data(size)",
-                shape: "hexagon",
-                "background-color": ENTITY_COLORS.ACCOUNT.fill,
-                "border-width": 1,
-                "border-color": ENTITY_COLORS.ACCOUNT.stroke,
-                label: "data(label)",
-                color: "#bfdbfe",
-                "font-family": "JetBrains Mono, ui-monospace, monospace",
-                "font-size": 7.5,
-                "font-weight": 600,
-                "text-valign": "bottom",
-                "text-margin-y": 5,
-                "text-background-opacity": 0.85,
-                "text-background-color": "#05080d",
-                "text-background-padding": "2.5px",
-                "text-background-shape": "roundrectangle",
-                "text-border-width": 0.5,
-                "text-border-color": "#334155",
-                opacity: 0.9,
-              },
-            },
-            // Secondary Entities: Locations / Safehouses (Small Green Diamond)
-            {
-              selector: "node[type = 'LOCATION']",
-              style: {
-                width: "data(size)",
-                height: "data(size)",
-                shape: "diamond",
-                "background-color": ENTITY_COLORS.LOCATION.fill,
-                "border-width": 1,
-                "border-color": ENTITY_COLORS.LOCATION.stroke,
-                label: "data(label)",
-                color: "#bbf7d0",
-                "font-family": "JetBrains Mono, ui-monospace, monospace",
-                "font-size": 7.5,
-                "font-weight": 600,
-                "text-valign": "bottom",
-                "text-margin-y": 5,
-                "text-background-opacity": 0.85,
-                "text-background-color": "#05080d",
-                "text-background-padding": "2.5px",
-                "text-background-shape": "roundrectangle",
-                "text-border-width": 0.5,
-                "text-border-color": "#334155",
-                opacity: 0.9,
-              },
-            },
-            // Secondary Entities: Vehicles (Small Purple Rounded Rectangle)
-            {
-              selector: "node[type = 'VEHICLE']",
-              style: {
-                width: "data(size)",
-                height: "data(size)",
-                shape: "round-rectangle",
-                "background-color": ENTITY_COLORS.VEHICLE.fill,
-                "border-width": 1,
-                "border-color": ENTITY_COLORS.VEHICLE.stroke,
-                label: "data(label)",
-                color: "#e9d5ff",
-                "font-family": "JetBrains Mono, ui-monospace, monospace",
-                "font-size": 7.5,
-                "font-weight": 600,
-                "text-valign": "bottom",
-                "text-margin-y": 5,
-                "text-background-opacity": 0.85,
-                "text-background-color": "#05080d",
-                "text-background-padding": "2.5px",
-                "text-background-shape": "roundrectangle",
-                "text-border-width": 0.5,
-                "text-border-color": "#334155",
-                opacity: 0.9,
-              },
-            },
-            // Selected Node Focus (Radiant Focus)
+            nodeStyle("PERSON", true) as any,
+            nodeStyle("ORGANIZATION", false) as any,
+            nodeStyle("ACCOUNT", false) as any,
+            nodeStyle("LOCATION", false) as any,
+            nodeStyle("VEHICLE", false) as any,
+            // Selected node focus
             {
               selector: "node:selected",
               style: {
-                "background-color": "#16a34a",
-                "border-color": "#4ade80",
-                "border-width": 2.5,
-                color: "#ffffff",
+                "background-opacity": 1,
+                "border-color": "#e8edf2",
+                "border-width": 3,
+                color: "#e8edf2",
                 opacity: 1,
               },
             },
-            // Delicate Hairline Edges
+            // Delicate hairline edges
             {
               selector: "edge",
               style: {
                 width: "data(w)",
-                "line-color": "#273549",
+                "line-color": "#1e2733",
                 "curve-style": "bezier",
-                opacity: 0.6,
+                opacity: 0.7,
                 "target-arrow-shape": "none",
               },
             },
-            // Active Selected Connected Edges
+            // Active selected connected edges
             {
               selector: "edge:selected",
               style: {
                 width: 2.0,
-                "line-color": "#4ade80",
+                "line-color": AC,
                 "line-style": "dashed",
                 opacity: 1,
               },
@@ -397,25 +355,31 @@ export function GraphPane() {
         />
 
         {/* 2. TOP-LEFT FLOATING HUD CONTROLS */}
-        <div className="absolute top-4 left-4 z-30 flex items-center gap-2">
-          {/* Filtering Options Button */}
+        <div style={{ position: "absolute", top: 16, left: 16, zIndex: 30, display: "flex", alignItems: "center", gap: 8 }}>
           <button
             onClick={() => setShowFilterDrawer(!showFilterDrawer)}
-            className="flex h-8 items-center gap-2 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-3 text-[11px] font-mono font-semibold uppercase tracking-wider text-pd-text-primary hover:border-pd-accent transition-colors shadow-lg"
+            style={{ ...hudBtn, color: "#e8edf2" }}
           >
-            <svg className="h-3.5 w-3.5 text-pd-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-            </svg>
-            FILTERING OPTIONS
+            <span style={{ color: AC }}>≡</span> FILTERING OPTIONS
           </button>
 
-          {/* Layout Selector */}
           <select
             value={layoutName}
             onChange={(e) => setLayoutName(e.target.value)}
-            className="h-8 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-2.5 text-[11px] font-mono font-semibold uppercase text-pd-text-primary focus:border-pd-accent focus:outline-none shadow-lg cursor-pointer"
+            style={mono({
+              height: 28,
+              background: "#0b0e12",
+              border: "1px solid #1b212b",
+              padding: "0 10px",
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: ".08em",
+              color: "#e8edf2",
+              outline: "none",
+              cursor: "pointer",
+            })}
           >
-            <option value="cose">LAYOUT: FORCE (SPATIOUS)</option>
+            <option value="fcose">LAYOUT: FORCE (SPATIOUS)</option>
             <option value="concentric">LAYOUT: CONCENTRIC</option>
             <option value="circle">LAYOUT: CIRCLE</option>
             <option value="breadthfirst">LAYOUT: HIERARCHICAL</option>
@@ -424,160 +388,105 @@ export function GraphPane() {
         </div>
 
         {/* 3. TOP-RIGHT FLOATING HUD CONTROLS */}
-        <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
-          <button
-            onClick={() => {
-              if (cyRef.current) {
-                cyRef.current.fit(undefined, 70);
-              }
-            }}
-            className="flex h-8 items-center gap-1.5 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-3 text-[10px] font-mono font-bold uppercase tracking-wider text-pd-text-secondary hover:text-pd-text-primary hover:border-pd-border transition-colors shadow-lg"
-          >
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
+        <div style={{ position: "absolute", top: 16, right: 16, zIndex: 30, display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => cyRef.current?.fit(undefined, 70)} style={hudBtn}>
             RESET VIEW
           </button>
-
           <button
             onClick={() => {
               if (cyRef.current) {
-                const png = cyRef.current.png({ full: true, bg: "#05080d" });
+                const png = cyRef.current.png({ full: true, bg: CANVAS_BG });
                 const a = document.createElement("a");
                 a.href = png;
                 a.download = `Raven_Macro_Graph_${Date.now()}.png`;
                 a.click();
               }
             }}
-            className="flex h-8 items-center gap-1.5 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-3 text-[10px] font-mono font-bold uppercase tracking-wider text-pd-accent hover:bg-pd-surface shadow-lg"
+            style={{ ...hudBtn, color: AC }}
           >
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
             EXPORT PNG
           </button>
         </div>
 
         {/* 4. LAYER FILTER POP-OUT DRAWER */}
         {showFilterDrawer && (
-          <div className="absolute top-14 left-4 z-40 w-64 rounded-sm border border-pd-border bg-[#0d1117]/95 backdrop-blur p-3.5 shadow-2xl space-y-3 animate-in fade-in zoom-in-95 duration-100 font-mono text-pd-xs">
-            <div className="flex items-center justify-between border-b border-pd-border/60 pb-2">
-              <span className="font-bold text-pd-text-primary uppercase tracking-wider">Entity Layers</span>
-              <button onClick={() => setShowFilterDrawer(false)} className="text-pd-text-tertiary hover:text-pd-text-primary">✕</button>
+          <div
+            style={{
+              position: "absolute",
+              top: 56,
+              left: 16,
+              zIndex: 40,
+              width: 260,
+              border: "1px solid #1b212b",
+              background: "#080b0e",
+              padding: 14,
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #1b212b", paddingBottom: 8 }}>
+              <span style={mono({ fontSize: 9, fontWeight: 700, letterSpacing: ".16em", color: AC })}>◈ ENTITY LAYERS</span>
+              <button onClick={() => setShowFilterDrawer(false)} style={{ background: "none", border: "none", color: "#5c6773", cursor: "pointer", fontSize: 13 }}>✕</button>
             </div>
 
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-pd-text-primary cursor-pointer">
-                <input type="checkbox" checked disabled className="accent-pd-accent rounded" />
-                <span className="flex items-center gap-2 font-bold">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#dc2626]" />
-                  People / Suspects (Main Focus)
-                </span>
-              </label>
-
-              <label className="flex items-center gap-2 text-pd-text-secondary hover:text-pd-text-primary cursor-pointer">
+            {[
+              { key: "people", label: "PEOPLE / SUSPECTS", color: "#ff5a3c", locked: true, checked: true },
+              { key: "institutions", label: "FIR CASES & INSTITUTIONS", color: "#e0a63d", locked: false, checked: layerFilters.institutions },
+              { key: "accounts", label: "HAWALA / BANK ACCOUNTS", color: AC, locked: false, checked: layerFilters.accounts },
+              { key: "vehicles", label: "VEHICLE FLEETS", color: "#b18cff", locked: false, checked: layerFilters.vehicles },
+            ].map((l) => (
+              <label key={l.key} style={{ display: "flex", alignItems: "center", gap: 9, cursor: l.locked ? "default" : "pointer" }}>
                 <input
                   type="checkbox"
-                  checked={layerFilters.institutions}
-                  onChange={(e) => setLayerFilter("institutions", e.target.checked)}
-                  className="accent-pd-accent rounded"
+                  checked={l.checked}
+                  disabled={l.locked}
+                  onChange={(e) => !l.locked && setLayerFilter(l.key as "vehicles" | "institutions" | "accounts", e.target.checked)}
+                  style={{ accentColor: AC }}
                 />
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-xs bg-[#d97706]" />
-                  FIR Cases & Institutions
-                </span>
+                <span style={{ width: 8, height: 8, background: l.color, flexShrink: 0 }} />
+                <span style={mono({ fontSize: 10, letterSpacing: ".06em", color: l.checked ? "#e8edf2" : "#98a4b3" })}>{l.label}</span>
               </label>
-
-              <label className="flex items-center gap-2 text-pd-text-secondary hover:text-pd-text-primary cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={layerFilters.accounts}
-                  onChange={(e) => setLayerFilter("accounts", e.target.checked)}
-                  className="accent-pd-accent rounded"
-                />
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-xs bg-[#2563eb]" />
-                  Hawala / Bank Accounts
-                </span>
-              </label>
-
-              <label className="flex items-center gap-2 text-pd-text-secondary hover:text-pd-text-primary cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={layerFilters.vehicles}
-                  onChange={(e) => setLayerFilter("vehicles", e.target.checked)}
-                  className="accent-pd-accent rounded"
-                />
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-xs bg-[#9333ea]" />
-                  Vehicle Fleets
-                </span>
-              </label>
-            </div>
+            ))}
           </div>
         )}
 
-        {/* 5. BOTTOM-LEFT HUD (LEGEND BUTTON) */}
-        <div className="absolute bottom-4 left-4 z-30">
-          <button
-            onClick={() => setShowLegend(!showLegend)}
-            className="flex h-7 items-center gap-1.5 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-2.5 text-[10px] font-mono font-bold uppercase tracking-wider text-pd-text-secondary hover:text-pd-text-primary shadow-lg"
-          >
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
+        {/* 5. BOTTOM-LEFT HUD (LEGEND) */}
+        <div style={{ position: "absolute", bottom: 16, left: 16, zIndex: 30 }}>
+          <button onClick={() => setShowLegend(!showLegend)} style={{ ...hudBtn, height: 26 }}>
             LEGEND
           </button>
-
           {showLegend && (
-            <div className="mt-2 rounded-sm border border-pd-border bg-[#0d1117]/95 backdrop-blur p-3 text-[10px] font-mono space-y-2 shadow-2xl">
-              <div className="flex items-center gap-2 text-pd-text-primary font-bold border-b border-pd-border/60 pb-1.5">
-                <span className="h-3 w-3 bg-[#dc2626] rounded-xs border border-white" />
-                <span>Suspect / Criminal (Main Highlight)</span>
-              </div>
-              <div className="flex items-center gap-2 text-pd-text-secondary">
-                <span className="h-2 w-2 bg-[#d97706] rounded-xs" />
-                <span>FIR Case / Shell Co (Secondary)</span>
-              </div>
-              <div className="flex items-center gap-2 text-pd-text-secondary">
-                <span className="h-2 w-2 bg-[#2563eb] rounded-xs" />
-                <span>Bank / Hawala Account (Secondary)</span>
-              </div>
-              <div className="flex items-center gap-2 text-pd-text-secondary">
-                <span className="h-2 w-2 bg-[#16a34a] rounded-xs" />
-                <span>Safehouse / Location (Secondary)</span>
-              </div>
-              <div className="flex items-center gap-2 text-pd-text-secondary">
-                <span className="h-2 w-2 bg-[#9333ea] rounded-xs" />
-                <span>Vehicle Fleet (Secondary)</span>
-              </div>
+            <div style={{ marginTop: 8, border: "1px solid #1b212b", background: "#080b0e", padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                { c: "#ff5a3c", t: "SUSPECT / CRIMINAL" },
+                { c: "#e0a63d", t: "FIR CASE / SHELL CO" },
+                { c: AC, t: "BANK / HAWALA ACCOUNT" },
+                { c: "#5ecf9a", t: "SAFEHOUSE / LOCATION" },
+                { c: "#b18cff", t: "VEHICLE FLEET" },
+              ].map((row) => (
+                <div key={row.t} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 8, height: 8, background: row.c }} />
+                  <span style={mono({ fontSize: 9, letterSpacing: ".08em", color: "#98a4b3" })}>{row.t}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* 6. BOTTOM-RIGHT MINIMAL ZOOM CONTROLS */}
-        <div className="absolute bottom-4 right-4 z-30 flex items-center gap-1.5 rounded-sm border border-pd-border bg-[#0d1117]/90 backdrop-blur px-2.5 py-1 text-pd-xs font-mono shadow-lg">
-          <span className="text-pd-text-tertiary font-bold text-[10px] mr-1">
-            {zoomScale.toFixed(2)}x
-          </span>
+        {/* 6. BOTTOM-RIGHT ZOOM CONTROLS */}
+        <div style={{ position: "absolute", bottom: 16, right: 16, zIndex: 30, display: "flex", alignItems: "center", gap: 6, ...mono({ fontSize: 10 }), color: "#5c6773" }}>
+          <span style={{ marginRight: 4 }}>{zoomScale.toFixed(2)}×</span>
           <button
-            onClick={() => {
-              if (cyRef.current) {
-                cyRef.current.zoom(cyRef.current.zoom() * 0.85);
-              }
-            }}
-            className="h-5 w-5 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary border border-pd-border flex items-center justify-center font-bold text-xs"
+            onClick={() => cyRef.current?.zoom(cyRef.current.zoom() * 0.85)}
+            style={{ width: 24, height: 24, background: "#0b0e12", border: "1px solid #1b212b", color: "#98a4b3", cursor: "pointer", fontFamily: "inherit" }}
             title="Zoom Out"
           >
-            -
+            −
           </button>
           <button
-            onClick={() => {
-              if (cyRef.current) {
-                cyRef.current.zoom(cyRef.current.zoom() * 1.15);
-              }
-            }}
-            className="h-5 w-5 rounded bg-pd-elevated text-pd-text-secondary hover:text-pd-text-primary border border-pd-border flex items-center justify-center font-bold text-xs"
+            onClick={() => cyRef.current?.zoom(cyRef.current.zoom() * 1.15)}
+            style={{ width: 24, height: 24, background: "#0b0e12", border: "1px solid #1b212b", color: "#98a4b3", cursor: "pointer", fontFamily: "inherit" }}
             title="Zoom In"
           >
             +
@@ -585,93 +494,76 @@ export function GraphPane() {
         </div>
       </div>
 
-      {/* 7. CONTEXTUAL INTELLIGENCE FLYOUT DRAWER (INITIALLY CLOSED, OPENS ON CLICK) */}
+      {/* 7. CONTEXTUAL INTELLIGENCE FLYOUT DRAWER */}
       {selectedNodeData && (
-        <div className="w-88 border-l border-pd-border bg-[#0d1117] p-5 flex flex-col justify-between select-none shadow-2xl z-30 font-sans animate-in slide-in-from-right-4 duration-150">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-pd-border/60 pb-2.5">
-              <span className="text-pd-xs font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2 font-mono">
-                <span className="h-2 w-2 rounded-full bg-pd-accent" />
-                Intelligence Node Profile
-              </span>
-              <button
-                onClick={() => setSelectedNodeData(null)}
-                className="text-pd-text-tertiary hover:text-pd-text-primary text-sm"
-              >
-                ✕
-              </button>
-            </div>
+        <div style={{ width: 320, borderLeft: "1px solid #1b212b", background: "#080b0e", display: "flex", flexDirection: "column", flexShrink: 0, zIndex: 30 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid #1b212b" }}>
+            <span style={mono({ fontSize: 9, letterSpacing: ".18em", color: AC })}>◈ NODE INTEL</span>
+            <button onClick={() => setSelectedNodeData(null)} style={{ background: "none", border: "none", color: "#5c6773", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>✕</button>
+          </div>
 
-            {/* Entity Header */}
+          <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 16, overflowY: "auto", flex: 1 }}>
+            {/* Entity header */}
             <div>
-              <div className="text-pd-xl font-bold text-pd-text-primary">{selectedNodeData.label}</div>
-              <div className="flex items-center gap-2 mt-1">
+              <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-.01em", color: "#e8edf2" }}>{selectedNodeData.label}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
                 <span
-                  className="rounded font-mono text-[10px] px-2 py-0.5 font-bold border"
-                  style={{
-                    backgroundColor: `${ENTITY_COLORS[selectedNodeData.type]?.fill || "#475569"}20`,
-                    borderColor: `${ENTITY_COLORS[selectedNodeData.type]?.stroke || "#475569"}50`,
+                  style={mono({
+                    fontSize: 9,
+                    letterSpacing: ".14em",
+                    padding: "3px 8px",
+                    border: `1px solid ${hexA(ENTITY_COLORS[selectedNodeData.type]?.stroke || "#5c6773", 0.4)}`,
                     color: ENTITY_COLORS[selectedNodeData.type]?.text || "#c9d1d9",
-                  }}
+                  })}
                 >
                   {selectedNodeData.type === "PERSON" ? "PRIMARY SUSPECT" : selectedNodeData.type}
                 </span>
-                <span className="font-mono text-pd-xs text-pd-text-tertiary">ID: {selectedNodeData.id.substring(0, 10)}...</span>
+                <span style={mono({ fontSize: 9, color: "#5c6773" })}>ID · {selectedNodeData.id.substring(0, 10).toUpperCase()}</span>
               </div>
             </div>
 
-            {/* Degree & Threat Grid */}
-            <div className="grid grid-cols-2 gap-2 font-mono">
-              <div className="rounded bg-pd-elevated p-2.5 border border-pd-border">
-                <div className="text-[10px] text-pd-text-tertiary uppercase">Connections</div>
-                <div className="text-pd-lg font-bold text-pd-accent mt-0.5">{selectedNodeData.degree} Links</div>
+            {/* Degree & threat tiles */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div style={{ border: "1px solid #1b212b", background: "#0b0e12", padding: 11 }}>
+                <div style={mono({ fontSize: 8, letterSpacing: ".16em", color: "#5c6773" })}>LINKS</div>
+                <div style={mono({ fontSize: 19, fontWeight: 700, color: AC, marginTop: 3 })}>{selectedNodeData.degree}</div>
               </div>
-              <div className="rounded bg-pd-elevated p-2.5 border border-pd-border">
-                <div className="text-[10px] text-pd-text-tertiary uppercase">Threat Index</div>
-                <div className="text-pd-lg font-bold text-pd-danger mt-0.5">{selectedNodeData.threatWeight}%</div>
+              <div style={{ border: "1px solid #1b212b", background: "#0b0e12", padding: 11 }}>
+                <div style={mono({ fontSize: 8, letterSpacing: ".16em", color: "#5c6773" })}>THREAT</div>
+                <div style={mono({ fontSize: 19, fontWeight: 700, color: "#ff5a3c", marginTop: 3 })}>{selectedNodeData.threatWeight}%</div>
               </div>
             </div>
 
-            {/* Supporting Evidence Chain */}
+            {/* Evidence chain */}
             <div>
-              <div className="text-[11px] font-bold uppercase text-pd-text-tertiary mb-2 font-mono">
-                Corroborating Evidence Logs:
-              </div>
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              <div style={mono({ fontSize: 9, letterSpacing: ".16em", color: "#5c6773", marginBottom: 9 })}>EVIDENCE CHAIN</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {selectedNodeData.evidence.map((ev, i) => (
-                  <div key={i} className="rounded bg-pd-surface p-2.5 border border-pd-border/60 space-y-1">
-                    <div className="flex items-center justify-between font-mono text-[10px] text-pd-text-tertiary">
-                      <span className="text-pd-accent font-semibold">{ev.logId}</span>
-                      <span>{ev.time}</span>
+                  <div key={i} style={{ borderLeft: `2px solid ${acBorder}`, background: "#0b0e12", padding: "9px 11px" }}>
+                    <div style={mono({ display: "flex", justifyContent: "space-between", fontSize: 9 })}>
+                      <span style={{ color: AC }}>{ev.logId}</span>
+                      <span style={{ color: "#5c6773" }}>{ev.time}</span>
                     </div>
-                    <div className="text-pd-xs text-pd-text-secondary leading-relaxed">{ev.text}</div>
+                    <div style={{ fontSize: 11, color: "#98a4b3", marginTop: 4, lineHeight: 1.45 }}>{ev.text}</div>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* Action CTAs */}
-          <div className="space-y-2 pt-3 border-t border-pd-border/60">
+            {/* Action CTAs */}
             {selectedNodeData.type === "PERSON" && (
               <button
-                onClick={() => {
+                onClick={() =>
                   openTab({
                     id: `profile-${selectedNodeData.id}`,
                     type: "profile",
                     title: `Profile: ${selectedNodeData.label}`,
-                    data: {
-                      entityId: selectedNodeData.id,
-                      entityName: selectedNodeData.label,
-                    },
-                  });
-                }}
-                className="flex w-full h-9 items-center justify-center gap-1.5 rounded bg-pd-accent text-pd-xs font-bold text-pd-base hover:bg-pd-accent-hover transition-colors shadow"
+                    data: { entityId: selectedNodeData.id, entityName: selectedNodeData.label },
+                  })
+                }
+                style={mono({ height: 38, background: hexA(AC, 0.1), border: `1px solid ${acBorder}`, color: AC, fontSize: 10, fontWeight: 600, letterSpacing: ".14em", cursor: "pointer" })}
               >
-                Open Full Dossier in New Tab
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
+                OPEN FULL DOSSIER →
               </button>
             )}
 
@@ -686,9 +578,9 @@ export function GraphPane() {
                   }
                 }
               }}
-              className="flex w-full h-8 items-center justify-center gap-1.5 rounded border border-pd-border bg-pd-elevated text-[11px] font-semibold text-pd-text-secondary hover:text-pd-text-primary hover:bg-pd-surface transition-colors"
+              style={mono({ height: 32, background: "transparent", border: "1px solid #1b212b", color: "#98a4b3", fontSize: 9, letterSpacing: ".14em", cursor: "pointer" })}
             >
-              Isolate 1-Hop Neighborhood
+              ISOLATE 1-HOP NEIGHBORHOOD
             </button>
           </div>
         </div>

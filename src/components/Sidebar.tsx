@@ -41,6 +41,17 @@ const navItems = [
     ),
     badge: "Audit",
   },
+  {
+    id: "databases",
+    label: "Databases",
+    icon: (
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 7c0 1.657 3.582 3 8 3s8-1.343 8-3-3.582-3-8-3-8 1.343-8 3z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v5c0 1.657 3.582 3 8 3s8-1.343 8-3V7M4 12v5c0 1.657 3.582 3 8 3s8-1.343 8-3v-5" />
+      </svg>
+    ),
+    badge: "4 DBs",
+  },
 ] as const;
 
 export function Sidebar() {
