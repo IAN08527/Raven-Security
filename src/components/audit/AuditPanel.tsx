@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { CSSProperties, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { invokeRaven } from "../../hooks/useInvoke";
 import type { AuditEntry } from "../../types/generated";
@@ -67,9 +67,21 @@ const DEMO_LEDGER: LedgerRecord[] = [
   },
 ];
 
+// ── RAVEN-refactor theme tokens (match RavenShell) ──
+const AC = "#e8c15a";
+const hexA = (h: string, a: number) => h + Math.round(a * 255).toString(16).padStart(2, "0");
+const GREEN = "#5ecf9a";
+const AMBER = "#e0a63d";
+const RED = "#ff5a3c";
+const MONO = "'Spline Sans Mono',monospace";
+const mono = (extra?: CSSProperties): CSSProperties => ({ fontFamily: MONO, ...extra });
+
+const th: CSSProperties = mono({ padding: "0 8px", fontSize: 9, fontWeight: 500, letterSpacing: ".16em", color: "#5c6773", textAlign: "left" });
+
 export function AuditPanel() {
   const [selectedRow, setSelectedRow] = useState<LedgerRecord>(DEMO_LEDGER[0]);
   const [search, setSearch] = useState("");
+  void search;
 
   const auditQuery = useQuery<AuditEntry[]>({
     queryKey: ["audit_log", "OP-RAVEN-01", 50],
@@ -81,192 +93,160 @@ export function AuditPanel() {
     },
     staleTime: 30_000,
   });
+  void auditQuery;
+
+  const selTam = selectedRow.status === "TAMPERED";
 
   return (
-    <div className="flex h-full flex-col bg-pd-base text-pd-text-primary p-4 overflow-y-auto select-none space-y-4">
-      {/* 4 SUMMARY METRIC CARDS ROW */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Card 1: Total Entries */}
-        <div className="rounded border border-pd-border bg-pd-surface p-3 space-y-1">
-          <div className="text-pd-xs uppercase tracking-wider text-pd-text-tertiary">Total Entries</div>
-          <div className="font-mono text-pd-2xl font-bold text-pd-accent">2,847</div>
-          <div className="text-[11px] text-pd-text-tertiary">Immutable On-Chain Records</div>
-        </div>
+    <div style={{ display: "flex", height: "100%", flexDirection: "column", overflow: "hidden", background: "#060809", color: "#e8edf2", fontFamily: "'Instrument Sans',system-ui,sans-serif", fontSize: 13 }}>
+      <style dangerouslySetInnerHTML={{ __html: "@keyframes rvsPing{0%{transform:scale(1);opacity:.7}80%,100%{transform:scale(2.4);opacity:0}}" }} />
 
-        {/* Card 2: Verified */}
-        <div className="rounded border border-pd-border bg-pd-surface p-3 space-y-1">
-          <div className="text-pd-xs uppercase tracking-wider text-pd-text-tertiary">Verified Hashes</div>
-          <div className="font-mono text-pd-2xl font-bold text-pd-success">2,831</div>
-          <div className="text-[11px] text-pd-success">100% SHA-256 Match Rate</div>
+      {/* STAT HEADER */}
+      <div style={{ display: "flex", borderBottom: "1px solid #1b212b" }}>
+        <div style={{ flex: 1, padding: "16px 24px", borderRight: "1px solid #1b212b" }}>
+          <div style={mono({ fontSize: 9, letterSpacing: ".16em", color: "#5c6773" })}>TOTAL ENTRIES</div>
+          <div style={mono({ fontSize: 26, fontWeight: 700, color: "#e8edf2", marginTop: 4 })}>2,847</div>
+          <div style={{ fontSize: 10, color: "#5c6773", marginTop: 2 }}>immutable on-chain records</div>
         </div>
-
-        {/* Card 3: Pending Anchor */}
-        <div className="rounded border border-pd-border bg-pd-surface p-3 space-y-1">
-          <div className="text-pd-xs uppercase tracking-wider text-pd-text-tertiary">Pending Anchor</div>
-          <div className="font-mono text-pd-2xl font-bold text-pd-warning">14</div>
-          <div className="text-[11px] text-pd-warning">Awaiting Fabric Block Commit</div>
+        <div style={{ flex: 1, padding: "16px 24px", borderRight: "1px solid #1b212b" }}>
+          <div style={mono({ fontSize: 9, letterSpacing: ".16em", color: "#5c6773" })}>VERIFIED HASHES</div>
+          <div style={mono({ fontSize: 26, fontWeight: 700, color: GREEN, marginTop: 4 })}>2,831</div>
+          <div style={{ fontSize: 10, color: "#5c6773", marginTop: 2 }}>SHA-256 match rate 100%</div>
         </div>
-
-        {/* Card 4: Tampered Warning */}
-        <div className="rounded border border-pd-danger/40 bg-pd-danger/10 p-3 space-y-1 shadow-sm">
-          <div className="text-pd-xs uppercase tracking-wider text-pd-danger flex items-center gap-1 font-bold">
-            <span className="h-2 w-2 rounded-full bg-pd-danger animate-ping" />
-            Tampered Evidence
+        <div style={{ flex: 1, padding: "16px 24px", borderRight: "1px solid #1b212b" }}>
+          <div style={mono({ fontSize: 9, letterSpacing: ".16em", color: "#5c6773" })}>PENDING ANCHOR</div>
+          <div style={mono({ fontSize: 26, fontWeight: 700, color: AMBER, marginTop: 4 })}>14</div>
+          <div style={{ fontSize: 10, color: "#5c6773", marginTop: 2 }}>awaiting Fabric block commit</div>
+        </div>
+        <div style={{ flex: 1, padding: "16px 24px", background: "rgba(255,90,60,.06)" }}>
+          <div style={mono({ fontSize: 9, letterSpacing: ".16em", color: RED, display: "flex", alignItems: "center", gap: 7 })}>
+            <span style={{ position: "relative", display: "flex", width: 6, height: 6 }}>
+              <span style={{ position: "absolute", width: 6, height: 6, borderRadius: "50%", background: RED, animation: "rvsPing 1.4s infinite" }} />
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: RED }} />
+            </span>
+            TAMPERED EVIDENCE
           </div>
-          <div className="font-mono text-pd-2xl font-bold text-pd-danger">2</div>
-          <div className="text-[11px] text-pd-danger font-medium">Hash Mismatch Detected!</div>
+          <div style={mono({ fontSize: 26, fontWeight: 700, color: RED, marginTop: 4 })}>2</div>
+          <div style={{ fontSize: 10, color: RED, marginTop: 2 }}>hash mismatch detected</div>
         </div>
       </div>
 
-      {/* MAIN CONTENT: (Forensic Data Table + Details Sidebar) */}
-      <div className="flex flex-1 min-h-0 gap-4 flex-col lg:flex-row">
-        {/* FORENSIC LEDGER TABLE */}
-        <div className="flex-1 rounded border border-pd-border bg-pd-surface flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between border-b border-pd-border bg-pd-elevated px-3 py-2">
-            <span className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">
-              Hyperledger Fabric Blockchain Ledger
-            </span>
-            <span className="font-mono text-[10px] text-pd-success flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-pd-success" />
-              Consensus Healthy (Raft)
+      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+        {/* LEDGER TABLE */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 24px", borderBottom: "1px solid #12161d" }}>
+            <span style={mono({ fontSize: 9, letterSpacing: ".16em", color: "#5c6773" })}>HYPERLEDGER FABRIC · BLOCKCHAIN LEDGER</span>
+            <span style={mono({ fontSize: 9, letterSpacing: ".08em", color: GREEN, display: "flex", alignItems: "center", gap: 6 })}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: GREEN }} />CONSENSUS HEALTHY · RAFT
             </span>
           </div>
 
-          <div className="overflow-x-auto flex-1">
-            <table className="w-full text-left text-pd-xs border-collapse">
+          <div style={{ flex: 1, overflowY: "auto", padding: "0 24px" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
               <thead>
-                <tr className="border-b border-pd-border bg-pd-elevated/60 text-pd-text-secondary uppercase tracking-wider h-7.5">
-                  <th className="px-3 py-1 font-semibold">File ID</th>
-                  <th className="px-3 py-1 font-semibold">Filename</th>
-                  <th className="px-3 py-1 font-semibold font-mono">SHA-256 Hash</th>
-                  <th className="px-3 py-1 font-semibold font-mono">Block #</th>
-                  <th className="px-3 py-1 font-semibold">Status</th>
-                  <th className="px-3 py-1 font-semibold">Accessed By</th>
+                <tr style={{ height: 34, borderBottom: "1px solid #232b37" }}>
+                  <th style={th}>ID</th>
+                  <th style={th}>FILENAME</th>
+                  <th style={th}>SHA-256</th>
+                  <th style={th}>BLOCK</th>
+                  <th style={th}>STATUS</th>
+                  <th style={th}>ACCESSED BY</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-pd-border/40 font-mono">
+              <tbody>
                 {DEMO_LEDGER.map((row) => {
                   const isSelected = selectedRow.fileId === row.fileId;
                   const isTampered = row.status === "TAMPERED";
+                  const stFg = isTampered ? RED : row.status === "VERIFIED" ? GREEN : AMBER;
+                  const mark = isTampered ? "✕" : row.status === "VERIFIED" ? "✓" : "◌";
                   return (
                     <tr
                       key={row.fileId}
                       onClick={() => setSelectedRow(row)}
-                      className={`h-9 transition-colors cursor-pointer ${
-                        isTampered
-                          ? "bg-pd-danger/15 text-pd-danger hover:bg-pd-danger/20"
-                          : isSelected
-                          ? "bg-pd-accent/15 text-pd-accent"
-                          : "hover:bg-pd-elevated text-pd-text-primary"
-                      }`}
+                      style={{
+                        height: 42,
+                        borderBottom: "1px solid #12161d",
+                        cursor: "pointer",
+                        background: isTampered ? "rgba(255,90,60,.05)" : isSelected ? hexA(AC, 0.06) : "transparent",
+                        borderLeft: `2px solid ${isTampered ? RED : isSelected ? AC : "transparent"}`,
+                      }}
                     >
-                      <td className="px-3 py-1 text-pd-text-tertiary">{row.fileId}</td>
-                      <td className="px-3 py-1 font-sans font-medium text-pd-text-primary">
-                        {row.filename}
+                      <td style={mono({ padding: "0 8px", fontSize: 10, color: "#5c6773" })}>{row.fileId.toUpperCase()}</td>
+                      <td style={{ padding: "0 8px", fontSize: 12, fontWeight: 600, color: "#e8edf2" }}>{row.filename}</td>
+                      <td style={mono({ padding: "0 8px", fontSize: 10, color: "#5c6773" })}>
+                        {row.sha256.substring(0, 14)}…{row.sha256.substring(58)}
                       </td>
-                      <td className="px-3 py-1 text-pd-text-tertiary">
-                        {row.sha256.substring(0, 16)}...{row.sha256.substring(56)}
+                      <td style={mono({ padding: "0 8px", fontSize: 10, color: AC })}>#{row.blockNumber}</td>
+                      <td style={{ padding: "0 8px" }}>
+                        <span style={mono({ fontSize: 9, letterSpacing: ".12em", color: stFg })}>{mark} {row.status}</span>
                       </td>
-                      <td className="px-3 py-1 text-pd-accent">#{row.blockNumber}</td>
-                      <td className="px-3 py-1">
-                        <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            isTampered
-                              ? "bg-pd-danger text-pd-base"
-                              : row.status === "VERIFIED"
-                              ? "bg-pd-success/15 text-pd-success border border-pd-success/30"
-                              : "bg-pd-warning/15 text-pd-warning border border-pd-warning/30"
-                          }`}
-                        >
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-1 font-sans text-pd-text-secondary">
-                        {row.accessedBy}
-                      </td>
+                      <td style={{ padding: "0 8px", fontSize: 11, color: "#98a4b3" }}>{row.accessedBy}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-          </div>
-
-          {/* Table Footer */}
-          <div className="border-t border-pd-border bg-pd-elevated px-3 py-1.5 text-pd-xs text-pd-text-tertiary flex items-center justify-between">
-            <span>Showing 5 of 2,847 committed ledger blocks</span>
-            <span className="font-mono text-[10px]">Sync Delay: 12ms</span>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 8px", ...mono({ fontSize: 9 }), letterSpacing: ".12em", color: "#5c6773" }}>
+              <span>5 OF 2,847 COMMITTED BLOCKS</span>
+              <span>SYNC DELAY 12MS</span>
+            </div>
           </div>
         </div>
 
-        {/* VERIFICATION DETAILS SIDEBAR */}
-        <div className="w-full lg:w-80 rounded border border-pd-border bg-pd-surface p-3.5 space-y-3.5">
-          <div className="flex items-center justify-between border-b border-pd-border pb-2">
-            <span className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">
-              Evidence Verification Inspector
-            </span>
+        {/* VERIFICATION INSPECTOR */}
+        <div style={{ width: 330, borderLeft: "1px solid #1b212b", background: "#080b0e", padding: 18, display: "flex", flexDirection: "column", gap: 16, overflowY: "auto", flexShrink: 0, boxSizing: "border-box" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={mono({ fontSize: 9, letterSpacing: ".16em", color: "#5c6773" })}>VERIFICATION INSPECTOR</span>
             <span
-              className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                selectedRow.status === "TAMPERED"
-                  ? "bg-pd-danger text-pd-base"
-                  : "bg-pd-success/15 text-pd-success border border-pd-success/30"
-              }`}
+              style={mono({
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: ".12em",
+                padding: "3px 8px",
+                background: selTam ? RED : "rgba(94,207,154,.1)",
+                color: selTam ? "#060809" : GREEN,
+                border: `1px solid ${selTam ? RED : "rgba(94,207,154,.35)"}`,
+              })}
             >
               {selectedRow.status}
             </span>
           </div>
 
           <div>
-            <div className="text-pd-sm font-semibold text-pd-text-primary">
-              {selectedRow.filename}
-            </div>
-            <div className="text-pd-xs text-pd-text-tertiary font-mono">
-              Size: {selectedRow.size} • Block #{selectedRow.blockNumber}
-            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#e8edf2" }}>{selectedRow.filename}</div>
+            <div style={mono({ fontSize: 10, color: "#5c6773", marginTop: 3 })}>{selectedRow.size} · BLOCK #{selectedRow.blockNumber}</div>
           </div>
 
-          {/* Hash Comparison Box */}
-          <div className="rounded bg-pd-base p-2.5 border border-pd-border space-y-2 font-mono text-pd-xs">
-            <div className="text-[10px] uppercase text-pd-text-tertiary font-sans font-semibold">
-              SHA-256 Hash Comparison
+          <div style={{ border: "1px solid #1b212b", background: "#060809", padding: 13, display: "flex", flexDirection: "column", gap: 11 }}>
+            <div style={mono({ fontSize: 8, letterSpacing: ".18em", color: "#5c6773" })}>SHA-256 COMPARISON</div>
+            <div>
+              <div style={mono({ fontSize: 8, letterSpacing: ".1em", color: "#5c6773", marginBottom: 3 })}>LEDGER ANCHOR</div>
+              <div style={mono({ fontSize: 10, color: GREEN, wordBreak: "break-all", lineHeight: 1.5 })}>{selectedRow.sha256}</div>
             </div>
             <div>
-              <div className="text-[10px] text-pd-text-tertiary">Ledger Anchored Hash:</div>
-              <div className="text-pd-success text-[11px] break-all">
-                {selectedRow.sha256}
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] text-pd-text-tertiary">Current Storage Hash:</div>
-              <div
-                className={`text-[11px] break-all ${
-                  selectedRow.status === "TAMPERED" ? "text-pd-danger font-bold" : "text-pd-success"
-                }`}
-              >
-                {selectedRow.status === "TAMPERED"
+              <div style={mono({ fontSize: 8, letterSpacing: ".1em", color: "#5c6773", marginBottom: 3 })}>CURRENT STORAGE</div>
+              <div style={mono({ fontSize: 10, wordBreak: "break-all", lineHeight: 1.5, color: selTam ? RED : GREEN, fontWeight: selTam ? 700 : 400 })}>
+                {selTam
                   ? "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (MISMATCH)"
                   : selectedRow.sha256}
               </div>
             </div>
           </div>
 
-          {/* Chain of Custody Timeline */}
-          <div className="space-y-1.5">
-            <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">
-              Chain of Custody Events
-            </div>
-            <div className="space-y-2 text-pd-xs border-l-2 border-pd-accent/60 pl-3">
-              <div>
-                <div className="font-semibold text-pd-text-primary">Ingested & Stored</div>
-                <div className="text-[10px] text-pd-text-tertiary font-mono">2024-08-28 14:30:00 • IO A. Kumar</div>
-              </div>
-              <div>
-                <div className="font-semibold text-pd-text-primary">SHA-256 On-Chain Anchor</div>
-                <div className="text-[10px] text-pd-text-tertiary font-mono">2024-08-28 14:30:02 • Block #{selectedRow.blockNumber}</div>
-              </div>
-              <div>
-                <div className="font-semibold text-pd-text-primary">NER Extraction Run</div>
-                <div className="text-[10px] text-pd-text-tertiary font-mono">2024-08-28 14:31:15 • Ollama Phi-3</div>
-              </div>
+          <div>
+            <div style={mono({ fontSize: 9, letterSpacing: ".16em", color: "#5c6773", marginBottom: 10 })}>CHAIN OF CUSTODY</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 11, borderLeft: "1px solid #232b37", paddingLeft: 14 }}>
+              {[
+                ["Ingested & Stored", "2024-08-28 14:30:00 · IO A. KUMAR"],
+                ["SHA-256 On-Chain Anchor", `2024-08-28 14:30:02 · BLOCK #${selectedRow.blockNumber}`],
+                ["NER Extraction Run", "2024-08-28 14:31:15 · OLLAMA PHI-3"],
+              ].map(([title, meta]) => (
+                <div key={title} style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: -17, top: 4, width: 5, height: 5, background: AC }} />
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#e8edf2" }}>{title}</div>
+                  <div style={mono({ fontSize: 9, color: "#5c6773", marginTop: 2 })}>{meta}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
