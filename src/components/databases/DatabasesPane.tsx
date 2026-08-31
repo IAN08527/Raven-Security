@@ -4,7 +4,7 @@ import {
   INTEGRITY_CHECKS,
   DATA_CATEGORIES,
   PIPELINE_STAGES,
-  simulateIngest,
+  runIngest,
   type ConnectedStore,
   type HealthState,
   type PipelineResult,
@@ -320,34 +320,47 @@ function ConnectDatabaseModal({
 /* ------------------------------------------------------------ upload modal  */
 
 function UploadModal({ onClose }: { onClose: () => void }) {
-  const [fileName, setFileName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [category, setCategory] = useState(DATA_CATEGORIES[0].id);
   const [running, setRunning] = useState(false);
   const [activeStage, setActiveStage] = useState(-1);
   const [result, setResult] = useState<PipelineResult | null>(null);
 
   const cat = DATA_CATEGORIES.find((c) => c.id === category)!;
+  const fileName = file?.name ?? "";
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) {
-      setFileName(f.name);
+      setFile(f);
       setResult(null);
       setActiveStage(-1);
     }
   };
 
-  const run = () => {
-    if (!fileName || running) return;
+  const run = async () => {
+    if (!file || running) return;
     setRunning(true);
     setResult(null);
     setActiveStage(0);
+
+    // Read the real CSV text up front (PDFs are ingested as a document stub).
+    const isCsv = /\.csv$/i.test(file.name);
+    let csvText: string | undefined;
+    if (isCsv) {
+      try {
+        csvText = await file.text();
+      } catch {
+        csvText = "";
+      }
+    }
+
     let i = 0;
     const tick = window.setInterval(() => {
       i += 1;
       if (i >= PIPELINE_STAGES.length) {
         window.clearInterval(tick);
-        setResult(simulateIngest(fileName, category));
+        setResult(runIngest(file.name, category, csvText));
         setRunning(false);
         setActiveStage(PIPELINE_STAGES.length);
       } else {
@@ -410,13 +423,41 @@ function UploadModal({ onClose }: { onClose: () => void }) {
         <div className="mt-3 rounded-sm border border-pd-border bg-pd-surface p-3 text-pd-xs">
           <div className="mb-2 flex items-center gap-2 font-medium text-pd-success">
             <span>✓ Stored in sequence</span>
-            <span className="text-pd-text-tertiary">· {result.fileName}</span>
+            <span className="text-pd-text-tertiary">
+              · {result.fileName} · parsed as {result.kind.toUpperCase()}
+            </span>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
-            <Stat label="Detected" value={result.rowsDetected} tone="text-pd-text-primary" />
-            <Stat label="Mapped → schema" value={result.rowsMapped} tone="text-pd-success" />
-            <Stat label="Isolated" value={result.rowsIsolated} tone="text-pd-warning" />
+            <Stat label="Rows detected" value={result.rowsDetected} tone="text-pd-text-primary" />
+            <Stat
+              label={result.kind === "csv" ? "Columns mapped" : "Docs mapped"}
+              value={result.mappedCount}
+              tone="text-pd-success"
+            />
+            <Stat
+              label={result.kind === "csv" ? "Columns isolated" : "Docs isolated"}
+              value={result.isolatedCount}
+              tone="text-pd-warning"
+            />
           </div>
+
+          {result.mappedFields.length > 0 && (
+            <div className="mt-2 border-t border-pd-border/60 pt-2">
+              <div className="mb-1 text-[10px] uppercase tracking-wider text-pd-text-tertiary">
+                Mapped → {cat.target}
+              </div>
+              <ul className="space-y-0.5">
+                {result.mappedFields.map((m) => (
+                  <li key={m.header} className="flex items-center gap-2 font-mono text-[11px]">
+                    <span className="text-pd-text-secondary">{m.header}</span>
+                    <span className="text-pd-text-tertiary">→</span>
+                    <span className="text-pd-success">{m.target}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {result.unmapped.length > 0 && (
             <div className="mt-2 border-t border-pd-border/60 pt-2">
               <div className="mb-1 text-[10px] uppercase tracking-wider text-pd-text-tertiary">
@@ -431,6 +472,12 @@ function UploadModal({ onClose }: { onClose: () => void }) {
                 ))}
               </ul>
             </div>
+          )}
+
+          {result.kind === "csv" && result.mappedCount === 0 && (
+            <p className="mt-2 text-[11px] text-pd-warning">
+              No columns matched {cat.target} — whole file isolated for review.
+            </p>
           )}
         </div>
       )}

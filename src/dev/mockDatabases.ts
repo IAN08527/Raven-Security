@@ -143,47 +143,191 @@ export interface UnmappedField {
   sample: string;
 }
 
+/** A CSV header that was matched to a real target-table column. */
+export interface MappedField {
+  header: string;
+  target: string;
+}
+
 export interface PipelineResult {
   fileName: string;
   category: string;
+  kind: "csv" | "pdf";
   rowsDetected: number;
-  rowsMapped: number;
-  rowsIsolated: number;
+  /** csv: count of mapped columns · pdf: count of mapped rows */
+  mappedCount: number;
+  /** csv: count of unmapped columns · pdf: count of isolated rows */
+  isolatedCount: number;
+  mappedFields: MappedField[];
   unmapped: UnmappedField[];
 }
 
 /**
- * Deterministically simulate what the ingest pipeline would do with an
- * uploaded file, given its name + chosen category. Pure/synchronous; the pane
- * animates the stages around it.
+ * Accepted CSV headers per category, mapped to the real target-table column
+ * they land in. Column names come from infra/migrations/001_init.sql; the alias
+ * lists let common CSV spellings (amount_inr, date, method…) match. Headers not
+ * listed here are isolated for human review.
  */
-export function simulateIngest(fileName: string, categoryId: string): PipelineResult {
+const SCHEMA_FIELDS: Record<string, Record<string, string[]>> = {
+  // financial_txns
+  financial: {
+    from_account: ["from_account", "fromaccount", "sender", "debit_account", "from"],
+    to_account: ["to_account", "toaccount", "beneficiary_account", "credit_account", "to"],
+    amount: ["amount", "amount_inr", "value", "amt"],
+    currency: ["currency", "ccy"],
+    ts: ["ts", "date", "timestamp", "txn_date", "time"],
+    channel: ["channel", "method", "mode", "payment_mode"],
+    id: ["id", "txn_id", "transaction_id", "ref"],
+  },
+  // cdr_records
+  telecom: {
+    caller_msisdn: ["caller_msisdn", "caller", "a_party", "from_number"],
+    callee_msisdn: ["callee_msisdn", "callee", "b_party", "to_number"],
+    start_ts: ["start_ts", "start_time", "date", "timestamp", "ts"],
+    duration_s: ["duration_s", "duration", "dur"],
+    call_type: ["call_type", "type"],
+    imei: ["imei"],
+    cell_id: ["cell_id", "tower", "cell"],
+    lat: ["lat", "latitude"],
+    lon: ["lon", "lng", "longitude"],
+  },
+  // location_history
+  location: {
+    entity_id: ["entity_id", "person_id", "subject"],
+    ts: ["ts", "date", "timestamp", "time"],
+    lat: ["lat", "latitude"],
+    lon: ["lon", "lng", "longitude"],
+    origin: ["origin", "source"],
+    accuracy_m: ["accuracy_m", "accuracy"],
+  },
+  // entities + identifiers (vehicle registrations)
+  vehicle: {
+    canonical_name: ["canonical_name", "owner", "owner_name", "name"],
+    value: ["value", "registration", "reg_no", "plate", "vehicle_no"],
+    type: ["type", "vehicle_type"],
+  },
+  // entities + identifiers (biometric / identity)
+  identity: {
+    canonical_name: ["canonical_name", "name", "full_name"],
+    nafis_id: ["nafis_id", "nafis"],
+    value: ["value", "aadhaar", "uid", "id_number"],
+    dob: ["dob", "date_of_birth"],
+    gender: ["gender", "sex"],
+  },
+  // source_files + cases (FIR / case records)
+  case: {
+    case_code: ["case_code", "case_no", "fir_no", "fir"],
+    title: ["title", "subject"],
+    jurisdiction: ["jurisdiction", "police_station", "ps"],
+    filename: ["filename", "file", "document"],
+  },
+};
+
+/** normalize a header for tolerant matching: lowercase, strip non-alphanumerics. */
+function norm(h: string): string {
+  return h.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Minimal RFC-4180-ish CSV parser: handles quoted fields, escaped quotes ("")
+ * and commas inside quotes. Good enough for the flat investigative exports this
+ * pipeline ingests.
+ */
+export function parseCsv(text: string): { headers: string[]; rows: string[][] } {
+  const rows: string[][] = [];
+  let field = "";
+  let row: string[] = [];
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      row.push(field); field = "";
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(field); field = "";
+      if (row.some((v) => v.trim() !== "")) rows.push(row);
+      row = [];
+    } else {
+      field += c;
+    }
+  }
+  if (field !== "" || row.length > 0) {
+    row.push(field);
+    if (row.some((v) => v.trim() !== "")) rows.push(row);
+  }
+
+  const headers = (rows.shift() ?? []).map((h) => h.trim());
+  return { headers, rows };
+}
+
+/**
+ * Really run the ingest logic over an uploaded file.
+ *
+ * - CSV: parse the real header + rows, match each header against the target
+ *   table's columns for the chosen category, count actual rows, and isolate the
+ *   headers that have no schema home (with a real sample value from row 1).
+ * - PDF: no client-side text layer here, so fall back to a document-count stub
+ *   (real OCR/NER is the backend follow-up).
+ */
+export function runIngest(fileName: string, categoryId: string, csvText?: string): PipelineResult {
   const isPdf = /\.pdf$/i.test(fileName);
-  const base = (fileName.length * 7) % 40;
-  const rowsDetected = isPdf ? 1 : 120 + base;
 
-  // "Other" is fully isolated; known categories map most rows and isolate a few
-  // unknown columns to demonstrate the isolation path the leader described.
-  const unmappedByCategory: Record<string, UnmappedField[]> = {
-    financial: [{ column: "beneficiary_pan", sample: "ABCDE1234F" }, { column: "gst_ref", sample: "27AAAA0000A1Z5" }],
-    vehicle: [{ column: "insurance_expiry", sample: "2027-03-11" }],
-    telecom: [{ column: "roaming_flag", sample: "true" }],
-    identity: [{ column: "iris_hash", sample: "9f2a…c1" }],
-    case: [{ column: "annexure_count", sample: "3" }],
-    location: [{ column: "altitude_m", sample: "14.2" }],
-    other: [{ column: "*", sample: "entire file held for review" }],
-  };
+  if (!isPdf && csvText !== undefined) {
+    const { headers, rows } = parseCsv(csvText);
+    const schema = SCHEMA_FIELDS[categoryId] ?? {};
 
-  const unmapped = unmappedByCategory[categoryId] ?? [];
-  const rowsIsolated = categoryId === "other" ? rowsDetected : Math.min(unmapped.length, rowsDetected);
-  const rowsMapped = Math.max(0, rowsDetected - rowsIsolated);
+    const mappedFields: MappedField[] = [];
+    const unmapped: UnmappedField[] = [];
 
+    headers.forEach((header, idx) => {
+      const key = norm(header);
+      // "other" maps nothing; every column is isolated for review.
+      let target: string | null = null;
+      if (categoryId !== "other") {
+        for (const [col, aliases] of Object.entries(schema)) {
+          if (aliases.some((a) => norm(a) === key)) { target = col; break; }
+        }
+      }
+      if (target) {
+        mappedFields.push({ header, target });
+      } else {
+        const sample = rows.find((r) => (r[idx] ?? "").trim() !== "")?.[idx]?.trim() ?? "—";
+        unmapped.push({ column: header, sample });
+      }
+    });
+
+    return {
+      fileName,
+      category: categoryId,
+      kind: "csv",
+      rowsDetected: rows.length,
+      mappedCount: mappedFields.length,
+      isolatedCount: unmapped.length,
+      mappedFields,
+      unmapped,
+    };
+  }
+
+  // PDF stub — a document, not tabular rows.
   return {
     fileName,
     category: categoryId,
-    rowsDetected,
-    rowsMapped,
-    rowsIsolated,
-    unmapped,
+    kind: "pdf",
+    rowsDetected: 1,
+    mappedCount: categoryId === "other" ? 0 : 1,
+    isolatedCount: categoryId === "other" ? 1 : 0,
+    mappedFields: [],
+    unmapped:
+      categoryId === "other"
+        ? [{ column: "(whole document)", sample: "held for OCR + review" }]
+        : [],
   };
 }

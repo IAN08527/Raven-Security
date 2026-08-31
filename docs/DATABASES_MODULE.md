@@ -157,19 +157,34 @@ Hash & register → Parse & extract → Map to schema → Store rows → Isolate
 spinner, upcoming stages a number. When the last stage finishes, the interval clears and
 the result is computed.
 
-**The result** comes from `simulateIngest(fileName, categoryId)`, which is deterministic
-(same input → same output, so demos are repeatable):
-- A **PDF** counts as 1 document; a **CSV** yields a row count derived from the filename
-  length (stable, not random).
-- Known categories map *most* rows and deliberately isolate a couple of realistic unknown
-  columns (e.g. Financial isolates `beneficiary_pan`, `gst_ref`) to demonstrate the
-  isolation path.
-- The **"Other"** category isolates the *entire* file — nothing is auto-stored, everything
-  waits for review. This is the "completely new information we will isolate for now"
-  requirement made concrete.
+**The result** comes from `runIngest(fileName, categoryId, csvText?)`.
 
-The result panel shows three counters — **Detected / Mapped → schema / Isolated** — plus
-the list of isolated field names with sample values.
+**CSV — real parsing (not mocked).** When the uploaded file is a `.csv`, the modal reads
+its actual text (`file.text()`) and passes it to `runIngest`, which:
+1. Parses the real header + data rows with `parseCsv()` — a small RFC-4180-style parser that
+   handles quoted fields, escaped quotes (`""`), and commas inside quotes.
+2. Matches **each real header** against the target table's columns for the chosen category,
+   using `SCHEMA_FIELDS` — a per-category map of canonical columns (from
+   `001_init.sql`) plus accepted aliases (so `amount_inr` → `amount`, `date` → `ts`,
+   `method` → `channel`, etc.). Matching is tolerant (lowercased, non-alphanumerics
+   stripped).
+3. Any header with no schema home is **isolated**, and its sample value is taken from the
+   **first non-empty cell in that column** of the real data.
+
+So the counters are genuine: **Rows detected** = actual data-row count; **Columns mapped** =
+headers that matched the schema (shown as `header → target_column`); **Columns isolated** =
+headers with no home (shown with a real sample value).
+
+Worked example — the 8-column `sample_financial.csv` (5 rows), category *Financial*:
+`txn_id→id`, `date→ts`, `from_account→from_account`, `to_account→to_account`,
+`amount_inr→amount`, `method→channel` map (6); `beneficiary_pan`, `gst_ref` isolate (2).
+
+The **"Other"** category maps nothing — every column is isolated. This is the "completely
+new information we will isolate for now" requirement made concrete.
+
+**PDF — still a stub.** A `.pdf` has no client-side text layer here, so it is ingested as a
+single document (real OCR + NER is the backend follow-up). It reports 1 row detected and, for
+non-"Other" categories, 1 doc mapped.
 
 ---
 
@@ -196,8 +211,10 @@ No backend (Neo4j, engine, Supabase) needs to be running — the module uses moc
 - `npx tsc --noEmit` — passes clean (0 errors).
 - No browser console errors on load or during any interaction.
 - End-to-end in the browser: connected a test DB (header moved 3/4 → 4/5 live) and ran
-  `tools/sample_fir.pdf` through the full pipeline — all six stages completed, result
-  showed *Detected 1 / Mapped 0 / Isolated 1* with `beneficiary_pan` and `gst_ref` parked.
+  `tools/sample_financial.csv` (Financial) through the full pipeline — real parse reported
+  *5 rows detected / 6 columns mapped / 2 columns isolated*, with the mapped `header → column`
+  list and `beneficiary_pan` / `gst_ref` isolated with real sample values.
+- A sample CSV lives at `tools/sample_financial.csv` for re-testing.
 
 ---
 
@@ -212,8 +229,9 @@ This is a **front-end + mock** layer. Explicitly **not** done yet:
 3. **Real connect** — Test connection should ping the backend; Add source should persist
    the registration (and never handle secrets — those stay in `.env`).
 4. **Real ingest** — wire the Upload modal to the existing ingest saga
-   (`invokeRaven`) so files are genuinely hashed, stored, and anchored, and the
-   category→table mapping runs server-side.
+   (`invokeRaven`) so files are genuinely hashed, stored, and anchored server-side.
+   *(CSV header→column mapping is already real and client-side; what remains is
+   actually persisting the parsed rows and OCR/NER for PDFs.)*
 
 Because all state lives in `src/dev/mockDatabases.ts`, each of these is a localized swap;
 the component and its layout stay as-is.
