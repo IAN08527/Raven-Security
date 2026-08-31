@@ -3,7 +3,7 @@ import type { GraphNode } from "../types/generated";
 
 export interface WorkspaceTab {
   id: string;
-  type: "graph" | "profiles-dir" | "profile" | "vision" | "audit" | "document";
+  type: "graph" | "profiles-dir" | "profile" | "vision" | "audit" | "document" | "databases";
   title: string;
   data?: {
     entityId?: string;
@@ -34,8 +34,8 @@ interface CaseState {
   setActiveTab: (tabId: string) => void;
 
   // Active navigation in sidebar
-  activeNav: "profiles" | "graph" | "cctv" | "logs";
-  setActiveNav: (nav: "profiles" | "graph" | "cctv" | "logs") => void;
+  activeNav: "profiles" | "graph" | "cctv" | "logs" | "databases";
+  setActiveNav: (nav: "profiles" | "graph" | "cctv" | "logs" | "databases") => void;
 
   // Profile Workspace Sub-Tabs
   profileSubTab: ProfileSubTab;
@@ -147,6 +147,8 @@ export const useCaseStore = create<CaseState>((set, get) => ({
       get().openTab({ id: "tab-cctv", type: "vision", title: "CCTV Live Monitor - Cam 01" });
     } else if (nav === "logs") {
       get().openTab({ id: "tab-logs", type: "audit", title: "Audit Ledger" });
+    } else if (nav === "databases") {
+      get().openTab({ id: "tab-databases", type: "databases", title: "Data Sources" });
     }
   },
 

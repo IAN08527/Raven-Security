@@ -11,6 +11,7 @@ import { ProfileWorkspacePane } from "./components/profiles/ProfileWorkspacePane
 import { VisionPane } from "./components/vision/VisionPane";
 import { AuditPanel } from "./components/audit/AuditPanel";
 import { DocumentViewerPane } from "./components/documents/DocumentViewerPane";
+import { DatabasesPane } from "./components/databases/DatabasesPane";
 import { useCaseStore } from "./store/case";
 
 export default function App() {
@@ -55,6 +56,7 @@ export default function App() {
             )}
             {activeTab?.type === "vision" && <VisionPane />}
             {activeTab?.type === "audit" && <AuditPanel />}
+            {activeTab?.type === "databases" && <DatabasesPane />}
           </div>
         </main>
       </div>
