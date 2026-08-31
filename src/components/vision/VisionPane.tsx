@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { CSSProperties, useCallback, useMemo, useState } from "react";
 import {
   Activity,
   Check,
@@ -9,7 +9,6 @@ import {
   Play,
   Pause,
   Square,
-  Video,
   X,
 } from "lucide-react";
 import { invokeRaven } from "../../hooks/useInvoke";
@@ -33,6 +32,15 @@ const CAMERAS = [
   { id: "cam_04", label: "CAM-04: Metro Station Exit 2" },
 ];
 
+// ── RAVEN-refactor theme tokens (match RavenShell) ──
+const AC = "#e8c15a";
+const hexA = (h: string, a: number) => h + Math.round(a * 255).toString(16).padStart(2, "0");
+const acBorder = hexA(AC, 0.35);
+const GREEN = "#5ecf9a";
+const RED = "#ff5a3c";
+const MONO = "'Spline Sans Mono',monospace";
+const mono = (extra?: CSSProperties): CSSProperties => ({ fontFamily: MONO, ...extra });
+
 interface DetectedPerson {
   id: string;
   trackId: number;
@@ -48,6 +56,7 @@ const DEFAULT_PERSONS: DetectedPerson[] = [
   { id: "04", trackId: 4, label: "Pedestrian", confidence: 91, status: "Pedestrian" },
   { id: "05", trackId: 5, label: "Pedestrian", confidence: 88, status: "Pedestrian" },
 ];
+const CONF: Record<number, number> = { 1: 90, 2: 95, 3: 98, 4: 91, 5: 88 };
 
 export function VisionPane() {
   const [activeCam, setActiveCam] = useState<string>("cam_01");
@@ -172,14 +181,105 @@ export function VisionPane() {
     }
   }
 
+  const camLabel = CAMERAS.find((c) => c.id === activeCam)?.label.split(":")[1]?.trim() || "Live Feed";
+  const bracket = (pos: CSSProperties): CSSProperties => ({ position: "absolute", width: 18, height: 18, opacity: 0.7, ...pos });
+
   return (
-    <div className="flex h-full flex-col bg-pd-base text-pd-text-primary overflow-hidden select-none">
-      {/* TOP CONTROLS BAR */}
-      <div className="flex items-center justify-between border-b border-pd-border bg-pd-surface px-4 py-2">
-        <div className="flex items-center gap-3">
-          {/* Camera Selector Dropdown */}
-          <div className="flex items-center gap-2">
-            <span className="text-pd-xs text-pd-text-tertiary">Feed:</span>
+    <div
+      style={{
+        display: "flex",
+        height: "100%",
+        flexDirection: "column",
+        overflow: "hidden",
+        userSelect: "none",
+        background: "#060809",
+        color: "#e8edf2",
+        fontFamily: "'Instrument Sans',system-ui,sans-serif",
+        fontSize: 13,
+      }}
+    >
+      <style dangerouslySetInnerHTML={{ __html: "@keyframes rvsPulse{0%,100%{opacity:1}50%{opacity:.25}}@keyframes rvsPing{0%{transform:scale(1);opacity:.7}80%,100%{transform:scale(2.4);opacity:0}}" }} />
+      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+        {/* LEFT: DETECTED PERSONS / LOCK-ON */}
+        <div style={{ width: 250, borderRight: "1px solid #1b212b", background: "#080b0e", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+          <div style={{ padding: "14px 16px", borderBottom: "1px solid #1b212b", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={mono({ fontSize: 9, letterSpacing: ".16em", color: "#5c6773" })}>DETECTED · {trackIds.length}</span>
+            <span style={mono({ fontSize: 9, color: AC })}>YOLOv8n</span>
+          </div>
+
+          <div style={{ flex: 1, overflowY: "auto", padding: 10, display: "flex", flexDirection: "column", gap: 7 }}>
+            {trackIds.map((trackId) => {
+              const isLocked = locked === trackId;
+              const paddedId = String(trackId).padStart(2, "0");
+              return (
+                <button
+                  key={trackId}
+                  onClick={() => lockOn(trackId)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 11,
+                    padding: "10px 11px",
+                    background: isLocked ? "rgba(255,90,60,.07)" : "#0b0e12",
+                    border: `1px solid ${isLocked ? "rgba(255,90,60,.4)" : "#12161d"}`,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    textAlign: "left",
+                  }}
+                >
+                  <span style={mono({ fontSize: 15, fontWeight: 700, color: isLocked ? RED : "#5c6773" })}>{paddedId}</span>
+                  <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 1 }}>
+                    <span style={mono({ fontSize: 9, letterSpacing: ".1em", color: isLocked ? RED : "#98a4b3" })}>
+                      {isLocked ? "TARGET LOCK-ON" : "PEDESTRIAN"}
+                    </span>
+                    <span style={mono({ fontSize: 9, color: "#5c6773" })}>CONF {CONF[trackId] ?? 90}%</span>
+                  </span>
+                  {isLocked ? <Lock size={12} color={RED} /> : <Crosshair size={12} color="#5c6773" />}
+                </button>
+              );
+            })}
+
+            {lock && (
+              <div style={{ border: "1px solid #1b212b", background: "#0b0e12", padding: 9, ...mono({ fontSize: 9 }), display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ color: "#5c6773" }}>
+                  LOCK: <span style={{ color: GREEN, fontWeight: 700 }}>{lock.ledger_status}</span>
+                </div>
+                <div style={{ color: "#98a4b3", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={lock.tx_id}>
+                  tx: {lock.tx_id || "—"}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ padding: 12 }}>
+            <button
+              onClick={() => locked !== null && lockOn(locked)}
+              style={mono({
+                width: "100%",
+                height: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                background: hexA(AC, 0.1),
+                border: `1px solid ${acBorder}`,
+                color: AC,
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: ".12em",
+                cursor: "pointer",
+              })}
+            >
+              <Crosshair size={13} />
+              {locked !== null ? `LOCK-ON TARGET ${String(locked).padStart(2, "0")}` : "SELECT TARGET"}
+            </button>
+          </div>
+        </div>
+
+        {/* CENTER: VIDEO */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#040506", minWidth: 0 }}>
+          {/* top control bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 18px", borderBottom: "1px solid #1b212b", background: "#07090c" }}>
             <select
               value={activeCam}
               onChange={(e) => {
@@ -187,358 +287,164 @@ export function VisionPane() {
                 setActiveCam(newCam);
                 if (session) startCamera(newCam);
               }}
-              className="h-7 rounded border border-pd-border bg-pd-elevated px-2 text-pd-xs font-mono text-pd-text-primary focus:border-pd-accent focus:outline-none"
+              style={mono({ height: 28, background: "#0b0e12", border: "1px solid #1b212b", color: AC, padding: "0 10px", fontSize: 10, letterSpacing: ".06em", outline: "none", cursor: "pointer" })}
             >
               {CAMERAS.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
+                <option key={c.id} value={c.id}>{c.label}</option>
               ))}
             </select>
+            <span style={mono({ display: "flex", alignItems: "center", gap: 6, fontSize: 9, letterSpacing: ".1em", color: GREEN, whiteSpace: "nowrap", flexShrink: 0 })}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: GREEN, animation: "rvsPulse 2s infinite" }} />LIVE 1080p 30fps
+            </span>
+            <span style={mono({ fontSize: 9, letterSpacing: ".08em", color: "#5c6773", whiteSpace: "nowrap", flexShrink: 0 })}>YOLOv8 + OSNet RE-ID</span>
+            <span style={mono({ display: "flex", alignItems: "center", gap: 6, fontSize: 9, color: connected ? GREEN : "#5c6773", whiteSpace: "nowrap" })}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: connected ? GREEN : "#5c6773" }} />
+              {connected ? "EVENTS LIVE" : "EVENTS STANDBY"}
+            </span>
+            {session ? (
+              <button onClick={stop} disabled={busy}
+                style={mono({ marginLeft: "auto", height: 30, display: "flex", alignItems: "center", gap: 8, padding: "0 14px", background: "rgba(255,90,60,.1)", border: "1px solid rgba(255,90,60,.4)", color: RED, fontSize: 10, fontWeight: 600, letterSpacing: ".1em", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 })}>
+                <Square size={13} /> STOP TRACKING
+              </button>
+            ) : (
+              <button onClick={() => startCamera(activeCam)} disabled={busy}
+                style={mono({ marginLeft: "auto", height: 30, display: "flex", alignItems: "center", gap: 8, padding: "0 14px", background: hexA(AC, 0.1), border: `1px solid ${acBorder}`, color: AC, fontSize: 10, fontWeight: 600, letterSpacing: ".1em", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 })}>
+                {busy ? <Loader2 size={13} className="animate-spin" /> : <Eye size={13} />} START TRACKING
+              </button>
+            )}
           </div>
 
-          <span className="flex items-center gap-1 rounded bg-pd-success/15 border border-pd-success/30 px-2 py-0.5 text-[10px] font-mono font-semibold text-pd-success">
-            <span className="h-1.5 w-1.5 rounded-full bg-pd-success animate-pulse" />
-            LIVE 1080p 30fps
-          </span>
+          {/* video canvas */}
+          <div style={{ flex: 1, position: "relative", margin: 16, border: "1px solid #1b212b", overflow: "hidden", background: "#07090c" }}>
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(#12161d 1px,transparent 1px)", backgroundSize: "18px 18px", opacity: 0.6 }} />
+            <span style={bracket({ top: 10, left: 10, borderTop: `1px solid ${AC}`, borderLeft: `1px solid ${AC}` })} />
+            <span style={bracket({ top: 10, right: 10, borderTop: `1px solid ${AC}`, borderRight: `1px solid ${AC}` })} />
+            <span style={bracket({ bottom: 10, left: 10, borderBottom: `1px solid ${AC}`, borderLeft: `1px solid ${AC}` })} />
+            <span style={bracket({ bottom: 10, right: 10, borderBottom: `1px solid ${AC}`, borderRight: `1px solid ${AC}` })} />
 
-          <span className="font-mono text-pd-xs text-pd-text-tertiary">
-            YOLOv8 + OSNet Re-ID Active
-          </span>
-
-          <span
-            className={`flex items-center gap-1 text-[11px] font-mono ${
-              connected ? "text-pd-success" : "text-pd-text-tertiary"
-            }`}
-          >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                connected ? "bg-pd-success" : "bg-pd-text-tertiary"
-              }`}
-            />
-            {connected ? "Events Live" : "Events Standby"}
-          </span>
-        </div>
-
-        {/* Action Controls */}
-        <div className="flex items-center gap-2">
-          {session ? (
-            <button
-              onClick={stop}
-              disabled={busy}
-              className="flex h-7.5 items-center gap-1.5 rounded border border-pd-danger/40 bg-pd-danger/10 px-3 text-pd-xs font-bold text-pd-danger hover:bg-pd-danger/20 transition-colors"
-            >
-              <Square size={13} />
-              Stop Tracking
-            </button>
-          ) : (
-            <button
-              onClick={() => startCamera(activeCam)}
-              disabled={busy}
-              className="flex h-7.5 items-center gap-1.5 rounded bg-pd-accent px-3 text-pd-xs font-bold text-pd-base hover:bg-pd-accent-hover transition-colors shadow"
-            >
-              {busy ? <Loader2 size={13} className="animate-spin" /> : <Eye size={13} />}
-              Start Tracking Stream
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* WORKSPACE: (Detected Drawer + Video Player + Sightings Review) */}
-      <div className="flex flex-1 min-h-0 relative">
-        {/* DETECTED PERSONS / LOCK-ON DRAWER (Left side) */}
-        <div className="w-64 border-r border-pd-border bg-pd-surface p-3 flex flex-col justify-between overflow-y-auto">
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between border-b border-pd-border/60 pb-1.5">
-              <span className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">
-                Detected Persons ({trackIds.length})
+            <div style={{ position: "absolute", top: 16, left: 38, right: 170, ...mono({ fontSize: 10 }), letterSpacing: ".06em", color: "#98a4b3", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {activeCam.toUpperCase()} · {camLabel} · 2024-08-28 14:32:07 UTC
+            </div>
+            <div style={{ position: "absolute", top: 16, right: 38, display: "flex", alignItems: "center", gap: 7, ...mono({ fontSize: 10 }), letterSpacing: ".1em", color: RED }}>
+              <span style={{ position: "relative", display: "flex", width: 7, height: 7 }}>
+                <span style={{ position: "absolute", width: 7, height: 7, borderRadius: "50%", background: RED, animation: "rvsPing 1.4s infinite" }} />
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: RED }} />
               </span>
-              <span className="text-[10px] text-pd-accent font-mono">YOLOv8n</span>
+              REC 00:02:15
             </div>
 
-            {/* List of Detected Person Cards */}
-            <div className="space-y-1.5">
-              {trackIds.map((trackId) => {
-                const isLocked = locked === trackId;
-                const paddedId = String(trackId).padStart(2, "0");
-                return (
-                  <div
-                    key={trackId}
-                    onClick={() => lockOn(trackId)}
-                    className={`flex items-center justify-between rounded p-2 border transition-all cursor-pointer ${
-                      isLocked
-                        ? "border-pd-success bg-pd-success/10 shadow-sm"
-                        : "border-pd-border bg-pd-elevated hover:bg-pd-base"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded bg-pd-base border border-pd-border font-mono font-bold text-pd-xs text-pd-text-primary">
-                        {paddedId}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1">
-                          <span className="font-mono text-pd-xs font-semibold text-pd-text-primary">
-                            ID: {paddedId}
-                          </span>
-                          {isLocked && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-pd-success" />
-                          )}
-                        </div>
-                        <div className="text-[10px] text-pd-text-tertiary">
-                          {isLocked ? (
-                            <span className="text-pd-success font-medium">Target Lock-On</span>
-                          ) : (
-                            <span>Pedestrian</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      {isLocked ? (
-                        <div className="flex items-center gap-1 text-[9px] font-bold text-pd-success uppercase">
-                          <Lock size={10} /> Locked
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-[9px] text-pd-accent">
-                          <Crosshair size={10} /> Lock
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {lock && (
-              <div className="rounded border border-pd-border bg-pd-base/60 p-2 text-pd-xs font-mono space-y-1">
-                <div className="text-pd-text-tertiary">
-                  Lock: <span className="text-pd-success font-semibold">{lock.ledger_status}</span>
+            {session ? (
+              <>
+                <img src={`${ENGINE}${session.stream_url}`} style={{ height: "100%", width: "100%", objectFit: "contain" }} alt={`feed ${activeCam}`} />
+                {frame && (
+                  <svg viewBox={`0 0 ${frame.w} ${frame.h}`} preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0, height: "100%", width: "100%" }}>
+                    {boxes.map((b) => {
+                      const active = b.track_id === locked;
+                      return (
+                        <g key={b.track_id} style={{ cursor: "pointer" }} onClick={() => lockOn(b.track_id)}>
+                          <rect x={b.x} y={b.y} width={b.w} height={b.h} fill="none" stroke={active ? RED : AC} strokeWidth={active ? 3 : 2} />
+                          <text x={b.x} y={b.y - 4} fontSize={14} fill={active ? RED : AC} fontFamily={MONO} fontWeight={700}>
+                            {String(b.track_id).padStart(2, "0")}{active ? " (LOCKED)" : ""}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                )}
+              </>
+            ) : (
+              /* Fallback simulated bounding boxes */
+              <>
+                <div style={{ position: "absolute", top: "34%", left: "24%", height: "31%", width: "7%", border: `1px solid ${hexA(AC, 0.55)}` }}>
+                  <span style={{ position: "absolute", top: -17, left: -1, ...mono({ fontSize: 9 }), color: AC, letterSpacing: ".06em" }}>01·90</span>
                 </div>
-                <div className="truncate text-[10px] text-pd-text-secondary" title={lock.tx_id}>
-                  tx: {lock.tx_id || "—"}
+                <div style={{ position: "absolute", top: "39%", left: "41%", height: "34%", width: "8%", border: `1px solid ${hexA(AC, 0.55)}` }}>
+                  <span style={{ position: "absolute", top: -17, left: -1, ...mono({ fontSize: 9 }), color: AC, letterSpacing: ".06em" }}>02·95</span>
                 </div>
+                <div style={{ position: "absolute", top: "28%", left: "59%", height: "42%", width: "10%", border: `1.5px solid ${RED}`, boxShadow: "0 0 22px rgba(255,90,60,.35)", animation: "rvsPulse 2.6s infinite" }}>
+                  <span style={{ position: "absolute", top: -19, left: -2, ...mono({ fontSize: 10, fontWeight: 700 }), color: "#060809", background: RED, padding: "1px 6px", letterSpacing: ".06em" }}>TARGET 03·98</span>
+                  <span style={{ position: "absolute", bottom: -17, left: 0, right: 0, textAlign: "center", ...mono({ fontSize: 8 }), letterSpacing: ".14em", color: RED, whiteSpace: "nowrap" }}>LOCKED</span>
+                </div>
+                <div style={{ position: "absolute", top: "44%", left: "77%", height: "27%", width: "6%", border: `1px solid ${hexA(AC, 0.55)}` }}>
+                  <span style={{ position: "absolute", top: -17, left: -1, ...mono({ fontSize: 9 }), color: AC, letterSpacing: ".06em" }}>04·91</span>
+                </div>
+              </>
+            )}
+
+            {error && (
+              <div style={{ position: "absolute", bottom: 12, left: 12, right: 12, border: "1px solid rgba(255,90,60,.4)", background: "rgba(255,90,60,.1)", padding: "6px 12px", ...mono({ fontSize: 10 }), color: RED }}>
+                {error}
               </div>
             )}
           </div>
 
-          {/* Action CTA at Drawer Bottom */}
-          <button
-            onClick={() => {
-              if (locked !== null) {
-                lockOn(locked);
-              }
-            }}
-            className="mt-3 flex w-full h-8 items-center justify-center gap-1.5 rounded bg-pd-accent text-pd-xs font-bold text-pd-base hover:bg-pd-accent-hover transition-colors shadow"
-          >
-            <Crosshair size={14} />
-            {locked !== null ? `Lock-On Target ${String(locked).padStart(2, "0")}` : "Select Target"}
-          </button>
-        </div>
-
-        {/* CCTV VIDEO PLAYER AREA */}
-        <div className="flex-1 flex flex-col bg-[#05080c] relative justify-between overflow-hidden">
-          {/* Simulated or Live CCTV Surveillance Feed Canvas */}
-          <div className="flex-1 relative flex items-center justify-center p-4">
-            <div className="relative w-full max-w-4xl aspect-[16/9] bg-[#0d1117] rounded-sm border border-pd-border overflow-hidden shadow-2xl flex items-center justify-center">
-              {/* Surveillance Video Simulation Texture */}
-              <div className="absolute inset-0 bg-[radial-gradient(#1f2937_1px,transparent_1px)] [background-size:16px_16px] opacity-40" />
-
-              {/* Timestamp & Feed Watermark */}
-              <div className="absolute top-3 left-3 z-10 font-mono text-pd-xs text-pd-text-secondary bg-pd-base/80 px-2 py-1 rounded border border-pd-border/60">
-                {activeCam.toUpperCase()} | {CAMERAS.find((c) => c.id === activeCam)?.label.split(":")[1] || "Live Feed"} | 2024-08-28 14:32:07 UTC
-              </div>
-
-              <div className="absolute top-3 right-3 z-10 font-mono text-pd-xs text-pd-danger bg-pd-danger/10 px-2 py-1 rounded border border-pd-danger/30 flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-pd-danger animate-ping" />
-                REC 00:02:15
-              </div>
-
-              {/* Live Stream or Simulated Canvas */}
-              {session ? (
-                <>
-                  <img
-                    src={`${ENGINE}${session.stream_url}`}
-                    className="h-full w-full object-contain"
-                    alt={`feed ${activeCam}`}
-                  />
-                  {frame && (
-                    <svg
-                      viewBox={`0 0 ${frame.w} ${frame.h}`}
-                      preserveAspectRatio="xMidYMid meet"
-                      className="absolute inset-0 h-full w-full"
-                    >
-                      {boxes.map((b) => {
-                        const active = b.track_id === locked;
-                        return (
-                          <g
-                            key={b.track_id}
-                            className="cursor-pointer"
-                            onClick={() => lockOn(b.track_id)}
-                          >
-                            <rect
-                              x={b.x}
-                              y={b.y}
-                              width={b.w}
-                              height={b.h}
-                              fill="none"
-                              stroke={active ? "#3fb950" : "#58a6ff"}
-                              strokeWidth={active ? 3 : 2}
-                            />
-                            <text
-                              x={b.x}
-                              y={b.y - 4}
-                              fontSize={14}
-                              fill={active ? "#3fb950" : "#58a6ff"}
-                              className="font-mono font-bold"
-                            >
-                              {String(b.track_id).padStart(2, "0")}
-                              {active ? " (LOCKED)" : ""}
-                            </text>
-                          </g>
-                        );
-                      })}
-                    </svg>
-                  )}
-                </>
-              ) : (
-                /* Fallback Simulated Bounding Boxes */
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="absolute top-[35%] left-[25%] h-36 w-16 border border-pd-accent/60 bg-pd-accent/10 rounded-sm flex flex-col justify-between p-1">
-                    <span className="font-mono text-[9px] bg-pd-accent/80 text-pd-base px-1 rounded font-bold self-start">
-                      01 (90%)
-                    </span>
-                  </div>
-
-                  <div className="absolute top-[40%] left-[42%] h-40 w-18 border border-pd-accent/60 bg-pd-accent/10 rounded-sm flex flex-col justify-between p-1">
-                    <span className="font-mono text-[9px] bg-pd-accent/80 text-pd-base px-1 rounded font-bold self-start">
-                      02 (95%)
-                    </span>
-                  </div>
-
-                  <div className="absolute top-[30%] left-[60%] h-48 w-22 border-2 border-pd-success bg-pd-success/15 rounded-sm flex flex-col justify-between p-1 shadow-[0_0_15px_rgba(63,185,80,0.4)] animate-pulse">
-                    <span className="font-mono text-[10px] bg-pd-success text-pd-base px-1.5 py-0.5 rounded font-bold self-start flex items-center gap-1">
-                      TARGET: 03 (98%)
-                    </span>
-                    <span className="font-mono text-[9px] bg-pd-base/80 text-pd-success px-1 rounded self-center">
-                      LOCK-ON ACTIVE
-                    </span>
-                  </div>
-
-                  <div className="absolute top-[45%] left-[78%] h-32 w-14 border border-pd-accent/60 bg-pd-accent/10 rounded-sm flex flex-col justify-between p-1">
-                    <span className="font-mono text-[9px] bg-pd-accent/80 text-pd-base px-1 rounded font-bold self-start">
-                      04 (91%)
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {error && (
-                <div className="absolute bottom-3 left-3 right-3 rounded border border-pd-danger/40 bg-pd-danger/10 px-3 py-1.5 text-pd-xs text-pd-danger z-20">
-                  {error}
-                </div>
-              )}
+          {/* transport bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "0 18px 14px", ...mono({ fontSize: 10 }), color: "#5c6773" }}>
+            <button onClick={() => setIsPlaying(!isPlaying)} style={{ background: "none", border: "none", color: "#98a4b3", cursor: "pointer", display: "flex" }}>
+              {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+            </button>
+            <span>00:02:15 / 00:05:00</span>
+            <div style={{ flex: 1, height: 3, background: "#12161d", position: "relative" }}>
+              <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "45%", background: AC }} />
+              <div style={{ position: "absolute", left: "45%", top: -3, width: 1, height: 9, background: AC }} />
             </div>
-          </div>
-
-          {/* Video Player Bottom Controls Scrubber */}
-          <div className="flex h-10 items-center justify-between border-t border-pd-border bg-pd-surface px-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsPlaying(!isPlaying)}
-                className="rounded p-1 text-pd-text-secondary hover:text-pd-text-primary"
-              >
-                {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-              </button>
-              <span className="font-mono text-pd-xs text-pd-text-secondary">
-                00:02:15 / 00:05:00
-              </span>
-            </div>
-
-            {/* Scrubber */}
-            <div className="flex-1 mx-4">
-              <div className="h-1.5 w-full rounded bg-pd-elevated overflow-hidden relative cursor-pointer">
-                <div className="h-full bg-pd-accent w-[45%]" />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 text-pd-xs text-pd-text-tertiary">
-              <span className="font-mono">Speed: 1.0x</span>
-              <span className="font-mono">FPS: 30</span>
-            </div>
+            <span>1.0× · 30FPS</span>
           </div>
         </div>
 
-        {/* SIGHTINGS REVIEW PANEL (Phase 5, FR-2.3) */}
-        <div className="flex w-64 flex-col border-l border-pd-border bg-pd-surface">
-          <div className="flex h-9 items-center justify-between border-b border-pd-border px-3 text-pd-xs uppercase tracking-wide text-pd-text-tertiary">
-            <div className="flex items-center gap-1.5 font-semibold">
-              <Activity size={12} className="text-pd-accent" />
-              Sightings ({sightings.length})
-            </div>
-            <span className="text-[10px] text-pd-accent font-mono">OSNet</span>
+        {/* RIGHT: SIGHTINGS REVIEW */}
+        <div style={{ width: 250, borderLeft: "1px solid #1b212b", background: "#080b0e", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+          <div style={{ padding: "14px 16px", borderBottom: "1px solid #1b212b", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={mono({ display: "flex", alignItems: "center", gap: 6, fontSize: 9, letterSpacing: ".16em", color: "#5c6773" })}>
+              <Activity size={11} color={AC} /> SIGHTINGS · {sightings.length}
+            </span>
+            <span style={mono({ fontSize: 9, color: AC })}>OSNet</span>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-2 space-y-2">
+          <div style={{ minHeight: 0, flex: 1, overflowY: "auto", padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
             {sightings.length === 0 ? (
-              <div className="px-2 py-4 text-center text-pd-xs text-pd-text-tertiary">
-                No downstream sightings yet. Lock onto a target to activate cross-camera handoff matching.
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+                <span style={mono({ fontSize: 10, lineHeight: 1.7, color: "#5c6773", textAlign: "center", letterSpacing: ".04em" })}>
+                  NO DOWNSTREAM SIGHTINGS<br />
+                  <span style={{ color: "#3d4653" }}>lock a target to arm<br />cross-camera handoff</span>
+                </span>
               </div>
             ) : (
               sightings.map((s, i) => {
                 const rv = s.sighting_id != null ? reviews[s.sighting_id] : undefined;
                 const frameName = s.frame_path?.split(/[\\/]/).pop();
                 return (
-                  <div
-                    key={`${s.sighting_id ?? "x"}-${s.ts}-${i}`}
-                    className="rounded border border-pd-border bg-pd-elevated p-2 text-pd-xs space-y-1.5"
-                  >
-                    <div className="flex items-center gap-2">
+                  <div key={`${s.sighting_id ?? "x"}-${s.ts}-${i}`} style={{ border: "1px solid #1b212b", background: "#0b0e12", padding: 9, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       {frameName && (
-                        <img
-                          src={`${ENGINE}/cv/sightings/${frameName}`}
-                          alt="sighting crop"
-                          className="h-10 w-10 rounded border border-pd-border object-cover bg-black"
-                        />
+                        <img src={`${ENGINE}/cv/sightings/${frameName}`} alt="sighting crop" style={{ height: 40, width: 40, border: "1px solid #1b212b", objectFit: "cover", background: "#000" }} />
                       )}
-                      <div className="min-w-0 flex-1">
-                        <div className="font-mono font-semibold text-pd-text-primary">
-                          {s.camera_code.toUpperCase()}
-                        </div>
-                        <div className="text-[11px] text-pd-text-secondary font-mono">
-                          Sim: <span className="text-pd-success font-bold">{(s.similarity * 100).toFixed(1)}%</span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={mono({ fontWeight: 600, color: "#e8edf2", fontSize: 11 })}>{s.camera_code.toUpperCase()}</div>
+                        <div style={mono({ fontSize: 10, color: "#98a4b3" })}>
+                          SIM: <span style={{ color: GREEN, fontWeight: 700 }}>{(s.similarity * 100).toFixed(1)}%</span>
                         </div>
                       </div>
                     </div>
 
                     {rv ? (
-                      <div className="rounded bg-pd-base/80 p-1.5 text-[10px] text-pd-text-tertiary font-mono">
-                        <div className="font-semibold text-pd-text-primary">
-                          {rv.action === "confirm" ? "✓ Confirmed (+10 edge)" : "✗ Rejected"}
+                      <div style={{ background: "#060809", padding: 6, ...mono({ fontSize: 10 }), color: "#5c6773" }}>
+                        <div style={{ fontWeight: 700, color: rv.action === "confirm" ? GREEN : RED }}>
+                          {rv.action === "confirm" ? "✓ CONFIRMED (+10 edge)" : "✗ REJECTED"}
                         </div>
-                        <div className="truncate text-pd-text-secondary" title={rv.res.tx_id}>
-                          tx: {rv.res.tx_id || "—"}
-                        </div>
+                        <div style={{ color: "#98a4b3", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={rv.res.tx_id}>tx: {rv.res.tx_id || "—"}</div>
                       </div>
                     ) : s.sighting_id == null ? (
-                      <div className="text-[10px] text-pd-text-tertiary">
-                        Simulated sighting (DB offline)
-                      </div>
+                      <div style={mono({ fontSize: 9, color: "#5c6773" })}>Simulated sighting (DB offline)</div>
                     ) : (
-                      <div className="flex gap-1.5 pt-1">
-                        <button
-                          onClick={() => review(s.sighting_id!, "confirm")}
-                          disabled={busy}
-                          className="flex flex-1 items-center justify-center gap-1 rounded border border-pd-success/40 bg-pd-success/10 py-1 text-pd-xs font-semibold text-pd-success hover:bg-pd-success/20 disabled:opacity-50 transition-colors"
-                        >
-                          <Check size={12} /> Confirm
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => review(s.sighting_id!, "confirm")} disabled={busy}
+                          style={mono({ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, border: "1px solid rgba(94,207,154,.4)", background: "rgba(94,207,154,.1)", padding: "5px 0", fontSize: 10, fontWeight: 600, color: GREEN, cursor: "pointer" })}>
+                          <Check size={12} /> CONFIRM
                         </button>
-                        <button
-                          onClick={() => review(s.sighting_id!, "reject")}
-                          disabled={busy}
-                          className="flex flex-1 items-center justify-center gap-1 rounded border border-pd-danger/40 bg-pd-danger/10 py-1 text-pd-xs font-semibold text-pd-danger hover:bg-pd-danger/20 disabled:opacity-50 transition-colors"
-                        >
-                          <X size={12} /> Reject
+                        <button onClick={() => review(s.sighting_id!, "reject")} disabled={busy}
+                          style={mono({ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, border: "1px solid rgba(255,90,60,.4)", background: "rgba(255,90,60,.1)", padding: "5px 0", fontSize: 10, fontWeight: 600, color: RED, cursor: "pointer" })}>
+                          <X size={12} /> REJECT
                         </button>
                       </div>
                     )}
@@ -547,47 +453,33 @@ export function VisionPane() {
               })
             )}
           </div>
+          <div style={{ padding: "14px 16px", borderTop: "1px solid #1b212b", ...mono({ fontSize: 9 }), letterSpacing: ".08em", color: "#5c6773" }}>
+            RE-ID CONF <span style={{ color: GREEN, fontWeight: 700 }}>92.4%</span>
+          </div>
         </div>
       </div>
 
-      {/* BOTTOM CAMERA TOPOLOGY & HANDOFF STRIP */}
-      <div className="h-14 border-t border-pd-border bg-pd-surface px-4 flex items-center justify-between select-none">
-        <div className="flex items-center gap-2">
-          <span className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">
-            Multi-Cam Topology:
+      {/* BOTTOM: CAMERA TOPOLOGY */}
+      <div style={{ height: 52, borderTop: "1px solid #1b212b", background: "#07090c", display: "flex", alignItems: "center", padding: "0 18px", flexShrink: 0 }}>
+        <span style={mono({ fontSize: 9, letterSpacing: ".16em", color: "#5c6773", marginRight: 18 })}>TOPOLOGY</span>
+        <div style={{ display: "flex", alignItems: "center", flex: 1, ...mono({ fontSize: 10 }), letterSpacing: ".06em" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 7, color: GREEN, border: "1px solid rgba(94,207,154,.35)", background: "rgba(94,207,154,.08)", padding: "5px 12px" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: GREEN }} />CAM-01 ACTIVE
           </span>
-          <div className="flex items-center gap-2 text-pd-xs">
-            {/* CAM-01 */}
-            <div className="flex items-center gap-1.5 rounded bg-pd-success/15 border border-pd-success/30 px-2.5 py-1 text-pd-success font-mono font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-pd-success" />
-              CAM-01 (Active)
-            </div>
-
-            <span className="text-pd-accent font-mono text-[11px]">⟶ est. 3m travel ⟶</span>
-
-            {/* CAM-02 */}
-            <div className="flex items-center gap-1.5 rounded bg-pd-accent/15 border border-pd-accent/30 px-2.5 py-1 text-pd-accent font-mono font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-pd-accent animate-pulse" />
-              CAM-02 (Armed for Handoff)
-            </div>
-
-            <span className="text-pd-text-tertiary font-mono text-[11px]">⟶</span>
-
-            {/* CAM-03 */}
-            <div className="flex items-center gap-1.5 rounded bg-pd-elevated border border-pd-border px-2 py-1 text-pd-text-tertiary font-mono">
-              CAM-03 (Standby)
-            </div>
-
-            {/* CAM-04 */}
-            <div className="flex items-center gap-1.5 rounded bg-pd-elevated border border-pd-border px-2 py-1 text-pd-text-tertiary font-mono">
-              CAM-04 (Standby)
-            </div>
-          </div>
+          <span style={{ flex: "0 0 70px", height: 1, background: `linear-gradient(90deg,${GREEN},${AC})`, position: "relative" }}>
+            <span style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", fontSize: 8, color: "#5c6773", letterSpacing: ".08em", whiteSpace: "nowrap" }}>3M EST</span>
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 7, color: AC, border: `1px solid ${acBorder}`, background: hexA(AC, 0.1), padding: "5px 12px" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: AC, animation: "rvsPulse 1.8s infinite" }} />CAM-02 ARMED
+          </span>
+          <span style={{ flex: "0 0 46px", height: 1, background: "#232b37" }} />
+          <span style={{ color: "#5c6773", border: "1px solid #1b212b", padding: "5px 12px" }}>CAM-03 STANDBY</span>
+          <span style={{ flex: "0 0 46px", height: 1, background: "#232b37" }} />
+          <span style={{ color: "#5c6773", border: "1px solid #1b212b", padding: "5px 12px" }}>CAM-04 STANDBY</span>
         </div>
-
-        <div className="font-mono text-pd-xs text-pd-text-tertiary">
-          Re-ID OSNet Confidence: <span className="text-pd-success font-bold">92.4% Match</span>
-        </div>
+        <span style={mono({ fontSize: 9, letterSpacing: ".08em", color: "#5c6773" })}>
+          RE-ID OSNet <span style={{ color: GREEN, fontWeight: 700 }}>92.4% MATCH</span>
+        </span>
       </div>
     </div>
   );
