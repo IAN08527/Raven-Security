@@ -87,15 +87,35 @@ interface CaseState {
   setCommandPaletteOpen: (open: boolean) => void;
 }
 
+// Persist the active module across refreshes (otherwise state resets to Profiles).
+type NavId = "profiles" | "graph" | "cctv" | "logs" | "databases";
+const NAV_KEY = "raven.activeNav";
+const NAV_BASE: Record<NavId, WorkspaceTab> = {
+  profiles: { id: "tab-profiles-dir", type: "profiles-dir", title: "Profiles Directory" },
+  graph: { id: "tab-graph", type: "graph", title: "Macro Network" },
+  cctv: { id: "tab-cctv", type: "vision", title: "CCTV Live Monitor - Cam 01" },
+  logs: { id: "tab-logs", type: "audit", title: "Audit Ledger" },
+  databases: { id: "tab-databases", type: "databases", title: "Data Sources" },
+};
+function readInitialNav(): NavId {
+  try {
+    const v = localStorage.getItem(NAV_KEY);
+    if (v && v in NAV_BASE) return v as NavId;
+  } catch {
+    /* localStorage unavailable */
+  }
+  return "profiles";
+}
+const INITIAL_NAV = readInitialNav();
+const INITIAL_TAB = NAV_BASE[INITIAL_NAV];
+
 export const useCaseStore = create<CaseState>((set, get) => ({
   caseId: "OP-RAVEN-01",
 
-  // Default to Profiles Directory on startup / refresh per user specification
-  tabs: [
-    { id: "tab-profiles-dir", type: "profiles-dir", title: "Profiles Directory" },
-  ],
-  activeTabId: "tab-profiles-dir",
-  activeNav: "profiles",
+  // Restore the last-viewed module on refresh (falls back to Profiles).
+  tabs: [INITIAL_TAB],
+  activeTabId: INITIAL_TAB.id,
+  activeNav: INITIAL_NAV,
 
   openTab: (tab) => {
     const { tabs } = get();
@@ -139,6 +159,11 @@ export const useCaseStore = create<CaseState>((set, get) => ({
 
   setActiveNav: (nav) => {
     set({ activeNav: nav });
+    try {
+      localStorage.setItem(NAV_KEY, nav);
+    } catch {
+      /* localStorage unavailable */
+    }
     if (nav === "profiles") {
       get().openTab({ id: "tab-profiles-dir", type: "profiles-dir", title: "Profiles Directory" });
     } else if (nav === "graph") {
