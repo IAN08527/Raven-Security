@@ -178,8 +178,31 @@ export function mockInvoke<T>(cmd: string, args?: AnyRecord): T {
       return edgeEvidence(String(args?.rel_id)) as unknown as T;
     case "get_entity_details":
       return entityDetails(String(args?.entity_id)) as unknown as T;
-    case "list_entities":
-      return NODES as unknown as T;
+    case "start_tracking":
+      return {
+        session_id: String(args?.cameraCode ?? args?.camera_code ?? "cam_01"),
+        stream_url: `/cv/stream/${args?.cameraCode ?? args?.camera_code ?? "cam_01"}.mjpg`,
+        ws_url: "/ws/events",
+      } as unknown as T;
+    case "stop_tracking":
+      return { status: "stopped" } as unknown as T;
+    case "lock_on_target":
+      return {
+        target_id: `target-${args?.trackId ?? 1}`,
+        track_id: Number(args?.trackId ?? 1),
+        camera_code: "cam_01",
+        tx_id: "0x8f2d...4a19",
+        ledger_status: "anchored",
+        watching: ["cam_02", "cam_03"],
+      } as unknown as T;
+    case "confirm_sighting":
+      return {
+        sighting_id: Number(args?.sightingId ?? 1),
+        action: String(args?.action ?? "confirm"),
+        edges_bumped: args?.action === "confirm" ? 1 : 0,
+        tx_id: "0x3e7a...9b42",
+        note: null,
+      } as unknown as T;
     default:
       throw new Error(`mock: unknown command ${cmd}`);
   }
