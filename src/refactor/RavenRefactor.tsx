@@ -10,7 +10,7 @@ import { CSSProperties, useEffect, useMemo, useState } from "react";
  */
 
 // ── design tokens ──
-const AC = "#8fd8ea";
+const AC = "#e8c15a";
 const hexA = (h: string, a: number) =>
   h + Math.round(a * 255).toString(16).padStart(2, "0");
 const acDim = hexA(AC, 0.1);
