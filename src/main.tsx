@@ -13,16 +13,15 @@ cytoscape.use(coseBilkent);
 
 const queryClient = new QueryClient();
 
-// UI-refactor preview gate: the real App (sidebar shell) is the default. Add
-// `?refactor` to the URL to preview the new RAVEN shell — new chrome wired to
-// the same real panes. The pure design mockup (mock data) lives in
-// RavenRefactor.tsx if a data-free visual reference is needed.
-const showRefactor = new URLSearchParams(window.location.search).has("refactor");
+// The new RAVEN shell (RavenShell — new chrome wired to the real panes) is now
+// the default. The previous sidebar/tab console (App) stays available at
+// `?legacy` as a fallback during the transition.
+const useLegacy = new URLSearchParams(window.location.search).has("legacy");
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      {showRefactor ? <RavenShell /> : <App />}
+      {useLegacy ? <App /> : <RavenShell />}
     </QueryClientProvider>
   </React.StrictMode>
 );

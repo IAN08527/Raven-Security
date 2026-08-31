@@ -68,6 +68,16 @@ export default function RavenShell() {
     return () => clearInterval(t);
   }, []);
 
+  // Collapse inactive nav labels to their number when the bar gets tight, so
+  // no module (Ledger / Sources) ever falls off the header.
+  const [vw, setVw] = useState(typeof window !== "undefined" ? window.innerWidth : 1440);
+  useEffect(() => {
+    const onResize = () => setVw(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const narrow = vw < 1150;
+
   const cur = MODS.find((m) => m.id === activeNav) ?? MODS[0];
 
   return (
@@ -97,7 +107,9 @@ export default function RavenShell() {
               <button key={m.id} className="rvs-modbtn" onClick={() => setActiveNav(m.id)}
                 style={{ position: "relative", display: "flex", alignItems: "center", gap: 8, padding: "0 clamp(8px,1.4vw,18px)", background: act ? "#0c1015" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", flex: "0 0 auto" }}>
                 <span style={mono({ fontSize: 11, fontWeight: 700, color: act ? AC : "#3d4653" })}>{m.num}</span>
-                <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".1em", color: act ? "#e8edf2" : "#7d8894", whiteSpace: "nowrap" }}>{m.label}</span>
+                {!(narrow && !act) && (
+                  <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".1em", color: act ? "#e8edf2" : "#7d8894", whiteSpace: "nowrap" }}>{m.label}</span>
+                )}
                 {act && <span style={{ position: "absolute", left: 0, bottom: -1, height: 2, width: "100%", background: AC, transformOrigin: "left", animation: "rvsSweep .28s cubic-bezier(.16,1,.3,1)" }} />}
               </button>
             );
