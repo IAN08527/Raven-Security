@@ -31,8 +31,7 @@
   },
   "plugins": {
     "shell": {
-      "externallyAbleBinaries": ["raven-engine"],
-      "sidecar": true
+      "open": true
     }
   }
 }

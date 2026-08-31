@@ -19,6 +19,33 @@ export function ProfileWorkspacePane({
   const profileSubTab = useCaseStore((s) => s.profileSubTab);
   const setProfileSubTab = useCaseStore((s) => s.setProfileSubTab);
   const openTab = useCaseStore((s) => s.openTab);
+  const profiles = useCaseStore((s) => s.profiles);
+
+  const activeProfile = useMemo(() => {
+    return (
+      profiles.find(
+        (p) =>
+          p.id === entityId ||
+          p.name.toLowerCase() === (entityName || "").toLowerCase()
+      ) || {
+        id: entityId || "0a5f9733-d8c7-5ea7-a36c-94fbba2ec332",
+        name: entityName || "Rakesh Sawant",
+        alias: (entityName || "Rakesh Sawant").split(" ")[0],
+        role: "Active Suspect",
+        roleTier: "leader" as const,
+        aadhaar: "XXXX-XXXX-4521",
+        phone: "+91 98765 43210",
+        vehicle: "MH-02-AB-1234",
+        cases: "OP-RAVEN-01",
+        riskScore: 0.84,
+        riskLevel: "HIGH" as const,
+        status: "Active Suspect" as const,
+      }
+    );
+  }, [profiles, entityId, entityName]);
+
+  const displayName = activeProfile.name;
+  const displayId = activeProfile.id;
 
   // Vehicle expansion state starts CLOSED by default per user instruction
   const [expandedVehicle, setExpandedVehicle] = useState<string | null>(null);
@@ -38,10 +65,10 @@ export function ProfileWorkspacePane({
 
   // Query live ego graph for this specific entity
   const egoQuery = useQuery<EgoGraph>({
-    queryKey: ["ego_graph", entityId, hops, minWeight],
+    queryKey: ["ego_graph", displayId, hops, minWeight],
     queryFn: async () => {
       return invokeRaven<EgoGraph>("get_ego_graph", {
-        entityId,
+        entityId: displayId,
         hops,
         minWeight,
       });
@@ -53,13 +80,13 @@ export function ProfileWorkspacePane({
     const data = egoQuery.data;
     if (!data) {
       return [
-        { data: { id: entityId, label: entityName, type: "PERSON", w: 40 } },
+        { data: { id: displayId, label: displayName, type: "PERSON", w: 40 } },
         { data: { id: "p2", label: "Vikram Patel", type: "PERSON", w: 30 } },
         { data: { id: "p3", label: "Mohd. Khan", type: "PERSON", w: 25 } },
         { data: { id: "p4", label: "FIR-102 (Dharavi)", type: "ORGANIZATION", w: 35 } },
-        { data: { id: "e1", source: entityId, target: "p2", label: "CO_ACCUSED (35)", w: 4 } },
-        { data: { id: "e2", source: entityId, target: "p3", label: "CDR_MATCH (12)", w: 2 } },
-        { data: { id: "e3", source: entityId, target: "p4", label: "NAMED_IN (25)", w: 3 } },
+        { data: { id: "e1", source: displayId, target: "p2", label: "CO_ACCUSED (35)", w: 4 } },
+        { data: { id: "e2", source: displayId, target: "p3", label: "CDR_MATCH (12)", w: 2 } },
+        { data: { id: "e3", source: displayId, target: "p4", label: "NAMED_IN (25)", w: 3 } },
       ];
     }
     const nodes: ElementDefinition[] = data.nodes.map((n: GraphNode) => ({
@@ -124,27 +151,27 @@ export function ProfileWorkspacePane({
         <div className="flex items-center gap-4">
           <div className="relative">
             <div className="flex h-13 w-13 items-center justify-center rounded-full bg-pd-accent/15 border-2 border-pd-accent text-pd-xl font-bold text-pd-accent shadow-md">
-              {entityName.substring(0, 2).toUpperCase()}
+              {displayName.substring(0, 2).toUpperCase()}
             </div>
             <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-pd-success border-2 border-pd-surface" />
           </div>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-pd-2xl font-bold text-pd-text-primary tracking-tight">{entityName}</h1>
+              <h1 className="text-pd-2xl font-bold text-pd-text-primary tracking-tight">{displayName}</h1>
               <span className="rounded-full bg-pd-danger/15 border border-pd-danger/30 px-2.5 py-0.5 text-pd-xs font-bold text-pd-danger">
-                ACTIVE SUSPECT
+                {activeProfile.status.toUpperCase()}
               </span>
-              <span className="font-mono text-pd-xs text-pd-text-tertiary">ID: {entityId.substring(0, 8)}...</span>
+              <span className="font-mono text-pd-xs text-pd-text-tertiary">ID: {displayId.substring(0, 8)}...</span>
             </div>
             <div className="text-pd-sm text-pd-text-secondary mt-1">
-              Primary Alias: <span className="text-pd-text-primary font-semibold italic">"Ricky"</span> • Role: <span className="text-pd-warning font-semibold">Syndicate Leader</span> • Target Level: <span className="text-pd-danger font-semibold">Tier-1 Priority</span>
+              Primary Alias: <span className="text-pd-text-primary font-semibold italic">"{activeProfile.alias}"</span> • Role: <span className="text-pd-warning font-semibold">{activeProfile.role}</span> • Risk: <span className="text-pd-danger font-semibold">{(activeProfile.riskScore * 100).toFixed(0)}% Risk Index</span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5">
           <button
-            onClick={() => alert(`Exporting complete investigative dossier for ${entityName}...`)}
+            onClick={() => alert(`Exporting complete investigative dossier for ${displayName}...`)}
             className="flex items-center gap-1.5 rounded border border-pd-border bg-pd-elevated px-3 py-1.5 text-pd-xs font-medium text-pd-text-secondary hover:bg-pd-surface hover:text-pd-text-primary transition-colors"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -153,7 +180,7 @@ export function ProfileWorkspacePane({
             Export Dossier
           </button>
           <button
-            onClick={() => alert(`Editing profile parameters for ${entityName}...`)}
+            onClick={() => alert(`Editing profile parameters for ${displayName}...`)}
             className="flex items-center gap-1.5 rounded bg-pd-accent px-3.5 py-1.5 text-pd-xs font-bold text-pd-base hover:bg-pd-accent-hover transition-colors shadow"
           >
             Edit Profile
@@ -167,8 +194,8 @@ export function ProfileWorkspacePane({
           {(
             [
               { id: "general", label: "General Info", icon: "user" },
-              { id: "vehicles", label: "Vehicles (2)", icon: "truck" },
-              { id: "fir", label: "FIR History (3)", icon: "file" },
+              { id: "vehicles", label: `Vehicles (${activeProfile.vehicle ? "1" : "0"})`, icon: "truck" },
+              { id: "fir", label: "FIR History", icon: "file" },
               { id: "routines", label: "Routines (Geospatial)", icon: "map" },
               { id: "micronet", label: "Micronet (Ego Graph)", icon: "share" },
             ] as { id: ProfileSubTab; label: string; icon: string }[]
@@ -206,7 +233,7 @@ export function ProfileWorkspacePane({
                     Surveillance Photo
                   </span>
                   <span className="font-mono text-[10px] text-pd-danger bg-pd-danger/15 px-1.5 py-0.5 rounded border border-pd-danger/30 font-bold">
-                    CAM-01 ACTIVE
+                    ACTIVE PROFILE
                   </span>
                 </div>
 
@@ -224,26 +251,26 @@ export function ProfileWorkspacePane({
                     {/* Biometric Target HUD Reticle */}
                     <div className="absolute inset-x-5 inset-y-6 border-2 border-pd-accent/60 rounded-sm pointer-events-none flex flex-col justify-between p-1.5">
                       <div className="flex justify-between text-[9px] font-mono text-pd-accent font-bold">
-                        <span>[+] FACE_ID</span>
-                        <span>98.4%</span>
+                        <span>[+] IDENTITY_VERIFIED</span>
+                        <span>{(activeProfile.riskScore * 100).toFixed(0)}% RISK</span>
                       </div>
                       <div className="text-[9px] font-mono text-pd-accent/90 self-end">
-                        OSNET-512
+                        {activeProfile.roleTier.toUpperCase()}
                       </div>
                     </div>
                   </div>
 
                   {/* Bottom Watermark Stamp */}
                   <div className="absolute bottom-2 left-2 z-20 font-mono text-[10px] text-pd-text-primary bg-pd-base/90 px-2 py-0.5 rounded border border-pd-border/80 font-bold">
-                    NAFIS: MUM-8842
+                    CASE: {activeProfile.cases}
                   </div>
                 </div>
 
                 {/* Identity Summary Below Photo */}
                 <div className="w-full text-center space-y-1 border-t border-pd-border/60 pt-3">
-                  <div className="text-pd-base font-bold text-pd-text-primary">{entityName}</div>
-                  <div className="font-mono text-pd-sm font-bold text-pd-accent">+91 98765 43210</div>
-                  <div className="font-mono text-pd-xs text-pd-text-tertiary">Aadhaar: XXXX-XXXX-4521</div>
+                  <div className="text-pd-base font-bold text-pd-text-primary">{displayName}</div>
+                  <div className="font-mono text-pd-sm font-bold text-pd-accent">{activeProfile.phone}</div>
+                  <div className="font-mono text-pd-xs text-pd-text-tertiary">Aadhaar: {activeProfile.aadhaar}</div>
                 </div>
               </div>
 
@@ -252,43 +279,37 @@ export function ProfileWorkspacePane({
                 <div className="flex items-center justify-between border-b border-pd-border/60 pb-3">
                   <span className="text-pd-sm font-bold uppercase tracking-wider text-pd-accent flex items-center gap-2.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-pd-accent" />
-                    Primary Identity & Residence Coordinates
+                    Primary Identity & Forensic Coordinates
                   </span>
-                  <span className="font-mono text-pd-xs text-pd-text-tertiary">Verified NAFIS Match & CDR Linked</span>
+                  <span className="font-mono text-pd-xs text-pd-text-tertiary">NAFIS Match & CDR Linked</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
                   {/* Field 1 */}
                   <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
                     <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Known Aliases</div>
-                    <div className="text-pd-md font-bold text-pd-warning">"Ricky", "R.V. Sawant"</div>
+                    <div className="text-pd-md font-bold text-pd-warning">"{activeProfile.alias}"</div>
                   </div>
 
                   {/* Field 2 */}
                   <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
-                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Date of Birth & Age</div>
-                    <div className="font-mono text-pd-md font-bold text-pd-text-primary">1987-03-15 (37 Years)</div>
+                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Aadhaar ID</div>
+                    <div className="font-mono text-pd-md font-bold text-pd-text-primary">{activeProfile.aadhaar}</div>
                   </div>
 
                   {/* Field 3 */}
                   <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
-                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Permanent Account No (PAN)</div>
-                    <div className="font-mono text-pd-md font-bold text-pd-text-primary">ABCPS1234K</div>
+                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Phone Number</div>
+                    <div className="font-mono text-pd-md font-bold text-pd-accent">{activeProfile.phone}</div>
                   </div>
 
                   {/* Field 4 */}
                   <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
-                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Biometric Fingerprint Status</div>
-                    <div className="text-pd-success text-pd-sm font-bold flex items-center gap-2 font-mono">
-                      <span className="h-2 w-2 rounded-full bg-pd-success animate-pulse" />
-                      NAFIS Match: MUM-8842
+                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Registered Vehicle</div>
+                    <div className="text-pd-text-primary font-mono text-pd-sm font-bold flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-pd-accent" />
+                      {activeProfile.vehicle || "None registered"}
                     </div>
-                  </div>
-
-                  {/* Field 5 */}
-                  <div className="rounded bg-pd-elevated/40 p-3.5 border border-pd-border/60 flex flex-col justify-center space-y-1.5">
-                    <div className="text-pd-xs font-semibold uppercase tracking-wider text-pd-text-tertiary">Burner / Alternate SIM</div>
-                    <div className="font-mono text-pd-md font-bold text-pd-warning">+91 98222 11009 (Jio)</div>
                   </div>
 
                   {/* Field 6 */}

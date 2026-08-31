@@ -1,18 +1,8 @@
-import { CSSProperties, useState } from "react";
+import { CSSProperties, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { invokeRaven } from "../../hooks/useInvoke";
+import { useCaseStore, type LedgerRecord } from "../../store/case";
 import type { AuditEntry } from "../../types/generated";
-
-interface LedgerRecord {
-  fileId: string;
-  filename: string;
-  sha256: string;
-  blockNumber: number;
-  anchorTime: string;
-  status: "VERIFIED" | "PENDING" | "TAMPERED";
-  accessedBy: string;
-  size: string;
-}
 
 const DEMO_LEDGER: LedgerRecord[] = [
   {
@@ -79,9 +69,16 @@ const mono = (extra?: CSSProperties): CSSProperties => ({ fontFamily: MONO, ...e
 const th: CSSProperties = mono({ padding: "0 8px", fontSize: 9, fontWeight: 500, letterSpacing: ".16em", color: "#5c6773", textAlign: "left" });
 
 export function AuditPanel() {
-  const [selectedRow, setSelectedRow] = useState<LedgerRecord>(DEMO_LEDGER[0]);
+  const auditLog = useCaseStore((s) => s.auditLog);
+  const [selectedRow, setSelectedRow] = useState<LedgerRecord>(auditLog[0] || DEMO_LEDGER[0]);
   const [search, setSearch] = useState("");
   void search;
+
+  useEffect(() => {
+    if (auditLog.length > 0 && !auditLog.some((r) => r.fileId === selectedRow.fileId)) {
+      setSelectedRow(auditLog[0]);
+    }
+  }, [auditLog, selectedRow.fileId]);
 
   const auditQuery = useQuery<AuditEntry[]>({
     queryKey: ["audit_log", "OP-RAVEN-01", 50],
@@ -154,7 +151,7 @@ export function AuditPanel() {
                 </tr>
               </thead>
               <tbody>
-                {DEMO_LEDGER.map((row) => {
+                {auditLog.map((row) => {
                   const isSelected = selectedRow.fileId === row.fileId;
                   const isTampered = row.status === "TAMPERED";
                   const stFg = isTampered ? RED : row.status === "VERIFIED" ? GREEN : AMBER;

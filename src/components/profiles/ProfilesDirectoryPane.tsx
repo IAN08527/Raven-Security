@@ -152,8 +152,10 @@ export function ProfilesDirectoryPane() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const openTab = useCaseStore((s) => s.openTab);
+  const profiles = useCaseStore((s) => s.profiles);
+  const openIngestModal = useCaseStore((s) => s.openIngestModal);
 
-  const filtered = DEMO_PROFILES.filter((p) => {
+  const filtered = profiles.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.alias.toLowerCase().includes(search.toLowerCase()) ||
@@ -261,11 +263,11 @@ export function ProfilesDirectoryPane() {
         </div>
 
         <span style={mono({ fontSize: 10, letterSpacing: ".1em", color: "#5c6773" })}>
-          {filtered.length}/{DEMO_PROFILES.length} SUBJECTS
+          {filtered.length}/{profiles.length} SUBJECTS
         </span>
 
         <button
-          onClick={() => alert("Create Profile: Ingest FIR / NAFIS match")}
+          onClick={openIngestModal}
           style={mono({
             marginLeft: "auto",
             height: 34,
@@ -295,10 +297,11 @@ export function ProfilesDirectoryPane() {
               <th style={th}>SUBJECT</th>
               <th style={th}>ALIAS</th>
               <th style={th}>ROLE / TIER</th>
+              <th style={th}>PHONE</th>
               <th style={th}>AADHAAR</th>
-              <th style={th}>CASES</th>
-              <th style={{ ...th, width: 170 }}>RISK INDEX</th>
-              <th style={{ ...th, width: 100, textAlign: "right" }}>STATUS</th>
+              <th style={{ ...th, width: 140 }}>RISK INDEX</th>
+              <th style={{ ...th, width: 90 }}>STATUS</th>
+              <th style={{ ...th, width: 90, textAlign: "right" }}>ACTION</th>
             </tr>
           </thead>
           <tbody>
@@ -308,7 +311,7 @@ export function ProfilesDirectoryPane() {
               return (
                 <tr
                   key={p.id}
-                  onDoubleClick={() => handleOpenProfile(p)}
+                  onClick={() => handleOpenProfile(p)}
                   style={{ height: 46, borderBottom: "1px solid #12161d", cursor: "pointer" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "#0b0e12")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
@@ -317,9 +320,10 @@ export function ProfilesDirectoryPane() {
                     {String(i + 1).padStart(2, "0")}
                   </td>
                   <td style={{ padding: "0 10px" }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#e8edf2", letterSpacing: ".01em" }}>{p.name}</span>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#e8edf2", letterSpacing: ".01em" }}>{p.name}</div>
+                    <div style={mono({ fontSize: 9, color: "#5c6773" })}>ID: {p.id.slice(0, 8)}...</div>
                   </td>
-                  <td style={mono({ padding: "0 10px", fontSize: 11, color: "#98a4b3" })}>"{p.alias}"</td>
+                  <td style={mono({ padding: "0 10px", fontSize: 11, color: "#e8c15a", fontWeight: 600 })}>"{p.alias}"</td>
                   <td style={{ padding: "0 10px" }}>
                     <span
                       style={mono({
@@ -342,22 +346,42 @@ export function ProfilesDirectoryPane() {
                       {p.role.toUpperCase()}
                     </span>
                   </td>
+                  <td style={mono({ padding: "0 10px", fontSize: 11, color: "#98a4b3" })}>{p.phone}</td>
                   <td style={mono({ padding: "0 10px", fontSize: 10, color: "#5c6773" })}>{p.aadhaar}</td>
-                  <td style={mono({ padding: "0 10px", fontSize: 10, color: "#98a4b3" })}>{p.cases}</td>
                   <td style={{ padding: "0 10px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                      <div style={{ display: "flex", gap: 2, flex: 1, maxWidth: 96 }}>
+                      <div style={{ display: "flex", gap: 2, flex: 1, maxWidth: 80 }}>
                         {Array.from({ length: 10 }, (_, k) => (
-                          <span key={k} style={{ height: 12, flex: 1, background: k < filledBars ? rc : "#161c25" }} />
+                          <span key={k} style={{ height: 10, flex: 1, background: k < filledBars ? rc : "#161c25" }} />
                         ))}
                       </div>
                       <span style={mono({ fontSize: 10, fontWeight: 600, color: rc })}>{p.riskScore.toFixed(2)}</span>
                     </div>
                   </td>
-                  <td style={{ padding: "0 10px", textAlign: "right" }}>
+                  <td style={{ padding: "0 10px" }}>
                     <span style={mono({ fontSize: 9, letterSpacing: ".12em", color: STATUS_C[p.status] })}>
                       {p.status.toUpperCase()}
                     </span>
+                  </td>
+                  <td style={{ padding: "0 10px", textAlign: "right" }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenProfile(p);
+                      }}
+                      style={mono({
+                        height: 24,
+                        padding: "0 8px",
+                        background: "rgba(232,193,90,0.1)",
+                        border: "1px solid rgba(232,193,90,0.35)",
+                        color: "#e8c15a",
+                        fontSize: 9,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      })}
+                    >
+                      OPEN →
+                    </button>
                   </td>
                 </tr>
               );

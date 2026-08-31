@@ -4,6 +4,7 @@ dist/
 target/
 src-tauri/target/
 src-tauri/binaries/*.exe
+src-tauri/binaries/*.pdb
 tools/*/target/
 tools/raven_saga_cli/target/
 tools/rust_cloud_probe/target/

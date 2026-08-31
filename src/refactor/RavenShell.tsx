@@ -8,6 +8,7 @@ import { AuditPanel } from "../components/audit/AuditPanel";
 import { DocumentViewerPane } from "../components/documents/DocumentViewerPane";
 import { DatabasesPane } from "../components/databases/DatabasesPane";
 import { CommandPalette } from "../components/CommandPalette";
+import { GlobalIngestModal } from "../components/ingest/GlobalIngestModal";
 
 /**
  * RavenShell — the RAVEN design-refactor shell wired to the REAL app.
@@ -17,11 +18,6 @@ import { CommandPalette } from "../components/CommandPalette";
  * feature panes via the same dispatcher `App.tsx` uses — so the data and logic
  * are real, not mock. Navigation drives the existing case store (`setActiveNav`),
  * which keeps dynamic profile/document tabs working.
- *
- * This is the "adopt the shell" path: new chrome, real panes. The panes still
- * carry their own (pre-refactor) styling for now — restyling each to the new
- * theme is the follow-up. Reachable via `?refactor` (see main.tsx); the plain
- * `App` remains the default.
  */
 
 const AC = "#e8c15a";
@@ -53,6 +49,9 @@ export default function RavenShell() {
   const activeNav = useCaseStore((s) => s.activeNav);
   const setActiveNav = useCaseStore((s) => s.setActiveNav);
   const setCommandPaletteOpen = useCaseStore((s) => s.setCommandPaletteOpen);
+  const openIngestModal = useCaseStore((s) => s.openIngestModal);
+  const notification = useCaseStore((s) => s.notification);
+  const setNotification = useCaseStore((s) => s.setNotification);
   const tabs = useCaseStore((s) => s.tabs);
   const activeTabId = useCaseStore((s) => s.activeTabId);
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
@@ -68,8 +67,6 @@ export default function RavenShell() {
     return () => clearInterval(t);
   }, []);
 
-  // Collapse inactive nav labels to their number when the bar gets tight, so
-  // no module (Ledger / Sources) ever falls off the header.
   const [vw, setVw] = useState(typeof window !== "undefined" ? window.innerWidth : 1440);
   useEffect(() => {
     const onResize = () => setVw(window.innerWidth);
@@ -100,6 +97,7 @@ export default function RavenShell() {
           <span style={mono({ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", color: AC })}>{caseId}</span>
           <span title="Case live" style={{ width: 6, height: 6, borderRadius: "50%", background: "#5ecf9a", animation: "rvsPulse 2.4s infinite" }} />
         </div>
+
         <nav style={{ display: "flex", alignItems: "stretch", height: "100%", flex: 1, minWidth: 0, overflow: "hidden" }}>
           {MODS.map((m) => {
             const act = activeNav === m.id;
@@ -115,12 +113,38 @@ export default function RavenShell() {
             );
           })}
         </nav>
+
+        {/* Global Ingest Action Button */}
+        <button
+          onClick={openIngestModal}
+          className="rvs-hoverAc"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            height: 30,
+            padding: "0 12px",
+            background: acDim,
+            border: `1px solid ${acBorder}`,
+            color: AC,
+            ...mono({ fontSize: 11, fontWeight: 700 }),
+            cursor: "pointer",
+            letterSpacing: ".06em",
+            whiteSpace: "nowrap",
+          }}
+          title="Upload and scan investigative datasets"
+        >
+          <span>↑</span> INGEST DATA
+        </button>
+
+        {/* Command Palette Trigger */}
         <button onClick={() => setCommandPaletteOpen(true)} className="rvs-hoverAc"
-          style={{ display: "flex", alignItems: "center", gap: 10, flex: "0 1 170px", minWidth: 90, height: 30, padding: "0 12px", background: "#0b0e12", border: "1px solid #1b212b", color: "#5c6773", ...mono({ fontSize: 11 }), cursor: "pointer", letterSpacing: ".04em" }}>
+          style={{ display: "flex", alignItems: "center", gap: 10, flex: "0 1 150px", minWidth: 90, height: 30, padding: "0 12px", background: "#0b0e12", border: "1px solid #1b212b", color: "#5c6773", ...mono({ fontSize: 11 }), cursor: "pointer", letterSpacing: ".04em" }}>
           <span style={{ color: AC }}>›_</span>
           <span style={{ flex: 1, textAlign: "left", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>search</span>
           <kbd style={{ fontSize: 9, border: "1px solid #232b37", padding: "1px 5px", color: "#5c6773", fontFamily: "inherit" }}>⌃K</kbd>
         </button>
+
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0, borderLeft: "1px solid #1b212b", paddingLeft: 16, ...mono({ fontSize: 10 }), letterSpacing: ".08em", whiteSpace: "nowrap" }}>
           <span title="IO A. Kumar" style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${acBorder}`, background: acDim, color: AC, fontSize: 9, fontWeight: 700 }}>AK</span>
           <span style={{ color: AC, fontWeight: 600 }}>{zulu}</span>
@@ -164,6 +188,49 @@ export default function RavenShell() {
 
       {/* Global command palette (⌃K) */}
       <CommandPalette />
+
+      {/* Global Ingestion Modal */}
+      <GlobalIngestModal />
+
+      {/* Floating Ingestion Toast Notification */}
+      {notification && (
+        <div style={{
+          position: "fixed",
+          bottom: 36,
+          right: 24,
+          zIndex: 9999,
+          display: "flex",
+          maxWidth: 420,
+          alignItems: "flex-start",
+          gap: 12,
+          border: `1px solid ${hexA(AC, 0.5)}`,
+          background: "#080b0e",
+          padding: 14,
+          boxShadow: "0 20px 50px rgba(0,0,0,.8)",
+          fontFamily: "'Instrument Sans',system-ui,sans-serif",
+          color: "#e8edf2",
+        }}>
+          <div style={{ display: "flex", height: 24, width: 24, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "rgba(94,207,154,.2)", color: "#5ecf9a", fontWeight: 700, fontSize: 12 }}>
+            ✓
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontWeight: 600, fontSize: 13 }}>
+              <span>{notification.message}</span>
+              <button
+                onClick={() => setNotification(null)}
+                style={{ background: "none", border: "none", color: "#5c6773", cursor: "pointer", fontSize: 12, marginLeft: 8 }}
+              >
+                ✕
+              </button>
+            </div>
+            {notification.details && (
+              <div style={{ marginTop: 4, color: "#98a4b3", fontSize: 11, ...mono({ fontSize: 11 }) }}>
+                {notification.details}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,13 +11,12 @@ fn ping() -> String {
 pub fn run() {
     dotenvy::dotenv().ok();
 
+    let rt = tokio::runtime::Runtime::new().expect("failed to start tokio runtime");
+    let _guard = rt.enter();
+
     let pg = raven_core::db::postgres::create_pool().expect("failed to build Supabase pg pool");
 
     let neo = {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("tokio rt");
         let uri = std::env::var("NEO4J_URI").unwrap_or_else(|_| "127.0.0.1:7687".into());
         let user = std::env::var("NEO4J_USER").unwrap_or_else(|_| "neo4j".into());
         let pass = std::env::var("NEO4J_PASS").unwrap_or_else(|_| "raven-demo-pw".into());

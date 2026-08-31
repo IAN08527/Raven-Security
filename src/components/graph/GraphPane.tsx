@@ -45,6 +45,8 @@ export function GraphPane() {
   const layerFilters = useCaseStore((s) => s.layerFilters);
   const setLayerFilter = useCaseStore((s) => s.setLayerFilter);
   const openTab = useCaseStore((s) => s.openTab);
+  const dynamicGraphNodes = useCaseStore((s) => s.dynamicGraphNodes);
+  const dynamicGraphEdges = useCaseStore((s) => s.dynamicGraphEdges);
 
   const [layoutName, setLayoutName] = useState<string>("fcose");
   const [zoomScale, setZoomScale] = useState<number>(1.0);
@@ -165,18 +167,20 @@ export function GraphPane() {
     if (layerFilters.vehicles) allowedTypes.add("VEHICLE");
     allowedTypes.add("LOCATION");
 
-    const filteredNodes = [...rawPersons, ...rawSecondaries].filter((n) =>
-      allowedTypes.has(n.data.type)
+    const mergedNodes = [...rawPersons, ...rawSecondaries, ...dynamicGraphNodes];
+    const filteredNodes = mergedNodes.filter((n) =>
+      allowedTypes.has(n.data.type || "PERSON")
     );
 
     const validIds = new Set(filteredNodes.map((n) => n.data.id));
 
-    const filteredEdges = rawEdges.filter(
+    const mergedEdges = [...rawEdges, ...dynamicGraphEdges];
+    const filteredEdges = mergedEdges.filter(
       (e) => validIds.has(e.data.source) && validIds.has(e.data.target)
     );
 
     return [...filteredNodes, ...filteredEdges];
-  }, [layerFilters]);
+  }, [layerFilters, dynamicGraphNodes, dynamicGraphEdges]);
 
   // Handle Layout & Interactive Events on Cy instance
   useEffect(() => {

@@ -12,12 +12,15 @@ import { VisionPane } from "./components/vision/VisionPane";
 import { AuditPanel } from "./components/audit/AuditPanel";
 import { DocumentViewerPane } from "./components/documents/DocumentViewerPane";
 import { DatabasesPane } from "./components/databases/DatabasesPane";
+import { GlobalIngestModal } from "./components/ingest/GlobalIngestModal";
 import { useCaseStore } from "./store/case";
 
 export default function App() {
   const [showHealth, setShowHealth] = useState(false);
   const tabs = useCaseStore((s) => s.tabs);
   const activeTabId = useCaseStore((s) => s.activeTabId);
+  const notification = useCaseStore((s) => s.notification);
+  const setNotification = useCaseStore((s) => s.setNotification);
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
   return (
@@ -67,8 +70,36 @@ export default function App() {
       {/* Command Palette Modal Overlay (Ctrl+K / Ctrl+Shift+P) */}
       <CommandPalette />
 
+      {/* Global Ingest Modal */}
+      <GlobalIngestModal />
+
       {/* Startup & Diagnostic Health Board Modal */}
       {showHealth && <HealthBoard onClose={() => setShowHealth(false)} />}
+
+      {/* Live Ingestion Toast Notification */}
+      {notification && (
+        <div className="fixed bottom-8 right-6 z-50 flex max-w-md items-start gap-3 rounded border border-pd-accent/50 bg-[#080b0e] p-4 text-pd-xs shadow-2xl animate-in fade-in slide-in-from-bottom-3 duration-300">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-pd-success/20 text-pd-success font-bold text-xs">
+            ✓
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-pd-text-primary text-sm flex items-center justify-between">
+              <span>{notification.message}</span>
+              <button
+                onClick={() => setNotification(null)}
+                className="text-pd-text-tertiary hover:text-pd-text-primary ml-2 text-xs"
+              >
+                ✕
+              </button>
+            </div>
+            {notification.details && (
+              <div className="mt-1 text-pd-text-secondary leading-relaxed font-mono text-[11px]">
+                {notification.details}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
