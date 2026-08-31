@@ -227,9 +227,11 @@ async def list_entities(case_id: str):
 
 @router.post("/macro")
 async def post_macro(body: dict):
+    case_key = body.get("case_id") or body.get("case_code") or "OP-RAVEN-01"
     return await macro_graph(
-        body["case_id"], float(body.get("min_weight", 5.0)), int(body.get("limit", 1000))
+        case_key, float(body.get("min_weight", 5.0)), int(body.get("limit", 1000))
     )
+
 
 
 @router.post("/ego")
