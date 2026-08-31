@@ -46,7 +46,7 @@ export function GraphPane() {
   const setLayerFilter = useCaseStore((s) => s.setLayerFilter);
   const openTab = useCaseStore((s) => s.openTab);
 
-  const [layoutName, setLayoutName] = useState<string>("cose");
+  const [layoutName, setLayoutName] = useState<string>("fcose");
   const [zoomScale, setZoomScale] = useState<number>(1.0);
   const [showFilterDrawer, setShowFilterDrawer] = useState<boolean>(false);
   const [showLegend, setShowLegend] = useState<boolean>(false);
@@ -183,17 +183,29 @@ export function GraphPane() {
     const cy = cyRef.current;
     if (!cy) return;
 
-    // HIGH REPULSION SPATIOUS PHYSICS: Spreads nodes comfortably across the canvas
-    const layout = cy.layout({
-      name: layoutName,
-      animate: false,
-      padding: 90,
-      nodeRepulsion: () => 65000,
-      idealEdgeLength: () => 210,
-      edgeElasticity: () => 16,
-      gravity: 0.12,
-      numIter: 1000,
-    } as any);
+    // Spread nodes comfortably across the canvas. fcose gives a much more even
+    // force layout than plain cose and packs disconnected components instead of
+    // flinging them to one side; fit-to-view once it settles so it fills the frame.
+    const isForce = layoutName === "fcose" || layoutName === "cose";
+    const opts = isForce
+      ? {
+          name: "fcose",
+          quality: "proof",
+          animate: false,
+          randomize: true,
+          padding: 60,
+          nodeSeparation: 95,
+          idealEdgeLength: () => 130,
+          nodeRepulsion: () => 14000,
+          edgeElasticity: () => 0.5,
+          gravity: 0.35,
+          gravityRange: 3.6,
+          numIter: 2500,
+          packComponents: true,
+        }
+      : { name: layoutName, animate: false, padding: 60 };
+    const layout = cy.layout(opts as any);
+    layout.one("layoutstop", () => cy.fit(undefined, 60));
     layout.run();
 
     // Zoom listener to update HUD zoom scale
@@ -367,7 +379,7 @@ export function GraphPane() {
               cursor: "pointer",
             })}
           >
-            <option value="cose">LAYOUT: FORCE (SPATIOUS)</option>
+            <option value="fcose">LAYOUT: FORCE (SPATIOUS)</option>
             <option value="concentric">LAYOUT: CONCENTRIC</option>
             <option value="circle">LAYOUT: CIRCLE</option>
             <option value="breadthfirst">LAYOUT: HIERARCHICAL</option>
