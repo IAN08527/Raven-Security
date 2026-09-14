@@ -114,6 +114,12 @@ export function createMap(container: HTMLElement): maplibregl.Map {
     center: [76.75, 18.82],
     zoom: 6,
     // ODbL attribution stays expanded and visible, never compacted away.
-    attributionControl: { compact: false },
+    // customAttribution replaces MapLibre's default, which is a hyperlink
+    // to maplibre.org: credit as text, never an outbound link (rule 6 —
+    // a click would be a third-party network call from the premises).
+    // The logo control is opt-in (maplibreLogo) and stays off, so its
+    // link never renders either. The egress gate (eval/test_no_egress.py)
+    // documents why inert library anchor strings are excluded there.
+    attributionControl: { compact: false, customAttribution: "MapLibre" },
   });
 }

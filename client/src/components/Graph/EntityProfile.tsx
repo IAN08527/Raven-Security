@@ -15,6 +15,7 @@ import {
   proposeMerge,
 } from "../../lib/entities";
 import { fetchFile } from "../../lib/files";
+import { provenanceColor } from "../../lib/provenance";
 import { getSession } from "../../lib/session";
 import { NODE_STYLE } from "./NetworkGraph";
 
@@ -34,20 +35,6 @@ type RelationSort = "weight" | "evidence" | "type";
 type TamperFilter = "all" | "verified" | "pending" | "tampered";
 
 const ALL_TYPES = ["PERSON", "ORGANIZATION", "LOCATION", "VEHICLE", "ACCOUNT"] as const;
-
-// Provenance badge colors (design §3.2 accents). Local convention,
-// stated here: benchmark is reference data (blue/information),
-// collected is field reality (green/confirmed), synthetic is
-// scaffolding the harness refuses for metrics (orange/attention).
-const PROVENANCE_COLOR: Record<string, string> = {
-  benchmark: "#668DBA",
-  collected: "#4FAE79",
-  synthetic: "#D89A45",
-};
-
-function provenanceColor(value: string): string {
-  return PROVENANCE_COLOR[value] ?? "#706E68";
-}
 
 function connection(): { base: string; token: string } {
   const env = (import.meta as unknown as { env?: Record<string, string> }).env;

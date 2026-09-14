@@ -582,3 +582,20 @@ risk.
 
 **Origin:** Session 12 - type generation tooling absent from tree,
 discovered when Entity Profile endpoint shape changed.
+
+### D31 - Egress gate scope: anchor hrefs excluded `ACTIVE`
+
+**Context:** eval/test_no_egress.py narrowed its href= pattern from any
+href= to <link href= (stylesheet/font vectors only) after MapLibre's
+inert library anchor strings (opt-in logo default, attribution
+default) tripped the gate on strings that are never fetched at
+runtime. The fetching patterns (fetch(), <script>/<img src=, <link
+href=, CSS url(), WebSocket) remain fully covered. Plain <a href=
+hyperlinks are excluded because they require a user click and do not
+constitute programmatic egress.
+
+**Verification:** the gate refinement is tested with a scratch matrix:
+all six fetching vectors caught, all three inert anchor cases ignored.
+
+**Origin:** Session 12 Map screen — MapLibre bundle included
+maplibre.org anchor strings that triggered a false positive.

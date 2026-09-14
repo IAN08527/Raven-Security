@@ -146,6 +146,10 @@ impl EntityStore {
     pub fn get(&self, id: &Uuid) -> Option<Entity> {
         self.lock().iter().find(|entity| &entity.id == id).cloned()
     }
+
+    pub fn all(&self) -> Vec<Entity> {
+        self.lock().clone()
+    }
 }
 
 impl MergeStore {

@@ -272,6 +272,31 @@ entry through the GoTrue admin API; the in-memory directory records the
 admin's intent until that wiring lands (same documented follow-up as
 every other store in this service).
 
+### 2.12 Global search
+
+```
+GET /search?q=&types=&case_id=&limit=
+                                        -> {entities: [], cases: [],
+                                            files: [], identifiers: []}
+```
+
+Any assigned role (io, analyst, auditor); the administrator has no
+case-content access. Without `case_id` the search spans every case the
+caller is assigned to; with `case_id` it narrows to that case, which
+must be assigned (`CASE_ACCESS_DENIED` otherwise — never an empty
+result set). `types` is `entities|cases|files|identifiers|all`
+(default `all`); unknown values are `VALIDATION_FAILED`. Empty `q`
+returns empty groups, not an error.
+
+Matching is case-insensitive substring over entity names and aliases,
+case codes and titles, filenames, and identifier values — the
+in-memory equivalent of the production `ILIKE` queries, which ride the
+pg_trgm GIN indexes from migration `20260915000000` (plain `%q%`
+`ILIKE` cannot use a btree, hence GIN). Each group is capped at 10
+results, 40 total; `limit` caps the total (default 40, max 40). Every
+call writes one `search.query` audit row; without `case_id` the row is
+platform-scoped (nil UUID) like §2.11.
+
 ---
 
 ## 3. Client to engine node

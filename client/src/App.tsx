@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { LoginScreen } from "./components/Auth/LoginScreen";
 import { AuditPane } from "./components/Audit/AuditPane";
+import { EntityProfile } from "./components/Graph/EntityProfile";
 import { HomeDashboard } from "./components/Home/HomeDashboard";
 import { IngestionScreen } from "./components/Ingestion/IngestionScreen";
 import { ReviewScreen } from "./components/Review/ReviewScreen";
+import { CommandPalette } from "./components/Search/CommandPalette";
+import { GlobalSearch } from "./components/Search/GlobalSearch";
+import { MapScreen } from "./components/Map/MapScreen";
 import { Sidebar, type HealthState } from "./components/Shell/Sidebar";
 import { TopBar } from "./components/Shell/TopBar";
 import { getSession, subscribeSession, type Session } from "./lib/session";
@@ -45,8 +49,24 @@ export function App(): JSX.Element {
   const [health, setHealth] = useState<HealthState>("down");
   const [caseId, setCaseId] = useState("");
   const [reviewCaseId, setReviewCaseId] = useState("");
+  const [mapCaseId, setMapCaseId] = useState("");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [profile, setProfile] = useState<{ entityId: string; caseId: string } | null>(null);
 
   useEffect(() => subscribeSession(() => setSession(getSession())), []);
+
+  // Ctrl+K / Cmd+K opens the palette from any screen (screen 09).
+  useEffect(() => {
+    if (!session) return;
+    function onKey(event: KeyboardEvent): void {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen(true);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [session]);
 
   useEffect(() => {
     if (!session) {
@@ -78,6 +98,10 @@ export function App(): JSX.Element {
   }
 
   const go = (id: string): void => navigateWithFade(setActive, id);
+  const openProfile = (entityId: string, caseId: string): void => {
+    setProfile({ entityId, caseId });
+    setActive("profile");
+  };
 
   return (
     <div className="flex h-screen bg-neutral-950 text-neutral-100">
@@ -89,10 +113,19 @@ export function App(): JSX.Element {
         onNavigate={go}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar role={session.role} email={session.email} />
+        <TopBar role={session.role} email={session.email} onOpenPalette={() => setPaletteOpen(true)} />
         <main className="min-h-0 flex-1 overflow-auto">
           {active === "home" ? (
             <HomeDashboard onNavigate={go} />
+          ) : active === "search" ? (
+            <GlobalSearch onOpenEntity={openProfile} />
+          ) : active === "profile" && profile ? (
+            <EntityProfile
+              entityId={profile.entityId}
+              caseId={profile.caseId}
+              onBack={() => go("search")}
+              onOpenEntity={(entityId) => openProfile(entityId, profile.caseId)}
+            />
           ) : active === "ingestion" ? (
             <IngestionScreen
               onOpenReview={(id) => {
@@ -120,6 +153,24 @@ export function App(): JSX.Element {
                 </label>
               </div>
             )
+          ) : active === "map" ? (
+            mapCaseId ? (
+              <MapScreen caseId={mapCaseId} />
+            ) : (
+              <div className="flex flex-col gap-2 p-4 text-sm text-neutral-400">
+                <p>Select a case to view movement.</p>
+                <label className="flex flex-col gap-1">
+                  Case id
+                  <input
+                    aria-label="Map case id"
+                    type="text"
+                    placeholder="00000000-0000-0000-0000-000000000000"
+                    className="w-80 border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-100"
+                    onChange={(event) => setMapCaseId(event.target.value.trim())}
+                  />
+                </label>
+              </div>
+            )
           ) : (
             <p className="p-4 text-sm text-neutral-400">
               {active} workspace (role: {session.role}).
@@ -127,6 +178,14 @@ export function App(): JSX.Element {
           )}
         </main>
       </div>
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onOpenEntity={(entityId, caseId) => {
+          setPaletteOpen(false);
+          openProfile(entityId, caseId);
+        }}
+      />
     </div>
   );
 }

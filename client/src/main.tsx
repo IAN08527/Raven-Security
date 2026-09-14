@@ -1,7 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
+import { registerPmtilesProtocol } from "./lib/map";
 import "./index.css";
+
+// PMTiles protocol registration happens once here, not in map
+// components: a per-component call is a footgun the next map screen
+// would forget (the error only surfaces at runtime). createMap keeps
+// its own guarded call as an idempotent backstop.
+registerPmtilesProtocol();
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {

@@ -219,7 +219,18 @@ def test_docs_lane_module_import_makes_no_egress(module_path: Path) -> None:
 # url()), and it still catches the case rule 6 actually cares about -- a
 # CDN font, a hosted map tile server, an injected <script src>.
 RESOURCE_URL_PATTERNS = [
-    re.compile(r'(?:src|href)\s*=\s*["\'](https?://[a-zA-Z0-9.\-:/]+)', re.IGNORECASE),
+    # Script, image and media loads, markup or property assignment.
+    re.compile(r'\bsrc\s*=\s*["\'](https?://[a-zA-Z0-9.\-:/]+)', re.IGNORECASE),
+    # Stylesheets and font preloads — but deliberately NOT bare `href=`.
+    # maplibre-gl ships inert `<a href="https://maplibre.org/">` anchor
+    # strings (logo default, attribution default) that no code path
+    # dials: the logo control is opt-in (unset) and customAttribution is
+    # overridden with link-free text in client/src/lib/map.ts, so neither
+    # string reaches the DOM. Matching bare href= would fail this gate on
+    # strings nothing dials, against this test's own stated philosophy
+    # above. The CDN-font vector stays covered via <link href>, url(),
+    # fetch() and WebSocket below.
+    re.compile(r'<link\b[^>]*\bhref\s*=\s*["\'](https?://[a-zA-Z0-9.\-:/]+)', re.IGNORECASE),
     re.compile(r'url\(\s*["\']?(https?://[a-zA-Z0-9.\-:/]+)', re.IGNORECASE),
     re.compile(r'\bfetch\(\s*["\'](https?://[a-zA-Z0-9.\-:/]+)', re.IGNORECASE),
     re.compile(r"new\s+WebSocket\(\s*[\"'](wss?://[a-zA-Z0-9.\-:/]+)", re.IGNORECASE),

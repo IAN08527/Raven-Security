@@ -97,6 +97,14 @@ impl AssignmentStore {
     pub fn is_assigned(&self, case_id: &Uuid, user_id: &Uuid) -> bool {
         self.lock().iter().any(|a| &a.case_id == case_id && &a.user_id == user_id)
     }
+
+    pub fn cases_for_user(&self, user_id: &Uuid) -> Vec<Uuid> {
+        let mut cases: Vec<Uuid> =
+            self.lock().iter().filter(|a| &a.user_id == user_id).map(|a| a.case_id).collect();
+        cases.sort();
+        cases.dedup();
+        cases
+    }
 }
 
 /// Stores [`record_action`] needs. Bundled so the call takes two

@@ -82,6 +82,16 @@ impl CameraStore {
     pub fn snapshot_ids(&self) -> Vec<Uuid> {
         self.lock().iter().map(|camera| camera.id).collect()
     }
+
+    /// Test and movement-timeline helper: the timeline resolves a
+    /// camera-sourced point's `declared_start_ts` through this lookup.
+    pub fn insert(&self, camera: Camera) {
+        self.lock().push(camera);
+    }
+
+    pub fn get(&self, id: &Uuid) -> Option<Camera> {
+        self.lock().iter().find(|camera| &camera.id == id).cloned()
+    }
 }
 
 pub fn router(store: CameraStore) -> Router {

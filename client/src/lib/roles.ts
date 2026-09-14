@@ -19,15 +19,20 @@ const ALL_ITEMS: NavItem[] = [
   { id: "graph", label: "Graph" },
   { id: "cctv", label: "CCTV" },
   { id: "search", label: "Search" },
+  { id: "map", label: "Map" },
   { id: "reports", label: "Reports" },
   { id: "audit", label: "Audit" },
   { id: "settings", label: "Settings" },
 ];
 
+// Map (screen 10, FR-6) goes to every case-content role: movement
+// analysis is IO tracking work and analyst routine work per the PRD
+// role table, and the auditor reads assigned case content everywhere
+// else. Admin stays excluded (D21: no case content).
 const VISIBLE_BY_ROLE: Record<AppRole, string[]> = {
-  io: ["home", "cases", "ingestion", "graph", "cctv", "search", "reports"],
-  analyst: ["home", "cases", "graph", "cctv", "search", "reports"],
-  auditor: ["home", "cases", "audit", "search"],
+  io: ["home", "cases", "ingestion", "graph", "cctv", "search", "map", "reports"],
+  analyst: ["home", "cases", "graph", "cctv", "search", "map", "reports"],
+  auditor: ["home", "cases", "search", "map", "audit"],
   admin: ["home", "cases", "settings"],
 };
 

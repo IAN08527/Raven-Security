@@ -78,6 +78,8 @@ async fn main() -> Result<()> {
             assignments: server::audit::AssignmentStore::default(),
             profiles: server::auth::ProfilesStore::default(),
             users,
+            cases: api::search::CaseStore::default(),
+            locations: api::map::LocationStore::default(),
         },
     );
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8443").await?;

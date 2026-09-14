@@ -166,6 +166,45 @@ export interface EntityDetail {
 // one owner (EntityDetail above).
 export type EntityRecord = EntityDetail;
 
+// API_CONTRACTS.md §2.12 global search (server/src/api/search.rs).
+// Groups arrive pre-capped (10 per group, 40 total); tabs split them
+// client-side without re-querying.
+
+export interface EntityHit {
+  id: string;
+  case_id: string;
+  type: GraphEntityType;
+  canonical_name: string;
+  provenance: string;
+}
+
+export interface CaseHit {
+  id: string;
+  case_code: string;
+  title: string;
+}
+
+export interface FileHit {
+  id: string;
+  case_id: string;
+  name: string;
+  provenance: string;
+}
+
+export interface IdentifierHit {
+  entity_id: string;
+  case_id: string;
+  value: string;
+  provenance: string;
+}
+
+export interface SearchResponse {
+  entities: EntityHit[];
+  cases: CaseHit[];
+  files: FileHit[];
+  identifiers: IdentifierHit[];
+}
+
 // API_CONTRACTS.md §2.5 entity listing and detail (server/src/api/entities.rs).
 // `EntityDetail` above stays as the graph projection's shape; the shapes
 // below are the entities endpoints' contract (associated cases, provenance,
@@ -193,4 +232,41 @@ export interface EntityNote {
   text: string;
   created_by: string;
   created_at: string; // mirrors the annotation's audit row (server-side)
+}
+
+// API_CONTRACTS.md §2.7 movement (server/src/api/map.rs). Timestamps
+// are case-clock, labelled CASE TIME in the UI (D16); `clock` repeats
+// that on the wire so no consumer has to remember it.
+
+export interface MovementPoint {
+  ts: string;
+  clock: "case" | "system";
+  lat: number;
+  lon: number;
+  origin: string;
+  accuracy_m: number | null;
+  provenance: string;
+  source_file_id: string | null;
+  camera_id: string | null;
+  declared_start_ts: string | null;
+}
+
+export interface MovementTimeline {
+  results: MovementPoint[];
+  next_cursor: string | null;
+}
+
+export interface RoutineCluster {
+  area: string;
+  lat: number;
+  lon: number;
+  visit_count: number;
+  confidence_pct: number;
+  typical_window: string | null;
+  low_data: boolean;
+}
+
+export interface RoutineResponse {
+  clusters: RoutineCluster[];
+  total_points: number;
 }

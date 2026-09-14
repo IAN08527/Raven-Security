@@ -17,9 +17,11 @@ pub mod audit;
 pub mod cameras;
 pub mod entities;
 pub mod files;
+pub mod map;
 pub mod nodes;
 pub mod reid;
 pub mod review;
+pub mod search;
 pub mod timeline;
 
 /// All client-to-server REST endpoints live under `/v1` (API_CONTRACTS.md
@@ -46,6 +48,8 @@ pub struct RouterStores {
     pub assignments: AssignmentStore,
     pub profiles: ProfilesStore,
     pub users: UsersStore,
+    pub cases: search::CaseStore,
+    pub locations: map::LocationStore,
 }
 
 pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router {
@@ -96,6 +100,26 @@ pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router 
         profiles: stores.profiles.clone(),
         users: stores.users.clone(),
     };
+    let search_deps = search::SearchDeps {
+        auth: stores.auth.clone(),
+        ledger: stores.ledger.clone(),
+        audit: stores.audit.clone(),
+        profiles: stores.profiles.clone(),
+        assignments: stores.assignments.clone(),
+        entities: stores.entities.clone(),
+        cases: stores.cases.clone(),
+        files: stores.files.clone(),
+    };
+    let map_deps = map::MapDeps {
+        auth: stores.auth.clone(),
+        ledger: stores.ledger.clone(),
+        audit: stores.audit.clone(),
+        profiles: stores.profiles.clone(),
+        assignments: stores.assignments.clone(),
+        entities: stores.entities.clone(),
+        locations: stores.locations.clone(),
+        cameras: stores.cameras.clone(),
+    };
     let v1 = Router::new()
         .merge(health)
         .merge(cameras::router(stores.cameras.clone()))
@@ -106,6 +130,8 @@ pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router 
         .merge(files::router(stores.files, files_deps))
         .merge(timeline::router(timeline_deps))
         .merge(admin::router(admin_deps))
+        .merge(search::router(search_deps))
+        .merge(map::router(map_deps))
         .merge(audit::router(stores.audit, stores.assignments, stores.auth, stores.ledger))
         .merge(crate::graph::router(stores.graph));
     Router::new().nest("/v1", v1)
