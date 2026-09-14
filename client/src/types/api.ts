@@ -270,3 +270,33 @@ export interface RoutineResponse {
   clusters: RoutineCluster[];
   total_points: number;
 }
+
+// API_CONTRACTS.md §2.10 case timeline (server/src/api/timeline.rs).
+// `clock` repeats the timestamp's provenance on the wire (D16) so no
+// consumer has to remember which events are case-clock.
+
+export interface TimelineEvent {
+  event_type: string;
+  ts: string;
+  clock: "case" | "system";
+  description: string;
+  actor: string | null;
+  entity_refs: string[];
+  detail: Record<string, unknown>;
+}
+
+export interface CaseTimeline {
+  results: TimelineEvent[];
+  next_cursor: string | null;
+}
+
+// API_CONTRACTS.md §2.11 user administration (server/src/api/admin.rs).
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  badge_no: string;
+  full_name: string;
+  role: string;
+  active: boolean;
+}

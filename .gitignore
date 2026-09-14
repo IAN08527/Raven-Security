@@ -55,3 +55,9 @@ infra/tiles/*
 Thumbs.db
 .vscode/
 .idea/
+
+
+#ai
+.claude/
+.agents/
+

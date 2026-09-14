@@ -173,7 +173,9 @@ describe("map screen", () => {
   beforeEach(() => {
     resetSessionForTests();
     vi.unstubAllGlobals();
-    vi.stubEnv("VITE_BASEMAP_URL", "http://localhost:8802/maharashtra.pmtiles");
+    // NOTE: vi.stubEnv does not reach the casted import.meta.env reads,
+    // so the map instance stays absent here and these tests cover list,
+    // strip, routine and popup-copy behavior — not live rendering.
   });
 
   afterEach(() => {

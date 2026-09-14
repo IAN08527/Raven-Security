@@ -7,7 +7,9 @@ import { IngestionScreen } from "./components/Ingestion/IngestionScreen";
 import { ReviewScreen } from "./components/Review/ReviewScreen";
 import { CommandPalette } from "./components/Search/CommandPalette";
 import { GlobalSearch } from "./components/Search/GlobalSearch";
+import { AdminSettings } from "./components/Admin/AdminSettings";
 import { MapScreen } from "./components/Map/MapScreen";
+import { TimelineScreen } from "./components/Timeline/TimelineScreen";
 import { Sidebar, type HealthState } from "./components/Shell/Sidebar";
 import { TopBar } from "./components/Shell/TopBar";
 import { getSession, subscribeSession, type Session } from "./lib/session";
@@ -50,6 +52,7 @@ export function App(): JSX.Element {
   const [caseId, setCaseId] = useState("");
   const [reviewCaseId, setReviewCaseId] = useState("");
   const [mapCaseId, setMapCaseId] = useState("");
+  const [timelineCaseId, setTimelineCaseId] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [profile, setProfile] = useState<{ entityId: string; caseId: string } | null>(null);
 
@@ -171,6 +174,29 @@ export function App(): JSX.Element {
                 </label>
               </div>
             )
+          ) : active === "timeline" ? (
+            timelineCaseId ? (
+              <TimelineScreen
+                caseId={timelineCaseId}
+                onOpenEntity={(entityId) => openProfile(entityId, timelineCaseId)}
+              />
+            ) : (
+              <div className="flex flex-col gap-2 p-4 text-sm text-neutral-400">
+                <p>Select a case to view its timeline.</p>
+                <label className="flex flex-col gap-1">
+                  Case id
+                  <input
+                    aria-label="Timeline case id"
+                    type="text"
+                    placeholder="00000000-0000-0000-0000-000000000000"
+                    className="w-80 border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-100"
+                    onChange={(event) => setTimelineCaseId(event.target.value.trim())}
+                  />
+                </label>
+              </div>
+            )
+          ) : active === "settings" ? (
+            <AdminSettings />
           ) : (
             <p className="p-4 text-sm text-neutral-400">
               {active} workspace (role: {session.role}).

@@ -73,6 +73,27 @@ export function fetchCameras(): Promise<ServerCamera[]> {
   return get<ServerCamera[]>("/cameras", true);
 }
 
+export async function registerCamera(input: {
+  code: string;
+  label: string;
+  declared_start_ts: string;
+  fps: number;
+}): Promise<ServerCamera> {
+  const session = getSession();
+  if (!session) {
+    throw new Error("not signed in");
+  }
+  const response = await fetch(`${serverBase()}/v1/cameras`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    throw new Error(`camera registration failed: ${response.status}`);
+  }
+  return (await response.json()) as ServerCamera;
+}
+
 /** Camera codes claimed by nodes whose status is not degraded. */
 export function onlineCameraCodes(nodes: EngineNode[]): Set<string> {
   const online = new Set<string>();
