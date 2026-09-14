@@ -1,0 +1,2751 @@
+{
+  "experiment": "S4",
+  "dataset": "enron-s4-20",
+  "split": "s4-annotation-set",
+  "provenance": "benchmark",
+  "note": "20 real Enron emails (CMU 2015-05-07 corpus, FERC public record, research distribution with privacy-sensitivity request) selected by tools/select_s4_enron.py for hand annotation in Session 10. Text unmodified except a 3000-char cap. NOT annotated yet: no spans, no metrics computed over this file (rule 4/10). | ANNOTATED 2026-09-14 (assistant draft, HUMAN REVIEW PENDING): full-text spans incl. headers; display names annotated, email addresses/URLs/LDAP DNs/slash-path org codes excluded; possessives annotated as base form (e.g. GSA in GSAs); ambiguous initials/codes left out - see review notes.",
+  "rows": [
+    {
+      "id": "enron-s4-01",
+      "text": "Message-ID: <8012132.1075853083164.JavaMail.evans@thyme>\r\nDate: Fri, 14 Sep 2001 14:05:43 -0700 (PDT)\r\nFrom: fran.fagan@enron.com\r\nTo: lynn.blair@enron.com\r\nSubject: FW: Promotions and Transfers- Gas Logistics\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nX-From: Fagan, Fran </O=ENRON/OU=NA/CN=RECIPIENTS/CN=FFAGAN>\r\nX-To: Blair, Lynn </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Lblair>\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\LBLAIR (Non-Privileged)\\Blair, Lynn\\Personnel - Promotions\r\nX-Origin: Blair-L\r\nX-FileName: LBLAIR (Non-Privileged).pst\r\n\r\n\n\n\n\nName\t\t\tNew Title\t\t\t\tEffective Date\t\t\tMid Year promotion Yes/No\n\nFloyd, Jodie\t\tSr Cust Svc Rep (no change)\t\t7/16/01\t\t\t\tNo\n\nBuehler, Craig\t\tSr Mkt/Sup Analyst (no change)\t\t7/16/01\t\t\t\tNo\n\nWagoner, Mike\t\tTeam Advisor - Gas Control\t\t7/1/01\t\t\t\tNo\n\nClapper, Karen\t\tSr Cust Svc Rep\t\t\t8/1/01\t\t\t\tYes\n\nGreaney, Chris\t\tSr Cust Svc Rep\t\t\t8/1/01\t\t\t\tYes\n\nWilkens, Jerry\t\tSr Cust Svc Rep\t\t\t8/1/01\t\t\t\tYes\n\nMinton, Kevin\t\tPipeline Controller\t\t\t8/1/01\t\t\t\tYes\n\nCox, Don\t\tPipeline Controller\t\t\t8/1/01\t\t\t\tYes\n\nHanagriff, Richard\tSr Accounting Control Spec\t\t8/1/01\t\t\t\tYes\n\n\nThanks,\nMS\n\n\n\n\n\n\n",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "PERSON",
+          "value": "Fagan, Fran",
+          "char_start": 315,
+          "char_end": 326
+        },
+        {
+          "type": "PERSON",
+          "value": "Blair, Lynn",
+          "char_start": 375,
+          "char_end": 386
+        },
+        {
+          "type": "PERSON",
+          "value": "Blair, Lynn",
+          "char_start": 481,
+          "char_end": 492
+        },
+        {
+          "type": "PERSON",
+          "value": "Floyd, Jodie",
+          "char_start": 647,
+          "char_end": 659
+        },
+        {
+          "type": "PERSON",
+          "value": "Buehler, Craig",
+          "char_start": 705,
+          "char_end": 719
+        },
+        {
+          "type": "PERSON",
+          "value": "Wagoner, Mike",
+          "char_start": 768,
+          "char_end": 781
+        },
+        {
+          "type": "PERSON",
+          "value": "Clapper, Karen",
+          "char_start": 825,
+          "char_end": 839
+        },
+        {
+          "type": "PERSON",
+          "value": "Greaney, Chris",
+          "char_start": 874,
+          "char_end": 888
+        },
+        {
+          "type": "PERSON",
+          "value": "Wilkens, Jerry",
+          "char_start": 923,
+          "char_end": 937
+        },
+        {
+          "type": "PERSON",
+          "value": "Minton, Kevin",
+          "char_start": 972,
+          "char_end": 985
+        },
+        {
+          "type": "PERSON",
+          "value": "Cox, Don",
+          "char_start": 1024,
+          "char_end": 1032
+        },
+        {
+          "type": "PERSON",
+          "value": "Hanagriff, Richard",
+          "char_start": 1071,
+          "char_end": 1089
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-02",
+      "text": "Message-ID: <15791711.1075853024135.JavaMail.evans@thyme>\r\nDate: Mon, 10 Sep 2001 10:33:15 -0700 (PDT)\r\nFrom: maggie.matheson@enron.com\r\nTo: randy.bryan@enron.com, robert.benningfield@enron.com, \r\n\tsherry.forbish@enron.com, jodie.floyd@enron.com, \r\n\trenee.perry@enron.com\r\nSubject: Customer Training\r\nCc: bradley.holmes@enron.com, lynn.blair@enron.com\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nBcc: bradley.holmes@enron.com, lynn.blair@enron.com\r\nX-From: Matheson, Maggie </O=ENRON/OU=NA/CN=RECIPIENTS/CN=MMATHES>\r\nX-To: Bryan, Randy </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Rbryan2>, Benningfield, Robert </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Rbennin>, Forbish, Sherry </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Sforbis>, Floyd, Jodie </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Jfloyd>, Perry, Renee </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Kperry>\r\nX-cc: Holmes, Bradley </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Bholmes>, Blair, Lynn </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Lblair>\r\nX-bcc: \r\nX-Folder: \\LBLAIR (Non-Privileged)\\Blair, Lynn\\Meetings - NNG Customer Mtg\r\nX-Origin: Blair-L\r\nX-FileName: LBLAIR (Non-Privileged).pst\r\n\r\n\n\nFirst I want to thank you for all of your help in Kansas City, I think the training went very well.  If you have any suggestions for improvements I would really appreciate your feedback.  Secondly, If you had any comments or suggestions from the customers during the training I'm trying to get them together so I can include them with the feedback given at the other break sessions.  You can send them via e-mailing or come by my desk.\n\nAlso several of you mentioned given the new hires the training document, I think this is a great idea so I'm attaching a copy.  If after going over the document there are some questions, let me know and I will be glad to meet with them.\n\n\n \n\nThanks,\n\nMaggie",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "PERSON",
+          "value": "Matheson, Maggie",
+          "char_start": 510,
+          "char_end": 526
+        },
+        {
+          "type": "PERSON",
+          "value": "Bryan, Randy",
+          "char_start": 576,
+          "char_end": 588
+        },
+        {
+          "type": "PERSON",
+          "value": "Benningfield, Robert",
+          "char_start": 632,
+          "char_end": 652
+        },
+        {
+          "type": "PERSON",
+          "value": "Forbish, Sherry",
+          "char_start": 696,
+          "char_end": 711
+        },
+        {
+          "type": "PERSON",
+          "value": "Floyd, Jodie",
+          "char_start": 755,
+          "char_end": 767
+        },
+        {
+          "type": "PERSON",
+          "value": "Perry, Renee",
+          "char_start": 810,
+          "char_end": 822
+        },
+        {
+          "type": "PERSON",
+          "value": "Holmes, Bradley",
+          "char_start": 871,
+          "char_end": 886
+        },
+        {
+          "type": "PERSON",
+          "value": "Blair, Lynn",
+          "char_start": 930,
+          "char_end": 941
+        },
+        {
+          "type": "PERSON",
+          "value": "Blair, Lynn",
+          "char_start": 1028,
+          "char_end": 1039
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "NNG",
+          "char_start": 1051,
+          "char_end": 1054
+        },
+        {
+          "type": "LOCATION",
+          "value": "Kansas City",
+          "char_start": 1183,
+          "char_end": 1194
+        },
+        {
+          "type": "PERSON",
+          "value": "Maggie",
+          "char_start": 1821,
+          "char_end": 1827
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-03",
+      "text": "Message-ID: <4937308.1075853024299.JavaMail.evans@thyme>\r\nDate: Thu, 5 Jul 2001 08:35:29 -0700 (PDT)\r\nFrom: lynn.blair@enron.com\r\nTo: sharon.brown@enron.com\r\nSubject: Winter Ops Meeting\r\nCc: lynn.blair@enron.com, steven.january@enron.com, bob.stevens@enron.com\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nBcc: lynn.blair@enron.com, steven.january@enron.com, bob.stevens@enron.com\r\nX-From: Blair, Lynn </O=ENRON/OU=NA/CN=RECIPIENTS/CN=LBLAIR>\r\nX-To: Brown, Sharon </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Sbrown1>\r\nX-cc: Blair, Lynn </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Lblair>, January, Steven </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Sjanuary>, Stevens, Bob </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Bsteven2>\r\nX-bcc: \r\nX-Folder: \\LBLAIR (Non-Privileged)\\Blair, Lynn\\Meetings - NNG Customer Mtg\r\nX-Origin: Blair-L\r\nX-FileName: LBLAIR (Non-Privileged).pst\r\n\r\n\t\t\n\tSharon, could add the following company/person to the invitee\n\tlist.  In talking with Bob Stevens it sounds like Semco is doing more\n\tand more business on NNG and he felt we should invite them.\n\n\tSemco\n\tDave Tyler\n\tManager of Regulatory Affairs and Gas Services\n\tdave.tyler@semcoenergy.com\n\n\n\tThanks. Lynn",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "PERSON",
+          "value": "Blair, Lynn",
+          "char_start": 442,
+          "char_end": 453
+        },
+        {
+          "type": "PERSON",
+          "value": "Brown, Sharon",
+          "char_start": 502,
+          "char_end": 515
+        },
+        {
+          "type": "PERSON",
+          "value": "Blair, Lynn",
+          "char_start": 565,
+          "char_end": 576
+        },
+        {
+          "type": "PERSON",
+          "value": "January, Steven",
+          "char_start": 619,
+          "char_end": 634
+        },
+        {
+          "type": "PERSON",
+          "value": "Stevens, Bob",
+          "char_start": 679,
+          "char_end": 691
+        },
+        {
+          "type": "PERSON",
+          "value": "Blair, Lynn",
+          "char_start": 780,
+          "char_end": 791
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "NNG",
+          "char_start": 803,
+          "char_end": 806
+        },
+        {
+          "type": "PERSON",
+          "value": "Sharon",
+          "char_start": 887,
+          "char_end": 893
+        },
+        {
+          "type": "PERSON",
+          "value": "Bob Stevens",
+          "char_start": 973,
+          "char_end": 984
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Semco",
+          "char_start": 1000,
+          "char_end": 1005
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "NNG",
+          "char_start": 1042,
+          "char_end": 1045
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Semco",
+          "char_start": 1083,
+          "char_end": 1088
+        },
+        {
+          "type": "PERSON",
+          "value": "Dave Tyler",
+          "char_start": 1090,
+          "char_end": 1100
+        },
+        {
+          "type": "PERSON",
+          "value": "Lynn",
+          "char_start": 1188,
+          "char_end": 1192
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-04",
+      "text": "Message-ID: <12296501.1075863603653.JavaMail.evans@thyme>\r\nDate: Wed, 17 May 2000 04:13:00 -0700 (PDT)\r\nFrom: office.chairman@enron.com\r\nTo: all.america@enron.com\r\nSubject: The New Power Company\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nX-From: Office of the Chairman\r\nX-To: All Enron Employees N America\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\Robert_Badeer_Aug2000\\Notes Folders\\Memo's\r\nX-Origin: Badeer-R\r\nX-FileName: rbadeer.nsf\r\n\r\nThe New Power Company, the first national residential and small business \nenergy service provider in deregulated\nmarkets was launched today with strategic investors and partners including \nEnron, IBM and America Online.\n\nH. Eugene Lockhart has been named President and Chief Executive Officer of \nthe company.  He was formerly President\nof AT&T Consumer Services and Chief Marketing Officer of AT&T, as well as \nPresident of Bank America's Global Retail\nBank and President and CEO of MasterCard International.  Lockhart is joined \nby a number of high-level executives from\nthe telecommunications and financial services sectors as well as several \nformer Enron executives specializing in energy\ncommodity pricing, marketing, risk management and government regulatory \naffairs.   \n\nThe former Enron employees include Jim Badum, formerly Managing Director of \nConsumer Services at EES, John Henderson, \nformerly Vice President of Retail Risk Management for EES, Dave Eichinger, \nformerly Vice President of Corporate Development\nfor Enron Corp., and Kathleen Magruder, formerly Vice President of Government \nAffairs for Enron Corp.  Lou Pai, Chairman and\nCEO for EES will serve as non-executive Chairman of The New Power Company. \n\nEnron will provide The New Power Company with energy commodity pricing, risk \nmanagement, and government/\nregulatory affairs.  Ken Lay is quoted in the news release, \"We've studied \nthe residential and small business market\nfor several years and believe this is the optimal way to provide value to \nthese customers.  By assisting in setting up\nan independent company, Enron is able to leverage its core competencies of \nenergy and risk management, while\npartnering with other industry leaders to give The New Power Company \nextraordinary and immediate depth and\ncapability.\"  Ken will also serve on the Board of Directors.\n\nThe New Power Company is scheduled to initially provide service in \nPennsylvania and New Jersey in the second half\nof 2000.  The company will be headquartered in Greenwich, Connecticut, with \nsome operations in Houston.  \n\nFor more information, please log onto their website at \nhttp://www.newpowercompany.com.",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "ORGANIZATION",
+          "value": "The New Power Company",
+          "char_start": 173,
+          "char_end": 194
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 334,
+          "char_end": 339
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "The New Power Company",
+          "char_start": 480,
+          "char_end": 501
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 669,
+          "char_end": 674
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "IBM",
+          "char_start": 676,
+          "char_end": 679
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "America Online",
+          "char_start": 684,
+          "char_end": 698
+        },
+        {
+          "type": "PERSON",
+          "value": "H. Eugene Lockhart",
+          "char_start": 701,
+          "char_end": 719
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "AT&T Consumer Services",
+          "char_start": 820,
+          "char_end": 842
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "AT&T",
+          "char_start": 874,
+          "char_end": 878
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Bank America",
+          "char_start": 905,
+          "char_end": 917
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "MasterCard International",
+          "char_start": 964,
+          "char_end": 988
+        },
+        {
+          "type": "PERSON",
+          "value": "Lockhart",
+          "char_start": 991,
+          "char_end": 999
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 1134,
+          "char_end": 1139
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 1271,
+          "char_end": 1276
+        },
+        {
+          "type": "PERSON",
+          "value": "Jim Badum",
+          "char_start": 1295,
+          "char_end": 1304
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "EES",
+          "char_start": 1358,
+          "char_end": 1361
+        },
+        {
+          "type": "PERSON",
+          "value": "John Henderson",
+          "char_start": 1363,
+          "char_end": 1377
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "EES",
+          "char_start": 1434,
+          "char_end": 1437
+        },
+        {
+          "type": "PERSON",
+          "value": "Dave Eichinger",
+          "char_start": 1439,
+          "char_end": 1453
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron Corp.",
+          "char_start": 1509,
+          "char_end": 1520
+        },
+        {
+          "type": "PERSON",
+          "value": "Kathleen Magruder",
+          "char_start": 1526,
+          "char_end": 1543
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron Corp.",
+          "char_start": 1596,
+          "char_end": 1607
+        },
+        {
+          "type": "PERSON",
+          "value": "Lou Pai",
+          "char_start": 1609,
+          "char_end": 1616
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "EES",
+          "char_start": 1639,
+          "char_end": 1642
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "The New Power Company",
+          "char_start": 1683,
+          "char_end": 1704
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 1708,
+          "char_end": 1713
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "The New Power Company",
+          "char_start": 1727,
+          "char_end": 1748
+        },
+        {
+          "type": "PERSON",
+          "value": "Ken Lay",
+          "char_start": 1835,
+          "char_end": 1842
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 2076,
+          "char_end": 2081
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "The New Power Company",
+          "char_start": 2209,
+          "char_end": 2230
+        },
+        {
+          "type": "PERSON",
+          "value": "Ken",
+          "char_start": 2284,
+          "char_end": 2287
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "The New Power Company",
+          "char_start": 2332,
+          "char_end": 2353
+        },
+        {
+          "type": "LOCATION",
+          "value": "Pennsylvania",
+          "char_start": 2400,
+          "char_end": 2412
+        },
+        {
+          "type": "LOCATION",
+          "value": "New Jersey",
+          "char_start": 2417,
+          "char_end": 2427
+        },
+        {
+          "type": "LOCATION",
+          "value": "Greenwich",
+          "char_start": 2494,
+          "char_end": 2503
+        },
+        {
+          "type": "LOCATION",
+          "value": "Connecticut",
+          "char_start": 2505,
+          "char_end": 2516
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 2543,
+          "char_end": 2550
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-05",
+      "text": "Message-ID: <3558415.1075863603606.JavaMail.evans@thyme>\r\nDate: Sun, 21 May 2000 18:55:00 -0700 (PDT)\r\nFrom: office.chairman@enron.com\r\nTo: all.worldwide@enron.com\r\nSubject: =?ANSI_X3.4-1968?Q?Enron=01,s_Entry_Into_Global_Metals_Market?=\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=ANSI_X3.4-1968\r\nContent-Transfer-Encoding: quoted-printable\r\nX-From: Office of the Chairman\r\nX-To: All Enron Worldwide\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\Robert_Badeer_Aug2000\\Notes Folders\\Memo's\r\nX-Origin: Badeer-R\r\nX-FileName: rbadeer.nsf\r\n\r\nThis morning, we announced an offer to acquire London-based MG plc, one of=\r\n=20\r\nthe world=01,s leading metals marketers, for $446 million.  We have been=20\r\nmonitoring the global metals market for several years, and we believe that=\r\n=20\r\nnow is the right time to enter this $120 billion market.  We are confident=\r\n=20\r\nthat our successful business model, which we have proven in the natural gas=\r\n=20\r\nand electricity markets, gives us a tremendous advantage in a market that i=\r\ns=20\r\nundergoing fundamental change.\r\n\r\nOur offer to acquire MG plc has been unanimously recommended by MG plc=01,s=\r\n=20\r\nboard of directors, and we expect to close the transaction by early third=\r\n=20\r\nquarter of this year, following shareholder and customary regulatory=20\r\napprovals.\r\n\r\nMG plc is a leading independent company in global non-ferrous metals tradin=\r\ng=20\r\nand marketing and the only such company that is publicly traded. =20\r\nHeadquartered in London with major offices in New York and Frankfurt, MG pl=\r\nc=20\r\nhas 330 employees in 14 countries.  It is the world=01,s leading copper=20\r\nmerchant, one of the top three merchants of copper concentrates and nickel,=\r\n=20\r\nand a leading European merchant of recycled metal.  Other products that MG=\r\n=20\r\nplc markets include aluminum, lead, tin, zinc, brass and stainless steel.\r\n\r\nThis transaction provides Enron with access to new customers and enables=20\r\ncross-marketing opportunities.  We plan to sell Enron energy products to MG=\r\n=20\r\nplc customers and offer bundled products combining metals and power=20\r\noutsourcing.  Enron will help producers and consumers manage the risks=20\r\ninherent in volatile raw materials and energy markets, and we will improve=\r\n=20\r\ncommodity prices for both buyers and sellers.\r\n\r\nMG plc=01,s existing market-making capabilities and market knowledge provid=\r\ne an=20\r\nimmediate platform upon which to overlay Enron=01,s proven ability to offer=\r\n=20\r\ninnovative e-commerce-enabled services to commodity-based industries.  Our=\r\n=20\r\nnew metals business will be integrated into our wholesale business by Enron=\r\n=20\r\nEurope CEO John Sherriff, who will work closely with Enron Net Works CEO Gr=\r\neg=20\r\nWhalley.",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 193,
+          "char_end": 198
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 395,
+          "char_end": 400
+        },
+        {
+          "type": "LOCATION",
+          "value": "London",
+          "char_start": 578,
+          "char_end": 584
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "MG plc",
+          "char_start": 591,
+          "char_end": 597
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "MG plc",
+          "char_start": 1076,
+          "char_end": 1082
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "MG plc",
+          "char_start": 1119,
+          "char_end": 1125
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "MG plc",
+          "char_start": 1306,
+          "char_end": 1312
+        },
+        {
+          "type": "LOCATION",
+          "value": "London",
+          "char_start": 1477,
+          "char_end": 1483
+        },
+        {
+          "type": "LOCATION",
+          "value": "New York",
+          "char_start": 1506,
+          "char_end": 1514
+        },
+        {
+          "type": "LOCATION",
+          "value": "Frankfurt",
+          "char_start": 1519,
+          "char_end": 1528
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Europe",
+          "char_start": 1717,
+          "char_end": 1723
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 1888,
+          "char_end": 1893
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 1987,
+          "char_end": 1992
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 2108,
+          "char_end": 2113
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "MG plc",
+          "char_start": 2300,
+          "char_end": 2306
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 2428,
+          "char_end": 2433
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 2622,
+          "char_end": 2627
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Europe",
+          "char_start": 2635,
+          "char_end": 2641
+        },
+        {
+          "type": "PERSON",
+          "value": "John Sherriff",
+          "char_start": 2646,
+          "char_end": 2659
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron Net Works",
+          "char_start": 2688,
+          "char_end": 2703
+        },
+        {
+          "type": "PERSON",
+          "value": "Whalley",
+          "char_start": 2720,
+          "char_end": 2727
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-06",
+      "text": "Message-ID: <32156305.1075863603445.JavaMail.evans@thyme>\r\nDate: Fri, 11 Aug 2000 18:20:00 -0700 (PDT)\r\nFrom: enron.announcements@enron.com\r\nTo: all.worldwide@enron.com\r\nSubject: 2000 Chairman's Award\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nX-From: Enron Announcements\r\nX-To: All Enron Worldwide\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\Robert_Badeer_Aug2000\\Notes Folders\\Memo's\r\nX-Origin: Badeer-R\r\nX-FileName: rbadeer.nsf\r\n\r\nEveryday heroes are all around us at Enron, living our core values of \nRespect, Integrity, Communication and Excellence in everything they do.  Some \nof these heroes make a big splash while others just quietly make a difference \nin the workplace around them.  Either way, these special individuals deserve \nto be recognized with a nomination for the 2000 Chairman's Award.\n\nAs there is more than just one employee living the values at Enron, this \naward program will honor 10 employees as members of the Chairman's \nRoundtable.  From that group, the one individual most embodying our values \nwill be presented with the Chairman's Award at the Management Conference in \nSan Antonio in November.\n\nThe beauty of this award program is that it is completely employee-driven \nfrom beginning to end.  From your nominations, an international employee \ncommittee will select the Chairman's Roundtable and eventually, the \nChairman's Award winner.  Your role of nominating our everyday heroes is \nextremely vital to the program's success.  If someone has made a positive \nimpression on you, please take the time to complete a nomination form and \nsend it to Charla Reese by October 1, 2000.  You may click here for a \nprintable form:  http://home.enron.com/announce/chairman_nom/form3.doc\n\nFor more information on the Chairman's Award, including details on last \nyear's Roundtable members and previous winners, Repit Suliyono and Bobbye \nBrown, please click here: http://home.enron.com/announce/chairman_nom\n\nAgain, this is a very special award at Enron and we sincerely thank you for \nyour participation.\n\nKen, Jeff and Joe",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron Announcements",
+          "char_start": 306,
+          "char_end": 325
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 337,
+          "char_end": 342
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 510,
+          "char_end": 515
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 908,
+          "char_end": 913
+        },
+        {
+          "type": "LOCATION",
+          "value": "San Antonio",
+          "char_start": 1142,
+          "char_end": 1153
+        },
+        {
+          "type": "PERSON",
+          "value": "Charla Reese",
+          "char_start": 1621,
+          "char_end": 1633
+        },
+        {
+          "type": "PERSON",
+          "value": "Repit Suliyono",
+          "char_start": 1874,
+          "char_end": 1888
+        },
+        {
+          "type": "PERSON",
+          "value": "Bobbye",
+          "char_start": 1893,
+          "char_end": 1899
+        },
+        {
+          "type": "PERSON",
+          "value": "Brown",
+          "char_start": 1901,
+          "char_end": 1906
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron",
+          "char_start": 2011,
+          "char_end": 2016
+        },
+        {
+          "type": "PERSON",
+          "value": "Ken",
+          "char_start": 2070,
+          "char_end": 2073
+        },
+        {
+          "type": "PERSON",
+          "value": "Jeff",
+          "char_start": 2075,
+          "char_end": 2079
+        },
+        {
+          "type": "PERSON",
+          "value": "Joe",
+          "char_start": 2084,
+          "char_end": 2087
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-07",
+      "text": "Message-ID: <20792606.1075858652225.JavaMail.evans@thyme>\r\nDate: Mon, 27 Aug 2001 13:55:42 -0700 (PDT)\r\nFrom: bill.hatch@enron.com\r\nTo: richard.ring@enron.com\r\nSubject: Re: New Acc't Numbers\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nX-From: Hatch, Bill </O=ENRON/OU=NA/CN=RECIPIENTS/CN=NOTESADDR/CN=D4AAAF67-E8B0AA4F-862564FE-729D6F>\r\nX-To: Ring, Richard </O=ENRON/OU=NA/CN=RECIPIENTS/CN=RRING>\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\RRING (Non-Privileged)\\EESIDealsGSARegion1\r\nX-Origin: Ring-R\r\nX-FileName: RRING (Non-Privileged)1.pst\r\n\r\nfyi..\n---------------------- Forwarded by Bill Hatch/HOU/EES on 08/27/2001 04:55 PM ---------------------------\n\n\nBill Hatch\n08/27/2001 04:47 PM\nTo:\tdbrown66@csc.com @ ENRON\ncc:\t \nSubject:\tRe: New Acc't Numbers   \n\nDyaniese,\n\nI forgot that it's so close to the end of the fiscal year so no problem with me waiting.  If I can have it by the end of the week that would be fine.\n\nOn a more important issue, I hope you and/or Mat is researching how we're billing the renewables for the GSA.  There seems to be a problem.\n\nPlease let me know about the renewabla pricing as soon as you have some information.  This really is important to the GSA.\n\nThanks,\n\nBill\n\n\n\ndbrown66@csc.com on 08/27/2001 04:03:00 PM\nTo:\tbhatch@enron.com\ncc:\t \nSubject:\tRe: New Acc't Numbers\n\n\nBill,\n\nI don't know off hand (I recognize some of the abbreviations as part of the\nsite address)...I simply forwarded a spreadsheet that was given to me.  If\nyou don't mind waiting until tomorrow or Wednesday, I can look them up and\nsend it to you again.  It's the end of the month, end of GSAs fiscal year,\nI'm trying to make everybody happy...  You're included on that list so I'll\nmake sure I get the info. to you asap.\n\nThanks,\nDyaniese\n\n\n\n\nbhatch@enron.com on 08/27/2001 03:41:49 PM\n\nTo:   Dyaniese A Brown/TMG/CSC@CSC\ncc:\n\nSubject:  Re: New Acc't Numbers\n\n\n\nDyaniese,\n\nThanks for the infor but I'm having trouble understanding the abreviations.\nWhat agencies are the following:\n\nAFRI\nBOS\nBOST\nDORC\nGENE\nMAGU\nNat'l\nUS A\n\nPlease let me know.\n\nThanks,\n\nBill\n\n\n\n\ndbrown66@csc.com on 08/27/2001 02:41:47 PM\n\nTo:   \"Bill Hatch\" <bhatch@enron.com>\ncc:\nSubject:  Re: New Acc't Numbers\n\n\nBill,\n\nI was extremely busy last week and forgot to send this to you.  Let me know\nif you need anything else.\n\nThanks,\nDyaniese\n\n(See attached file: BECO Account Numbers.xls)\n\n\n\n\n\"Bill Hatch\" <bhatch@enron.com> on 08/27/2001 01:49:12 PM\n\nTo:   Dyaniese A Brown/TMG/CSC@CSC\ncc:\n\nSubject:  New Acc't Numbers\n\n\n\n\nDyaniese,\n\nCan you send me the guide to the new BECO account numbers?  What I need are\nthe\nold numbers by Agency and the corresponding new account numbers.\n\nThanks,\n\nBill\n\n\n\n\n(See attached file: BECO Account Numbers.xls)\n\n\n\n\n**********************************************************************\nThis e-mail is the property of Enron Corp. and/or its relevant affiliate\nand may contain confidential and privileged material for the sole use of\nthe intended reci",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "PERSON",
+          "value": "Hatch, Bill",
+          "char_start": 296,
+          "char_end": 307
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "ENRON",
+          "char_start": 312,
+          "char_end": 317
+        },
+        {
+          "type": "PERSON",
+          "value": "Ring, Richard",
+          "char_start": 396,
+          "char_end": 409
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "ENRON",
+          "char_start": 414,
+          "char_end": 419
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "GSA",
+          "char_start": 511,
+          "char_end": 514
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill Hatch",
+          "char_start": 626,
+          "char_end": 636
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill Hatch",
+          "char_start": 698,
+          "char_end": 708
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "ENRON",
+          "char_start": 752,
+          "char_end": 757
+        },
+        {
+          "type": "PERSON",
+          "value": "Dyaniese",
+          "char_start": 799,
+          "char_end": 807
+        },
+        {
+          "type": "PERSON",
+          "value": "Mat",
+          "char_start": 1006,
+          "char_end": 1009
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "GSA",
+          "char_start": 1066,
+          "char_end": 1069
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "GSA",
+          "char_start": 1220,
+          "char_end": 1223
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill",
+          "char_start": 1235,
+          "char_end": 1239
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill",
+          "char_start": 1346,
+          "char_end": 1350
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "GSA",
+          "char_start": 1636,
+          "char_end": 1639
+        },
+        {
+          "type": "PERSON",
+          "value": "Dyaniese",
+          "char_start": 1778,
+          "char_end": 1786
+        },
+        {
+          "type": "PERSON",
+          "value": "Dyaniese A Brown",
+          "char_start": 1841,
+          "char_end": 1857
+        },
+        {
+          "type": "PERSON",
+          "value": "Dyaniese",
+          "char_start": 1910,
+          "char_end": 1918
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill",
+          "char_start": 2102,
+          "char_end": 2106
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill Hatch",
+          "char_start": 2162,
+          "char_end": 2172
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill",
+          "char_start": 2231,
+          "char_end": 2235
+        },
+        {
+          "type": "PERSON",
+          "value": "Dyaniese",
+          "char_start": 2350,
+          "char_end": 2358
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "BECO",
+          "char_start": 2380,
+          "char_end": 2384
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill Hatch",
+          "char_start": 2411,
+          "char_end": 2421
+        },
+        {
+          "type": "PERSON",
+          "value": "Dyaniese A Brown",
+          "char_start": 2475,
+          "char_end": 2491
+        },
+        {
+          "type": "PERSON",
+          "value": "Dyaniese",
+          "char_start": 2541,
+          "char_end": 2549
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "BECO",
+          "char_start": 2589,
+          "char_end": 2593
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill",
+          "char_start": 2707,
+          "char_end": 2711
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "BECO",
+          "char_start": 2736,
+          "char_end": 2740
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron Corp.",
+          "char_start": 2868,
+          "char_end": 2879
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-08",
+      "text": "Message-ID: <25479083.1075858652249.JavaMail.evans@thyme>\r\nDate: Wed, 22 Aug 2001 21:29:00 -0700 (PDT)\r\nFrom: james.copeland@enron.com\r\nTo: denise.furey@enron.com\r\nSubject: RE: A'Lones Group / Mirant Energy Americas, L.P\r\nCc: richard.ring@enron.com\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nBcc: richard.ring@enron.com\r\nX-From: James L Copeland <James L Copeland/ENRON@enronXgate@ENRON>\r\nX-To: Denise Furey <Denise Furey/ENRON@enronXgate>\r\nX-cc: Richard Ring <Richard Ring/HOU/EES@EES>\r\nX-bcc: \r\nX-Folder: \\RRING (Non-Privileged)\\EESIDealsGSARegion1\r\nX-Origin: Ring-R\r\nX-FileName: RRING (Non-Privileged)1.pst\r\n\r\nDenise, I believe Will Frederking may be involved.\n\n -----Original Message-----\nFrom: \tFurey, Denise  \nSent:\tWednesday, August 22, 2001 4:28 PM\nTo:\tCopeland, James L.; Ring, Richard\nSubject:\tRE: A'Lones Group / Mirant Energy Americas, L.P\n\nRichard who is the attorney drafting this document.   I need to ask him a few questions before I can give him the credit language. \n\n -----Original Message-----\nFrom: \tCopeland, James L.  \nSent:\tWednesday, August 22, 2001 4:15 PM\nTo:\tRing, Richard\nCc:\tFurey, Denise\nSubject:\tRE: A'Lones Group / Mirant Energy Americas, L.P\n\nI spoke with Denise briefly and I believe she was looking into the EEI issue with Ed Sacks.  I would contact Denise directly on this one as I believe Dana has not been involved to date.\n\n -----Original Message-----\nFrom: \tRing, Richard  \nSent:\tWednesday, August 22, 2001 4:12 PM\nTo:\tCopeland, James L.\nSubject:\tA'Lones Group / Mirant Energy Americas, L.P\n\nJames,\n\nThanks for your help with A'Lones Group and Mirant Energy Americas, LP.  I have not heard anything from Denise Furey or Dana Smith regarding our conversation from Monday August 20th.  Do you have any additional information or should I contact Dana Smith?\n\nRegards,\n\nRichard",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "ORGANIZATION",
+          "value": "A'Lones Group",
+          "char_start": 177,
+          "char_end": 190
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Mirant Energy Americas, L.P",
+          "char_start": 193,
+          "char_end": 220
+        },
+        {
+          "type": "PERSON",
+          "value": "James L Copeland",
+          "char_start": 383,
+          "char_end": 399
+        },
+        {
+          "type": "PERSON",
+          "value": "James L Copeland",
+          "char_start": 401,
+          "char_end": 417
+        },
+        {
+          "type": "PERSON",
+          "value": "Denise Furey",
+          "char_start": 449,
+          "char_end": 461
+        },
+        {
+          "type": "PERSON",
+          "value": "Denise Furey",
+          "char_start": 463,
+          "char_end": 475
+        },
+        {
+          "type": "PERSON",
+          "value": "Richard Ring",
+          "char_start": 501,
+          "char_end": 513
+        },
+        {
+          "type": "PERSON",
+          "value": "Richard Ring",
+          "char_start": 515,
+          "char_end": 527
+        },
+        {
+          "type": "PERSON",
+          "value": "Denise",
+          "char_start": 667,
+          "char_end": 673
+        },
+        {
+          "type": "PERSON",
+          "value": "Will Frederking",
+          "char_start": 685,
+          "char_end": 700
+        },
+        {
+          "type": "PERSON",
+          "value": "Furey, Denise",
+          "char_start": 754,
+          "char_end": 767
+        },
+        {
+          "type": "PERSON",
+          "value": "Copeland, James L.",
+          "char_start": 815,
+          "char_end": 833
+        },
+        {
+          "type": "PERSON",
+          "value": "Ring, Richard",
+          "char_start": 835,
+          "char_end": 848
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "A'Lones Group",
+          "char_start": 862,
+          "char_end": 875
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Mirant Energy Americas, L.P",
+          "char_start": 878,
+          "char_end": 905
+        },
+        {
+          "type": "PERSON",
+          "value": "Richard",
+          "char_start": 907,
+          "char_end": 914
+        },
+        {
+          "type": "PERSON",
+          "value": "Copeland, James L.",
+          "char_start": 1075,
+          "char_end": 1093
+        },
+        {
+          "type": "PERSON",
+          "value": "Ring, Richard",
+          "char_start": 1141,
+          "char_end": 1154
+        },
+        {
+          "type": "PERSON",
+          "value": "Furey, Denise",
+          "char_start": 1159,
+          "char_end": 1172
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "A'Lones Group",
+          "char_start": 1186,
+          "char_end": 1199
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Mirant Energy Americas, L.P",
+          "char_start": 1202,
+          "char_end": 1229
+        },
+        {
+          "type": "PERSON",
+          "value": "Denise",
+          "char_start": 1244,
+          "char_end": 1250
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "EEI",
+          "char_start": 1298,
+          "char_end": 1301
+        },
+        {
+          "type": "PERSON",
+          "value": "Ed Sacks",
+          "char_start": 1313,
+          "char_end": 1321
+        },
+        {
+          "type": "PERSON",
+          "value": "Denise",
+          "char_start": 1340,
+          "char_end": 1346
+        },
+        {
+          "type": "PERSON",
+          "value": "Dana",
+          "char_start": 1381,
+          "char_end": 1385
+        },
+        {
+          "type": "PERSON",
+          "value": "Ring, Richard",
+          "char_start": 1453,
+          "char_end": 1466
+        },
+        {
+          "type": "PERSON",
+          "value": "Copeland, James L.",
+          "char_start": 1514,
+          "char_end": 1532
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "A'Lones Group",
+          "char_start": 1542,
+          "char_end": 1555
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Mirant Energy Americas, L.P",
+          "char_start": 1558,
+          "char_end": 1585
+        },
+        {
+          "type": "PERSON",
+          "value": "James",
+          "char_start": 1587,
+          "char_end": 1592
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "A'Lones Group",
+          "char_start": 1621,
+          "char_end": 1634
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Mirant Energy Americas, LP",
+          "char_start": 1639,
+          "char_end": 1665
+        },
+        {
+          "type": "PERSON",
+          "value": "Denise Furey",
+          "char_start": 1699,
+          "char_end": 1711
+        },
+        {
+          "type": "PERSON",
+          "value": "Dana Smith",
+          "char_start": 1715,
+          "char_end": 1725
+        },
+        {
+          "type": "PERSON",
+          "value": "Dana Smith",
+          "char_start": 1838,
+          "char_end": 1848
+        },
+        {
+          "type": "PERSON",
+          "value": "Richard",
+          "char_start": 1861,
+          "char_end": 1868
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-09",
+      "text": "Message-ID: <673296.1075858652176.JavaMail.evans@thyme>\r\nDate: Thu, 13 Sep 2001 08:10:14 -0700 (PDT)\r\nFrom: bill.hatch@enron.com\r\nTo: dbrown66@csc.com\r\nSubject: Conf Call re: Invoicing for GSA Renewable Power\r\nCc: john.nanof@enron.com, richard.ring@enron.com\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nBcc: john.nanof@enron.com, richard.ring@enron.com\r\nX-From: Hatch, Bill </O=ENRON/OU=NA/CN=RECIPIENTS/CN=NOTESADDR/CN=D4AAAF67-E8B0AA4F-862564FE-729D6F>\r\nX-To: dbrown66@csc.com\r\nX-cc: Nanof, John </O=ENRON/OU=NA/CN=RECIPIENTS/CN=NOTESADDR/CN=57ABDCA5-D164EC89-8625693C-6FACBF>, Ring, Richard </O=ENRON/OU=NA/CN=RECIPIENTS/CN=RRING>\r\nX-bcc: \r\nX-Folder: \\RRING (Non-Privileged)\\EESIDealsGSARegion1\r\nX-Origin: Ring-R\r\nX-FileName: RRING (Non-Privileged)1.pst\r\n\r\nDyaniese,\n\nPer my voice mail, I suggest we have a conf call with Richard this afternoon to discuss the GSA renewable billing.  It is incorrect to charge three GSA accounts for the renewable power.  \n\nThe proper GSA Renewable invoicing is as follows:\n\nCharge JFK Building (57-1695-094001) 175,000 kwh/month at 5.5 cents and 225,000 kwh/month at 5.25 cents.  This equals 400,000 kwh/month and 4.8mm kwh per year which is the minimum amount they contracted for.\n\nThe proper Hanscom Air Force Renewable invoicing is as follows:\n\nCharge only HAFB Acc't # 516488321650,   200,000 kwh/month at 5.5 cents. \n\n\nThe problems I see ahead are the adjustments CSC needs to make to past invoices in order to properly re-calculate the monthly total consumption price.  I'd like for Richard and me to review with you what CSC now needs to do.\n\nWill 2:00 Eastern be ok with you?  The dial in number is 800-711-8000; the passcode is 26060#.\n\nPlease let me know.\n\nThanks,\n\nBill",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "ORGANIZATION",
+          "value": "GSA",
+          "char_start": 189,
+          "char_end": 192
+        },
+        {
+          "type": "PERSON",
+          "value": "Hatch, Bill",
+          "char_start": 415,
+          "char_end": 426
+        },
+        {
+          "type": "PERSON",
+          "value": "Nanof, John",
+          "char_start": 539,
+          "char_end": 550
+        },
+        {
+          "type": "PERSON",
+          "value": "Ring, Richard",
+          "char_start": 633,
+          "char_end": 646
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "GSA",
+          "char_start": 740,
+          "char_end": 743
+        },
+        {
+          "type": "PERSON",
+          "value": "Dyaniese",
+          "char_start": 813,
+          "char_end": 821
+        },
+        {
+          "type": "PERSON",
+          "value": "Richard",
+          "char_start": 878,
+          "char_end": 885
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "GSA",
+          "char_start": 916,
+          "char_end": 919
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "GSA",
+          "char_start": 972,
+          "char_end": 975
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "GSA",
+          "char_start": 1024,
+          "char_end": 1027
+        },
+        {
+          "type": "LOCATION",
+          "value": "JFK Building",
+          "char_start": 1071,
+          "char_end": 1083
+        },
+        {
+          "type": "ACCOUNT",
+          "value": "57-1695-094001",
+          "char_start": 1085,
+          "char_end": 1099
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Hanscom Air Force",
+          "char_start": 1284,
+          "char_end": 1301
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "HAFB",
+          "char_start": 1350,
+          "char_end": 1354
+        },
+        {
+          "type": "ACCOUNT",
+          "value": "516488321650",
+          "char_start": 1363,
+          "char_end": 1375
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "CSC",
+          "char_start": 1459,
+          "char_end": 1462
+        },
+        {
+          "type": "PERSON",
+          "value": "Richard",
+          "char_start": 1579,
+          "char_end": 1586
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "CSC",
+          "char_start": 1618,
+          "char_end": 1621
+        },
+        {
+          "type": "PHONE",
+          "value": "800-711-8000",
+          "char_start": 1697,
+          "char_end": 1709
+        },
+        {
+          "type": "ACCOUNT",
+          "value": "26060",
+          "char_start": 1727,
+          "char_end": 1732
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill",
+          "char_start": 1766,
+          "char_end": 1770
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-10",
+      "text": "Message-ID: <610852.1075858073700.JavaMail.evans@thyme>\r\nDate: Wed, 20 Sep 2000 03:39:00 -0700 (PDT)\r\nFrom: martin.cuilla@enron.com\r\nTo: rwharton@bellhelicopter.textron.com\r\nSubject: Weather\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nX-From: Martin Cuilla\r\nX-To: RWharton@bellhelicopter.textron.com\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\Martin_Cuilla_Dec2000\\Notes Folders\\All documents\r\nX-Origin: Cuilla-M\r\nX-FileName: mcuilla.nsf\r\n\r\nI thought you would be interested in the weather forecast for the Wedding.  \nThe data includes max temp, max temp deviation from normal (ie if max is 88 \nand normal max is 86 max temp deviation is +2), min temp, min temp deviation \nfrom normal and percent of precipitation.  So far things are looking good.  \nWe are getting a cold front this weekend (hitting Texas on Monday) and looks \nlike things should be beautiful for next weekend.  I wouldn't be that worried \nabout the rain either - the reason the POP is so high right now is tropical \nmoisture in the Gulf of Mexico and that will blow through this weekend.  \nAfter that the tropics settle down and it is much less likely to get \ntropical  moisture.\n\n\nCity          \tForecast      Date \tMax    Temp\tMax Temp Deviation\tMin Temp\tMin Temp Deviation\tPOP (%)\nHouston\t09/20/00\t91\t 3\t70\t 3\t53\nHouston\t09/21/00\t86\t-1\t72\t 5\t52\nHouston\t09/22/00\t91\t 4\t67\t 1\t57\nHouston\t09/23/00\t93\t 6\t74\t 8\t52\nHouston\t09/24/00\t83\t-4\t67\t 1\t55\nHouston\t09/25/00\t80\t-7\t59\t-6\t27\nHouston\t09/26/00\t82\t-4\t58\t-7\t 7\nHouston\t09/27/00\t86\t 0\t61\t-4\t14\nHouston\t09/28/00\t86\t 0\t62\t-2\t26\nHouston\t09/29/00\t85\t-1\t64\t 0\t16\nHouston\t09/30/00\t86\t 0\t62\t-1\t16\nHouston\t10/01/00\t86\t 1\t64\t 1\t20",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "PERSON",
+          "value": "Martin Cuilla",
+          "char_start": 296,
+          "char_end": 309
+        },
+        {
+          "type": "LOCATION",
+          "value": "Texas",
+          "char_start": 839,
+          "char_end": 844
+        },
+        {
+          "type": "LOCATION",
+          "value": "Gulf of Mexico",
+          "char_start": 1039,
+          "char_end": 1053
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1291,
+          "char_end": 1298
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1323,
+          "char_end": 1330
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1355,
+          "char_end": 1362
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1387,
+          "char_end": 1394
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1419,
+          "char_end": 1426
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1451,
+          "char_end": 1458
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1483,
+          "char_end": 1490
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1515,
+          "char_end": 1522
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1547,
+          "char_end": 1554
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1579,
+          "char_end": 1586
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1611,
+          "char_end": 1618
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1643,
+          "char_end": 1650
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-11",
+      "text": "Message-ID: <1596833.1075858072473.JavaMail.evans@thyme>\r\nDate: Tue, 21 Nov 2000 03:54:00 -0800 (PST)\r\nFrom: orders@imagestation.com\r\nTo: martin.cuilla@enron.com\r\nSubject: Your ImageStation.com Order #22806\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nX-From: \"ImageStation.com Store\" <orders@imagestation.com>\r\nX-To: Martin Cuilla <martin.cuilla@enron.com>\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\Martin_Cuilla_Dec2000\\Notes Folders\\All documents\r\nX-Origin: Cuilla-M\r\nX-FileName: mcuilla.nsf\r\n\r\nDear Martin Cuilla,\n\nThank you for shopping at Sony's ImageStation.com!\n\nThis email confirms we received your order on\nNovember 21, 2000 11:54AM PT for the following item:\n\n-----------------------------------------------------------\n\nPrints\n10 x $0.49\n(total 10 prints; $4.90)\n\nCoupon: 10 free 4x6 prints\n(Discount amount: -$4.90)\n\nSubtotal:               $0.00\nShipping & Handling:    $1.99\nSales Tax:              $0.00\n-------------------- --------\nTotal for the order:    $1.99 was charged to your\n                              credit card ending in 9575\n\n-----------------------------------------------------------\n\nYour order has been assigned confirmation number 22806.\nIt will be custom produced to your specification with the\nimage(s) you included, and will be shipped via\nStandard Ground shipping to:\n\nMartin Cuilla\n2218 Bellefontaine #B\nHouston, TX  77030\nUnited States\n\nAn additional email will be sent to notify you when your\norder has shipped.\n\nTo check the status of your order in the meantime, go to\nhttps://shop.zing.com/shop/sony/secure/account/\nand sign-in with your ImageStation.com account.\n\nFor questions regarding your order, please contact us at:\n\nImageStation.com, Inc.\n550 15th Street, #26\nSan Francisco, CA  94103\nsupport@imagestation.com\n\nImageStation has a great selection of personalized gifts -\nfrom coffee mugs to photo cookies to jewelry.  All you\nprovide is the picture (including logos, kid's artwork,\nimages from your scanner, or photos) and we'll provide the\ntechnology to make your gift idea a reality.\n\nThere are plenty of items that can be personalized for a\nbirthday, holidays, or just to say \"I love you.\"  We're\nopen 24 hours a day with delivery options that get your\ngift there on time.  To ensure your privacy over the\nInternet we always use secure commerce.\n\nAll of us at ImageStation sincerely appreciate your\nbusiness.  Please visit us again soon at\nhttp://www.imagestation.com/",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "ORGANIZATION",
+          "value": "ImageStation.com",
+          "char_start": 177,
+          "char_end": 193
+        },
+        {
+          "type": "ACCOUNT",
+          "value": "22806",
+          "char_start": 201,
+          "char_end": 206
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "ImageStation.com Store",
+          "char_start": 313,
+          "char_end": 335
+        },
+        {
+          "type": "PERSON",
+          "value": "Martin Cuilla",
+          "char_start": 370,
+          "char_end": 383
+        },
+        {
+          "type": "PERSON",
+          "value": "Martin Cuilla",
+          "char_start": 542,
+          "char_end": 555
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Sony",
+          "char_start": 584,
+          "char_end": 588
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "ImageStation.com",
+          "char_start": 591,
+          "char_end": 607
+        },
+        {
+          "type": "ACCOUNT",
+          "value": "9575",
+          "char_start": 1091,
+          "char_end": 1095
+        },
+        {
+          "type": "ACCOUNT",
+          "value": "22806",
+          "char_start": 1207,
+          "char_end": 1212
+        },
+        {
+          "type": "PERSON",
+          "value": "Martin Cuilla",
+          "char_start": 1349,
+          "char_end": 1362
+        },
+        {
+          "type": "LOCATION",
+          "value": "2218 Bellefontaine #B",
+          "char_start": 1363,
+          "char_end": 1384
+        },
+        {
+          "type": "LOCATION",
+          "value": "Houston",
+          "char_start": 1385,
+          "char_end": 1392
+        },
+        {
+          "type": "LOCATION",
+          "value": "TX",
+          "char_start": 1394,
+          "char_end": 1396
+        },
+        {
+          "type": "LOCATION",
+          "value": "77030",
+          "char_start": 1398,
+          "char_end": 1403
+        },
+        {
+          "type": "LOCATION",
+          "value": "United States",
+          "char_start": 1404,
+          "char_end": 1417
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "ImageStation.com",
+          "char_start": 1623,
+          "char_end": 1639
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "ImageStation.com, Inc.",
+          "char_start": 1709,
+          "char_end": 1731
+        },
+        {
+          "type": "LOCATION",
+          "value": "550 15th Street, #26",
+          "char_start": 1732,
+          "char_end": 1752
+        },
+        {
+          "type": "LOCATION",
+          "value": "San Francisco",
+          "char_start": 1753,
+          "char_end": 1766
+        },
+        {
+          "type": "LOCATION",
+          "value": "CA",
+          "char_start": 1768,
+          "char_end": 1770
+        },
+        {
+          "type": "LOCATION",
+          "value": "94103",
+          "char_start": 1772,
+          "char_end": 1777
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "ImageStation",
+          "char_start": 1804,
+          "char_end": 1816
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "ImageStation",
+          "char_start": 2355,
+          "char_end": 2367
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-12",
+      "text": "Message-ID: <20835912.1075858072182.JavaMail.evans@thyme>\r\nDate: Mon, 4 Dec 2000 07:43:00 -0800 (PST)\r\nFrom: mark.friedman@enron.com\r\nTo: martin.cuilla@enron.com\r\nSubject: Please add a defense\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nX-From: Mark Friedman\r\nX-To: Martin Cuilla\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\Martin_Cuilla_Dec2000\\Notes Folders\\All documents\r\nX-Origin: Cuilla-M\r\nX-FileName: mcuilla.nsf\r\n\r\nCan you please make this change for me.\n\nWhen are we in the playoffs?\n\n\nMark Friedman\nEnron Broadband Services\nOffice# 713.853.6446\nFax#     713.646.3271\nmark.friedman@enron.net\n----- Forwarded by Mark Friedman/Enron Communications on 12/04/00 03:45 PM \n-----\n\n\tMark Friedman\n\t11/30/00 06:28 PM\n\t\t \n\t\t To: Martin Cuilla/HOU/ECT@ECT\n\t\t cc: \n\t\t Subject: Please add a defense\n\nPlease add tampa bay defense to my roster\n\n\nMark Friedman\nEnron Broadband Services\nOffice# 713.853.6446\nFax#     713.646.3271\nmark.friedman@enron.net",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "PERSON",
+          "value": "Mark Friedman",
+          "char_start": 298,
+          "char_end": 311
+        },
+        {
+          "type": "PERSON",
+          "value": "Martin Cuilla",
+          "char_start": 319,
+          "char_end": 332
+        },
+        {
+          "type": "PERSON",
+          "value": "Mark Friedman",
+          "char_start": 532,
+          "char_end": 545
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron Broadband Services",
+          "char_start": 546,
+          "char_end": 570
+        },
+        {
+          "type": "PHONE",
+          "value": "713.853.6446",
+          "char_start": 579,
+          "char_end": 591
+        },
+        {
+          "type": "PHONE",
+          "value": "713.646.3271",
+          "char_start": 601,
+          "char_end": 613
+        },
+        {
+          "type": "PERSON",
+          "value": "Mark Friedman",
+          "char_start": 657,
+          "char_end": 670
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron Communications",
+          "char_start": 671,
+          "char_end": 691
+        },
+        {
+          "type": "PERSON",
+          "value": "Mark Friedman",
+          "char_start": 722,
+          "char_end": 735
+        },
+        {
+          "type": "PERSON",
+          "value": "Martin Cuilla",
+          "char_start": 766,
+          "char_end": 779
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "tampa bay",
+          "char_start": 845,
+          "char_end": 854
+        },
+        {
+          "type": "PERSON",
+          "value": "Mark Friedman",
+          "char_start": 878,
+          "char_end": 891
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Enron Broadband Services",
+          "char_start": 892,
+          "char_end": 916
+        },
+        {
+          "type": "PHONE",
+          "value": "713.853.6446",
+          "char_start": 925,
+          "char_end": 937
+        },
+        {
+          "type": "PHONE",
+          "value": "713.646.3271",
+          "char_start": 947,
+          "char_end": 959
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-13",
+      "text": "Message-ID: <24437340.1075858863964.JavaMail.evans@thyme>\r\nDate: Mon, 29 Oct 2001 19:01:05 -0800 (PST)\r\nFrom: webmaster@cera.com\r\nTo: clients@cera.com\r\nSubject: Western Energy--Winter Demand Peaks Not Expected to Result in Price\r\n Spikes or Reliability Problems - CERA Monthly Briefing\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nX-From: webmaster@cera.com@ENRON\r\nX-To: clients@cera.com\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\SHARRIS1 (Non-Privileged)\\Harris, Steven\\Inbox\r\nX-Origin: Harris-S\r\nX-FileName: SHARRIS1 (Non-Privileged).pst\r\n\r\n\nTitle: One Tight Winter Peak Remains\nURL(s):\n\nhttp://www20.cera.com/eprofile?u=35&m=2760;\n\n\n***********************************************************************\n\nWESTERN ENERGY--WINTER DEMAND PEAKS NOT EXPECTED TO RESULT IN PRICE SPIKES OR RELIABILITY PROBLEMS\n\nBuilding natural gas and power supplies are providing a cushion for the western\nenergy markets for this winter. Although seasonal gas and power demand spikes\nwill again push prices higher, this winter will not look like the winter of\n2000/01. Unlike during the record high gas and power prices and blackouts last\nyear winter, reduced demand, increased gas storage levels, and new gas and\npower supplies will significantly temper prices and significantly reduce the\nrisk of supply disruptions.\n\n*  A supply build of 300 million cubic feet (MMcf) per day in the Rockies and\n900 MMcf in western Canada is meeting with declining demand in the West\n\n*  Fourth quarter power demand is expected to be 13 percent below levels last\nyear, while over 5,000 megawatts of new supply has been added this year\n\n*  Only severe cold weather, prolonged drought, or a supply disruption could\nproduce a reliability problem this winter\n\n**end**\n\nFollow above URL for complete CERA Monthly Briefing (10 pages).\n\n\n\n\nE-mail Category: Monthly Briefing\nCERA Knowledge Area(s): Western Energy\n\n\n***********************************************************************\n***********************************************************************\nCERA's Autumn 2001 Roundtable event dates and agendas\nare now available at http://www20.cera.com/event\n***********************************************************************\n\n\nTo make changes to your cera.com profile go to:\nhttp://www20.cera.com/client/updateaccount\n\nForgot your username and password? Go to:\nhttp://www20.cera.com/client/forgot\n\nThis electronic message and attachments, if any, contain information\nfrom Cambridge Energy Research Associates, Inc. (CERA) which is\nconfidential and may be privileged. Unauthorized disclosure, copying,\ndistribution or use of the contents of this message or any attachments,\nin whole or in part, is strictly prohibited.\nTerms of Use: http://www20.cera.com/tos\nQuestions/Comments: webmaster@cera.com\nCopyright 2001. Cambridge Energy Research Associates",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "ORGANIZATION",
+          "value": "CERA",
+          "char_start": 264,
+          "char_end": 268
+        },
+        {
+          "type": "LOCATION",
+          "value": "Rockies",
+          "char_start": 1408,
+          "char_end": 1415
+        },
+        {
+          "type": "LOCATION",
+          "value": "Canada",
+          "char_start": 1440,
+          "char_end": 1446
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "CERA",
+          "char_start": 1803,
+          "char_end": 1807
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "CERA",
+          "char_start": 1875,
+          "char_end": 1879
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "CERA",
+          "char_start": 2060,
+          "char_end": 2064
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Cambridge Energy Research Associates, Inc.",
+          "char_start": 2482,
+          "char_end": 2524
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "CERA",
+          "char_start": 2526,
+          "char_end": 2530
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-14",
+      "text": "Message-ID: <13397504.1075855416626.JavaMail.evans@thyme>\r\nDate: Fri, 28 Dec 2001 13:37:30 -0800 (PST)\r\nFrom: vincent.strohmeyer@enron.com\r\nTo: rod.hayslett@enron.com, jerry.peters@enron.com, danny.mccarty@enron.com, \r\n\tstanley.horton@enron.com\r\nSubject: Daily Summary of Risk Data 12/26\r\nCc: a..howard@enron.com, james.saunders@enron.com, john.cobb@enron.com, \r\n\tdave.neubauer@enron.com, steven.harris@enron.com, \r\n\tcheryl.perchal@enron.com, kent.miller@enron.com, \r\n\tlarry.pavlou@enron.com\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nBcc: a..howard@enron.com, james.saunders@enron.com, john.cobb@enron.com, \r\n\tdave.neubauer@enron.com, steven.harris@enron.com, \r\n\tcheryl.perchal@enron.com, kent.miller@enron.com, \r\n\tlarry.pavlou@enron.com\r\nX-From: Strohmeyer, Vincent </O=ENRON/OU=NA/CN=RECIPIENTS/CN=VSTROHME>\r\nX-To: Hayslett, Rod </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Rhaysle>, Peters, Jerry </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Jpeters1>, McCarty, Danny </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Dmccarty>, Horton, Stanley </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Notesaddr/cn=5d54fc1f-7c796798-86256a8c-4ddad1>\r\nX-cc: Howard, Kevin A. </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Khoward>, Saunders, James </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Jsaunde>, Cobb Jr., John </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Jcobb>, Neubauer, Dave </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Dneubau>, Harris, Steven </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Sharris1>, Perchal, Cheryl </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Cpercha>, Miller, Kent </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Kmiller2>, Pavlou, Larry </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Lpavlou>\r\nX-bcc: \r\nX-Folder: \\Steve_Harris_Jan2002\\Harris, Steven\\Inbox\r\nX-Origin: Kean-S\r\nX-FileName: skean (Non-Privileged).pst\r\n\r\n\nSummary Risk Data as of \t26Dec2001\tPrevious\t\n\t\t\t\nActive Financial Deals\t        71\t        71\t\nActive Physical Positions\t        40\t       40\t\nP&L  Daily ($thousands)\t        88.3 \t       47.0 \t\nVaR ($thousands)\t    1,626.3* \t    1,611.4* \t\n\t\t\t\nETS Margin Account Deals\t         0\t         0\t\n\t\t\t\n\n*The VaR continues to be over the ETS VaR limit of $1,000,000.\n\nCompany\t MTM by Counter Party \t Asset \t Liability \t Net 21Dec01 \t Previous \t Change \t\nNNG\tEL Paso Energy Marketing\t          17,727.8 \t (20,164.3)\t         (2,436.5)\t   (2,296.6)\t           (139.9)\t\nNNG\tReliant Energy Services\t                 81.5 \t            -   \t              81.5 \t         76.5 \t               5.0 \t\nNNG\tTransCanada Energy \t          21,039.6 \t (20,429.4)\t             610.2 \t       620.5 \t             (10.3)\t\nNNG\tGrand Total\t          38,848.9 \t (40,593.7)\t         (1,744.8)\t   (1,599.6)\t           (145.2)\t\n\t\t\t\t\t\t\t\n\nThe terminated contracts with RMTC are now fixed receivables as of the early termination date of December 14, 2001 except for interest. NNG is owed $4.8mm and TW is owed $33.9mm.  Amounts are past due.\n\n\nDefinitions:\nPhysical deals modeled in the Caminus Zainet system are deals which have some form of price risk, (i.e. Index to index deals, and anticipat",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "PERSON",
+          "value": "Strohmeyer, Vincent",
+          "char_start": 802,
+          "char_end": 821
+        },
+        {
+          "type": "PERSON",
+          "value": "Hayslett, Rod",
+          "char_start": 872,
+          "char_end": 885
+        },
+        {
+          "type": "PERSON",
+          "value": "Peters, Jerry",
+          "char_start": 929,
+          "char_end": 942
+        },
+        {
+          "type": "PERSON",
+          "value": "McCarty, Danny",
+          "char_start": 987,
+          "char_end": 1001
+        },
+        {
+          "type": "PERSON",
+          "value": "Horton, Stanley",
+          "char_start": 1046,
+          "char_end": 1061
+        },
+        {
+          "type": "PERSON",
+          "value": "Howard, Kevin A.",
+          "char_start": 1150,
+          "char_end": 1166
+        },
+        {
+          "type": "PERSON",
+          "value": "Saunders, James",
+          "char_start": 1210,
+          "char_end": 1225
+        },
+        {
+          "type": "PERSON",
+          "value": "Cobb Jr., John",
+          "char_start": 1269,
+          "char_end": 1283
+        },
+        {
+          "type": "PERSON",
+          "value": "Neubauer, Dave",
+          "char_start": 1325,
+          "char_end": 1339
+        },
+        {
+          "type": "PERSON",
+          "value": "Harris, Steven",
+          "char_start": 1383,
+          "char_end": 1397
+        },
+        {
+          "type": "PERSON",
+          "value": "Perchal, Cheryl",
+          "char_start": 1442,
+          "char_end": 1457
+        },
+        {
+          "type": "PERSON",
+          "value": "Miller, Kent",
+          "char_start": 1501,
+          "char_end": 1513
+        },
+        {
+          "type": "PERSON",
+          "value": "Pavlou, Larry",
+          "char_start": 1558,
+          "char_end": 1571
+        },
+        {
+          "type": "PERSON",
+          "value": "Harris, Steven",
+          "char_start": 1656,
+          "char_end": 1670
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "ETS",
+          "char_start": 1984,
+          "char_end": 1987
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "ETS",
+          "char_start": 2071,
+          "char_end": 2074
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "NNG",
+          "char_start": 2187,
+          "char_end": 2190
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "EL Paso Energy Marketing",
+          "char_start": 2191,
+          "char_end": 2215
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "NNG",
+          "char_start": 2300,
+          "char_end": 2303
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Reliant Energy Services",
+          "char_start": 2304,
+          "char_end": 2327
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "NNG",
+          "char_start": 2424,
+          "char_end": 2427
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "TransCanada Energy",
+          "char_start": 2428,
+          "char_end": 2446
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "NNG",
+          "char_start": 2535,
+          "char_end": 2538
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "RMTC",
+          "char_start": 2674,
+          "char_end": 2678
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "NNG",
+          "char_start": 2780,
+          "char_end": 2783
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "TW",
+          "char_start": 2803,
+          "char_end": 2805
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Caminus Zainet",
+          "char_start": 2891,
+          "char_end": 2905
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-15",
+      "text": "Message-ID: <12799491.1075855417078.JavaMail.evans@thyme>\r\nDate: Mon, 31 Dec 2001 13:37:00 -0800 (PST)\r\nFrom: charlie.graham@enron.com\r\nTo: rab9@pge.com\r\nSubject: Sampling & Pigging\r\nCc: dan.pribble@enron.com, john.shafer@enron.com, steven.harris@enron.com, \r\n\trich.jolly@enron.com, david.roensch@enron.com, \r\n\twilliam.kendrick@enron.com, louis.soldano@enron.com\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nBcc: dan.pribble@enron.com, john.shafer@enron.com, steven.harris@enron.com, \r\n\trich.jolly@enron.com, david.roensch@enron.com, \r\n\twilliam.kendrick@enron.com, louis.soldano@enron.com\r\nX-From: Graham, Charlie </O=ENRON/OU=NA/CN=RECIPIENTS/CN=CGRAHAM1>\r\nX-To: 'rab9@pge.com'\r\nX-cc: Pribble, Dan </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Dpribbl>, Shafer, John </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Jshafer>, Harris, Steven </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Sharris1>, Jolly, Rich </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Rjolly>, Roensch, David </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Notesaddr/cn=68f10420-593507c0-86256744-5ee2d3>, Kendrick, William </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Bkendri>, Soldano, Louis </O=ENRON/OU=NA/CN=RECIPIENTS/CN=Lsoldan>\r\nX-bcc: \r\nX-Folder: \\Steve_Harris_Jan2002\\Harris, Steven\\Inbox\r\nX-Origin: Kean-S\r\nX-FileName: skean (Non-Privileged).pst\r\n\r\nMr. Rod Boschee,\n\nAttached are the latest sampling and analytical results from the ongoing sample collection program and the Topock lateral pigging activity.   PG&E's analysis results were not provided to TW this month.\n\n \n(402) 398-7061\n\n  \n\n<Embedded Picture (Metafile)>",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "PERSON",
+          "value": "Graham, Charlie",
+          "char_start": 650,
+          "char_end": 665
+        },
+        {
+          "type": "PERSON",
+          "value": "Pribble, Dan",
+          "char_start": 738,
+          "char_end": 750
+        },
+        {
+          "type": "PERSON",
+          "value": "Shafer, John",
+          "char_start": 794,
+          "char_end": 806
+        },
+        {
+          "type": "PERSON",
+          "value": "Harris, Steven",
+          "char_start": 850,
+          "char_end": 864
+        },
+        {
+          "type": "PERSON",
+          "value": "Jolly, Rich",
+          "char_start": 909,
+          "char_end": 920
+        },
+        {
+          "type": "PERSON",
+          "value": "Roensch, David",
+          "char_start": 963,
+          "char_end": 977
+        },
+        {
+          "type": "PERSON",
+          "value": "Kendrick, William",
+          "char_start": 1060,
+          "char_end": 1077
+        },
+        {
+          "type": "PERSON",
+          "value": "Soldano, Louis",
+          "char_start": 1121,
+          "char_end": 1135
+        },
+        {
+          "type": "PERSON",
+          "value": "Harris, Steven",
+          "char_start": 1220,
+          "char_end": 1234
+        },
+        {
+          "type": "PERSON",
+          "value": "Rod Boschee",
+          "char_start": 1306,
+          "char_end": 1317
+        },
+        {
+          "type": "LOCATION",
+          "value": "Topock",
+          "char_start": 1427,
+          "char_end": 1433
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "PG&E",
+          "char_start": 1462,
+          "char_end": 1466
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "TW",
+          "char_start": 1507,
+          "char_end": 1509
+        },
+        {
+          "type": "PHONE",
+          "value": "(402) 398-7061",
+          "char_start": 1525,
+          "char_end": 1539
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-16",
+      "text": "Message-ID: <1281273.1075857294253.JavaMail.evans@thyme>\r\nDate: Tue, 8 May 2001 08:34:00 -0700 (PDT)\r\nFrom: brad.mckay@enron.com\r\nTo: 8915473@archwireless.net\r\nSubject: Re: Wireless Message\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nX-From: Brad McKay\r\nX-To: 8915473@archwireless.net @ ENRON\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\Bradley_McKay_Jun2001\\Notes Folders\\All documents\r\nX-Origin: McKay-B\r\nX-FileName: bmckay.nsf\r\n\r\nsat, i do not know the time",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "PHONE",
+          "value": "8915473",
+          "char_start": 134,
+          "char_end": 141
+        },
+        {
+          "type": "PERSON",
+          "value": "Brad McKay",
+          "char_start": 295,
+          "char_end": 305
+        },
+        {
+          "type": "PHONE",
+          "value": "8915473",
+          "char_start": 313,
+          "char_end": 320
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-17",
+      "text": "Message-ID: <12660934.1075857291560.JavaMail.evans@thyme>\r\nDate: Tue, 3 Oct 2000 01:18:00 -0700 (PDT)\r\nFrom: brad.mckay@enron.com\r\nTo: caroline.abramo@enron.com\r\nSubject: Re: PD Norwich Natural Gas RFP\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nX-From: Brad McKay\r\nX-To: Caroline Abramo\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\Bradley_McKay_Dec2000\\Notes Folders\\All documents\r\nX-Origin: McKay-B\r\nX-FileName: bmckay.nsf\r\n\r\nI gave this info to Robin Barbe she will be your contact # 713 853 7177. Brad",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "LOCATION",
+          "value": "Norwich",
+          "char_start": 178,
+          "char_end": 185
+        },
+        {
+          "type": "PERSON",
+          "value": "Brad McKay",
+          "char_start": 307,
+          "char_end": 317
+        },
+        {
+          "type": "PERSON",
+          "value": "Caroline Abramo",
+          "char_start": 325,
+          "char_end": 340
+        },
+        {
+          "type": "PERSON",
+          "value": "Brad",
+          "char_start": 370,
+          "char_end": 374
+        },
+        {
+          "type": "PERSON",
+          "value": "Robin Barbe",
+          "char_start": 486,
+          "char_end": 497
+        },
+        {
+          "type": "PHONE",
+          "value": "713 853 7177",
+          "char_start": 525,
+          "char_end": 537
+        },
+        {
+          "type": "PERSON",
+          "value": "Brad",
+          "char_start": 539,
+          "char_end": 543
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-18",
+      "text": "Message-ID: <4912738.1075857291274.JavaMail.evans@thyme>\r\nDate: Thu, 30 Nov 2000 12:01:00 -0800 (PST)\r\nFrom: mnl@ranches.org\r\nTo: dmoreland@austin.rr.com, chompers@flash.net, rex@arn.net, \r\n\tbrad.mckay@enron.com\r\nSubject: FW: Stalin Quote\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nX-From: \"Mary Nell Lemert\" <MNL@ranches.org>\r\nX-To: \"Dan Moreland\" <dmoreland@austin.rr.com>, \"Jas Lemert\" <chompers@flash.net>, \"J. Rex Lemert P.C.\" <rex@arn.net>, \"Brad McKay\" <Brad.Mckay@enron.com>\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\Bradley_McKay_Dec2000\\Notes Folders\\All documents\r\nX-Origin: McKay-B\r\nX-FileName: bmckay.nsf\r\n\r\n-----Original Message-----\nFrom: Teel Bivins [mailto:Teel@ranches.org]\nSent: Wednesday, November 22, 2000 10:14 AM\nTo: Alex Annett (E-mail); Andrew Bivins; Betty Bivins Lovell; Bill and Mary\nBritain (E-mail); Bill Snure (E-mail); Bill Walsh (E-mail); Bob Gibson; Bob\nLanghorne (E-mail); Burney Claire and Paul (E-mail); Byron Gossett (E-mail);\nCaroline Smith; Dale Smith; Dan Branch (E-mail); Don Powell (E-mail); Ellen\nBivins; Emily O'Brien; Fergus Reid (E-mail); Frank Meneghetti (E-mail);\nGlenn Mortimer (E-mail); Hamilton Madden; Hector Barreto (E-mail); Hollis\nRussell (E-mail); Jack Miller (E-mail); Jim J. Brewer (E-mail); Jimmie Kone\n(E-mail); John Indrieri (E-mail); John Pletcher; Joseph Samora (E-mail);\nJulie Bivins; Katie Bivins (E-mail); Lea and Tom Blakeney (E-mail); Lee and\nMary Arnett (E-mail); Linda Gray; Linda Griggs; Mark Bivins; Mary Ceverha\n(E-mail); Mary Nell Lemert; Meredith Childers; Miles Childers; Nancy Bivins\n(E-mail); Neal Odom; Nick Mutton (E-mail); Ninia Bivins; Ninia Bivins\n(E-mail); Patrick Oxford (E-mail); Paula Day (E-mail); Rex Lemert; Robert\n*Duncan (E-mail); Robyn Hadley (E-mail); Ross Wilson (E-mail); Roy & Martha\nJarnagin (E-mail); Speaker John Thrasher (E-mail); Steve Minikes (E-mail);\nSusie O'Brien; Terry Johnson (E-mail); Tim & Karen Hixon (E-mail); Tom\nBivins; Tom Roller (E-mail); Tommy Patterson (E-mail); Wales Madden IV;\nWayne Hamilton (E-mail); Wayne Moore (E-mail)\nSubject: Stalin Quote\n\nStalin quote:\n\"Those who cast the votes decide nothing.\n Those who count the votes decide everything.\"",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "PERSON",
+          "value": "Stalin",
+          "char_start": 226,
+          "char_end": 232
+        },
+        {
+          "type": "PERSON",
+          "value": "Mary Nell Lemert",
+          "char_start": 345,
+          "char_end": 361
+        },
+        {
+          "type": "PERSON",
+          "value": "Dan Moreland",
+          "char_start": 389,
+          "char_end": 401
+        },
+        {
+          "type": "PERSON",
+          "value": "Jas Lemert",
+          "char_start": 431,
+          "char_end": 441
+        },
+        {
+          "type": "PERSON",
+          "value": "J. Rex Lemert",
+          "char_start": 466,
+          "char_end": 479
+        },
+        {
+          "type": "PERSON",
+          "value": "Brad McKay",
+          "char_start": 502,
+          "char_end": 512
+        },
+        {
+          "type": "PERSON",
+          "value": "Teel Bivins",
+          "char_start": 695,
+          "char_end": 706
+        },
+        {
+          "type": "PERSON",
+          "value": "Alex Annett",
+          "char_start": 781,
+          "char_end": 792
+        },
+        {
+          "type": "PERSON",
+          "value": "Andrew Bivins",
+          "char_start": 803,
+          "char_end": 816
+        },
+        {
+          "type": "PERSON",
+          "value": "Betty Bivins Lovell",
+          "char_start": 818,
+          "char_end": 837
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill",
+          "char_start": 839,
+          "char_end": 843
+        },
+        {
+          "type": "PERSON",
+          "value": "Mary",
+          "char_start": 848,
+          "char_end": 852
+        },
+        {
+          "type": "PERSON",
+          "value": "Britain",
+          "char_start": 853,
+          "char_end": 860
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill Snure",
+          "char_start": 871,
+          "char_end": 881
+        },
+        {
+          "type": "PERSON",
+          "value": "Bill Walsh",
+          "char_start": 892,
+          "char_end": 902
+        },
+        {
+          "type": "PERSON",
+          "value": "Bob Gibson",
+          "char_start": 913,
+          "char_end": 923
+        },
+        {
+          "type": "PERSON",
+          "value": "Bob",
+          "char_start": 925,
+          "char_end": 928
+        },
+        {
+          "type": "PERSON",
+          "value": "Langhorne",
+          "char_start": 929,
+          "char_end": 938
+        },
+        {
+          "type": "PERSON",
+          "value": "Burney Claire",
+          "char_start": 949,
+          "char_end": 962
+        },
+        {
+          "type": "PERSON",
+          "value": "Paul",
+          "char_start": 967,
+          "char_end": 971
+        },
+        {
+          "type": "PERSON",
+          "value": "Byron Gossett",
+          "char_start": 982,
+          "char_end": 995
+        },
+        {
+          "type": "PERSON",
+          "value": "Caroline Smith",
+          "char_start": 1006,
+          "char_end": 1020
+        },
+        {
+          "type": "PERSON",
+          "value": "Dale Smith",
+          "char_start": 1022,
+          "char_end": 1032
+        },
+        {
+          "type": "PERSON",
+          "value": "Dan Branch",
+          "char_start": 1034,
+          "char_end": 1044
+        },
+        {
+          "type": "PERSON",
+          "value": "Don Powell",
+          "char_start": 1055,
+          "char_end": 1065
+        },
+        {
+          "type": "PERSON",
+          "value": "Ellen",
+          "char_start": 1076,
+          "char_end": 1081
+        },
+        {
+          "type": "PERSON",
+          "value": "Bivins",
+          "char_start": 1082,
+          "char_end": 1088
+        },
+        {
+          "type": "PERSON",
+          "value": "Emily O'Brien",
+          "char_start": 1090,
+          "char_end": 1103
+        },
+        {
+          "type": "PERSON",
+          "value": "Fergus Reid",
+          "char_start": 1105,
+          "char_end": 1116
+        },
+        {
+          "type": "PERSON",
+          "value": "Frank Meneghetti",
+          "char_start": 1127,
+          "char_end": 1143
+        },
+        {
+          "type": "PERSON",
+          "value": "Glenn Mortimer",
+          "char_start": 1154,
+          "char_end": 1168
+        },
+        {
+          "type": "PERSON",
+          "value": "Hamilton Madden",
+          "char_start": 1179,
+          "char_end": 1194
+        },
+        {
+          "type": "PERSON",
+          "value": "Hector Barreto",
+          "char_start": 1196,
+          "char_end": 1210
+        },
+        {
+          "type": "PERSON",
+          "value": "Hollis",
+          "char_start": 1221,
+          "char_end": 1227
+        },
+        {
+          "type": "PERSON",
+          "value": "Russell",
+          "char_start": 1228,
+          "char_end": 1235
+        },
+        {
+          "type": "PERSON",
+          "value": "Jack Miller",
+          "char_start": 1246,
+          "char_end": 1257
+        },
+        {
+          "type": "PERSON",
+          "value": "Jim J. Brewer",
+          "char_start": 1268,
+          "char_end": 1281
+        },
+        {
+          "type": "PERSON",
+          "value": "Jimmie Kone",
+          "char_start": 1292,
+          "char_end": 1303
+        },
+        {
+          "type": "PERSON",
+          "value": "John Indrieri",
+          "char_start": 1314,
+          "char_end": 1327
+        },
+        {
+          "type": "PERSON",
+          "value": "John Pletcher",
+          "char_start": 1338,
+          "char_end": 1351
+        },
+        {
+          "type": "PERSON",
+          "value": "Joseph Samora",
+          "char_start": 1353,
+          "char_end": 1366
+        },
+        {
+          "type": "PERSON",
+          "value": "Julie Bivins",
+          "char_start": 1377,
+          "char_end": 1389
+        },
+        {
+          "type": "PERSON",
+          "value": "Katie Bivins",
+          "char_start": 1391,
+          "char_end": 1403
+        },
+        {
+          "type": "PERSON",
+          "value": "Lea",
+          "char_start": 1414,
+          "char_end": 1417
+        },
+        {
+          "type": "PERSON",
+          "value": "Tom Blakeney",
+          "char_start": 1422,
+          "char_end": 1434
+        },
+        {
+          "type": "PERSON",
+          "value": "Lee",
+          "char_start": 1445,
+          "char_end": 1448
+        },
+        {
+          "type": "PERSON",
+          "value": "Mary Arnett",
+          "char_start": 1453,
+          "char_end": 1464
+        },
+        {
+          "type": "PERSON",
+          "value": "Linda Gray",
+          "char_start": 1475,
+          "char_end": 1485
+        },
+        {
+          "type": "PERSON",
+          "value": "Linda Griggs",
+          "char_start": 1487,
+          "char_end": 1499
+        },
+        {
+          "type": "PERSON",
+          "value": "Mark Bivins",
+          "char_start": 1501,
+          "char_end": 1512
+        },
+        {
+          "type": "PERSON",
+          "value": "Mary Ceverha",
+          "char_start": 1514,
+          "char_end": 1526
+        },
+        {
+          "type": "PERSON",
+          "value": "Mary Nell Lemert",
+          "char_start": 1537,
+          "char_end": 1553
+        },
+        {
+          "type": "PERSON",
+          "value": "Meredith Childers",
+          "char_start": 1555,
+          "char_end": 1572
+        },
+        {
+          "type": "PERSON",
+          "value": "Miles Childers",
+          "char_start": 1574,
+          "char_end": 1588
+        },
+        {
+          "type": "PERSON",
+          "value": "Nancy Bivins",
+          "char_start": 1590,
+          "char_end": 1602
+        },
+        {
+          "type": "PERSON",
+          "value": "Neal Odom",
+          "char_start": 1613,
+          "char_end": 1622
+        },
+        {
+          "type": "PERSON",
+          "value": "Nick Mutton",
+          "char_start": 1624,
+          "char_end": 1635
+        },
+        {
+          "type": "PERSON",
+          "value": "Ninia Bivins",
+          "char_start": 1646,
+          "char_end": 1658
+        },
+        {
+          "type": "PERSON",
+          "value": "Ninia Bivins",
+          "char_start": 1660,
+          "char_end": 1672
+        },
+        {
+          "type": "PERSON",
+          "value": "Patrick Oxford",
+          "char_start": 1683,
+          "char_end": 1697
+        },
+        {
+          "type": "PERSON",
+          "value": "Paula Day",
+          "char_start": 1708,
+          "char_end": 1717
+        },
+        {
+          "type": "PERSON",
+          "value": "Rex Lemert",
+          "char_start": 1728,
+          "char_end": 1738
+        },
+        {
+          "type": "PERSON",
+          "value": "Robert",
+          "char_start": 1740,
+          "char_end": 1746
+        },
+        {
+          "type": "PERSON",
+          "value": "Duncan",
+          "char_start": 1748,
+          "char_end": 1754
+        },
+        {
+          "type": "PERSON",
+          "value": "Robyn Hadley",
+          "char_start": 1765,
+          "char_end": 1777
+        },
+        {
+          "type": "PERSON",
+          "value": "Ross Wilson",
+          "char_start": 1788,
+          "char_end": 1799
+        },
+        {
+          "type": "PERSON",
+          "value": "Roy",
+          "char_start": 1810,
+          "char_end": 1813
+        },
+        {
+          "type": "PERSON",
+          "value": "Martha",
+          "char_start": 1816,
+          "char_end": 1822
+        },
+        {
+          "type": "PERSON",
+          "value": "Jarnagin",
+          "char_start": 1823,
+          "char_end": 1831
+        },
+        {
+          "type": "PERSON",
+          "value": "John Thrasher",
+          "char_start": 1850,
+          "char_end": 1863
+        },
+        {
+          "type": "PERSON",
+          "value": "Steve Minikes",
+          "char_start": 1874,
+          "char_end": 1887
+        },
+        {
+          "type": "PERSON",
+          "value": "Susie O'Brien",
+          "char_start": 1898,
+          "char_end": 1911
+        },
+        {
+          "type": "PERSON",
+          "value": "Terry Johnson",
+          "char_start": 1913,
+          "char_end": 1926
+        },
+        {
+          "type": "PERSON",
+          "value": "Tim",
+          "char_start": 1937,
+          "char_end": 1940
+        },
+        {
+          "type": "PERSON",
+          "value": "Karen Hixon",
+          "char_start": 1943,
+          "char_end": 1954
+        },
+        {
+          "type": "PERSON",
+          "value": "Tom",
+          "char_start": 1965,
+          "char_end": 1968
+        },
+        {
+          "type": "PERSON",
+          "value": "Bivins",
+          "char_start": 1969,
+          "char_end": 1975
+        },
+        {
+          "type": "PERSON",
+          "value": "Tom Roller",
+          "char_start": 1977,
+          "char_end": 1987
+        },
+        {
+          "type": "PERSON",
+          "value": "Tommy Patterson",
+          "char_start": 1998,
+          "char_end": 2013
+        },
+        {
+          "type": "PERSON",
+          "value": "Wales Madden IV",
+          "char_start": 2024,
+          "char_end": 2039
+        },
+        {
+          "type": "PERSON",
+          "value": "Wayne Hamilton",
+          "char_start": 2041,
+          "char_end": 2055
+        },
+        {
+          "type": "PERSON",
+          "value": "Wayne Moore",
+          "char_start": 2066,
+          "char_end": 2077
+        },
+        {
+          "type": "PERSON",
+          "value": "Stalin",
+          "char_start": 2096,
+          "char_end": 2102
+        },
+        {
+          "type": "PERSON",
+          "value": "Stalin",
+          "char_start": 2110,
+          "char_end": 2116
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-19",
+      "text": "Message-ID: <3014888.1075852055555.JavaMail.evans@thyme>\r\nDate: Wed, 20 Dec 2000 01:59:00 -0800 (PST)\r\nFrom: frazier.king@enron.com\r\nTo: morris.j@ei.com\r\nSubject: INGAA Data Request for Northern Border\r\nCc: shelley.corman@enron.com\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nBcc: shelley.corman@enron.com\r\nX-From: Frazier King\r\nX-To: morris.j@ei.com\r\nX-cc: Shelley Corman\r\nX-bcc: \r\nX-Folder: \\Shelley_Corman_Nov2001\\Notes Folders\\Ingaastudy\r\nX-Origin: CORMAN-S\r\nX-FileName: scorman.nsf\r\n\r\n---------------------- Forwarded by Frazier King/FGT/Enron on 12/20/2000 \n10:01 AM ---------------------------\n\n\nJody Warner\n12/20/2000 08:52 AM\nTo: Frazier King/FGT/Enron@ENRON, Shelley Corman/ET&S/Enron@ENRON\ncc: Bambi Heckerman/NPNG/Enron@ENRON \n\nSubject: INGAA Data Request for Northern Border\n\n\n\nAttached is Northern Border's response to the INGAA data request for volume \ninformation at Compressor Station #17.\n\nJLW\n\n\n",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "ORGANIZATION",
+          "value": "INGAA",
+          "char_start": 163,
+          "char_end": 168
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Northern Border",
+          "char_start": 186,
+          "char_end": 201
+        },
+        {
+          "type": "PERSON",
+          "value": "Frazier King",
+          "char_start": 368,
+          "char_end": 380
+        },
+        {
+          "type": "PERSON",
+          "value": "Shelley Corman",
+          "char_start": 411,
+          "char_end": 425
+        },
+        {
+          "type": "PERSON",
+          "value": "Frazier King",
+          "char_start": 579,
+          "char_end": 591
+        },
+        {
+          "type": "PERSON",
+          "value": "Jody Warner",
+          "char_start": 656,
+          "char_end": 667
+        },
+        {
+          "type": "PERSON",
+          "value": "Frazier King",
+          "char_start": 692,
+          "char_end": 704
+        },
+        {
+          "type": "PERSON",
+          "value": "Shelley Corman",
+          "char_start": 722,
+          "char_end": 736
+        },
+        {
+          "type": "PERSON",
+          "value": "Bambi Heckerman",
+          "char_start": 758,
+          "char_end": 773
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "INGAA",
+          "char_start": 802,
+          "char_end": 807
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Northern Border",
+          "char_start": 825,
+          "char_end": 840
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Northern Border",
+          "char_start": 856,
+          "char_end": 871
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "INGAA",
+          "char_start": 890,
+          "char_end": 895
+        }
+      ]
+    },
+    {
+      "id": "enron-s4-20",
+      "text": "Message-ID: <20708989.1075852055427.JavaMail.evans@thyme>\r\nDate: Tue, 19 Dec 2000 06:02:00 -0800 (PST)\r\nFrom: frazier.king@enron.com\r\nTo: morris.j@ei.com, shelley.corman@enron.com\r\nSubject: INGAA Data Request - Marketing Affiliate Conference\r\nMime-Version: 1.0\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\nX-From: Frazier King\r\nX-To: morris.j@ei.com, Shelley Corman\r\nX-cc: \r\nX-bcc: \r\nX-Folder: \\Shelley_Corman_Nov2001\\Notes Folders\\Ingaastudy\r\nX-Origin: CORMAN-S\r\nX-FileName: scorman.nsf\r\n\r\nJohn,\n\nHere is the information for TW.\nI will forward the others when they are complete.\n\n\nShelley,\n\nJohn wanted the data as soon as complete.\nThis seems to be ok to me, but I do not know TW as well as you.\nIf you see anything which raises a question, please let us know.\nI can check into it.\nJohn can hold up working on it.\n\nFrazier\n\n\n---------------------- Forwarded by Frazier King/FGT/Enron on 12/19/2000 \n02:01 PM ---------------------------\n   \n\t\n\t\n\tFrom:  Elizabeth Brown                           12/19/2000 10:49 AM\n\t\n\nTo: Frazier King/FGT/Enron@ENRON, Shelley Corman/ET&S/Enron@ENRON, Rita \nBianchi/ET&S/Enron@ENRON\ncc: Linda Trevino/ET&S/Enron@ENRON, Nancy Bastida/FGT/Enron@ENRON \n\nSubject: INGAA Data Request - Marketing Affiliate Conference\n\nBased on the criteria established in Shelley's initial email request and the \nadditional information gathered from our meeting yesterday afternoon, here is \nthe data I have compiled for Transwestern using an effective date of November \n1, 2000.  I am still in the process of verifying one shipper's agency \nservices and will notify you if there are any corrections to be made to this \ndocument no later than COB today.\n\nIf you have any questions regarding the spreadsheets, please feel free to \ncontact me at x3-6928.  I will be on vacation until next Wednesday, 12/27 but \nstaying in town.  If any issues arise during my absence, please contact Linda \nTrevino or page me at (800) 718-0830.\n\n\n\nThanks,\nElizabeth\n\n",
+      "source": "enron",
+      "provenance": "benchmark",
+      "annotations": [
+        {
+          "type": "ORGANIZATION",
+          "value": "INGAA",
+          "char_start": 190,
+          "char_end": 195
+        },
+        {
+          "type": "PERSON",
+          "value": "Frazier King",
+          "char_start": 347,
+          "char_end": 359
+        },
+        {
+          "type": "PERSON",
+          "value": "Shelley Corman",
+          "char_start": 384,
+          "char_end": 398
+        },
+        {
+          "type": "PERSON",
+          "value": "Shelley",
+          "char_start": 428,
+          "char_end": 435
+        },
+        {
+          "type": "PERSON",
+          "value": "John",
+          "char_start": 524,
+          "char_end": 528
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "TW",
+          "char_start": 559,
+          "char_end": 561
+        },
+        {
+          "type": "PERSON",
+          "value": "Shelley",
+          "char_start": 615,
+          "char_end": 622
+        },
+        {
+          "type": "PERSON",
+          "value": "John",
+          "char_start": 625,
+          "char_end": 629
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "TW",
+          "char_start": 712,
+          "char_end": 714
+        },
+        {
+          "type": "PERSON",
+          "value": "John",
+          "char_start": 817,
+          "char_end": 821
+        },
+        {
+          "type": "PERSON",
+          "value": "Frazier",
+          "char_start": 850,
+          "char_end": 857
+        },
+        {
+          "type": "PERSON",
+          "value": "Frazier King",
+          "char_start": 896,
+          "char_end": 908
+        },
+        {
+          "type": "PERSON",
+          "value": "Elizabeth Brown",
+          "char_start": 987,
+          "char_end": 1002
+        },
+        {
+          "type": "PERSON",
+          "value": "Frazier King",
+          "char_start": 1056,
+          "char_end": 1068
+        },
+        {
+          "type": "PERSON",
+          "value": "Shelley Corman",
+          "char_start": 1086,
+          "char_end": 1100
+        },
+        {
+          "type": "PERSON",
+          "value": "Rita",
+          "char_start": 1119,
+          "char_end": 1123
+        },
+        {
+          "type": "PERSON",
+          "value": "Bianchi",
+          "char_start": 1125,
+          "char_end": 1132
+        },
+        {
+          "type": "PERSON",
+          "value": "Linda Trevino",
+          "char_start": 1154,
+          "char_end": 1167
+        },
+        {
+          "type": "PERSON",
+          "value": "Nancy Bastida",
+          "char_start": 1186,
+          "char_end": 1199
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "INGAA",
+          "char_start": 1227,
+          "char_end": 1232
+        },
+        {
+          "type": "PERSON",
+          "value": "Shelley",
+          "char_start": 1317,
+          "char_end": 1324
+        },
+        {
+          "type": "ORGANIZATION",
+          "value": "Transwestern",
+          "char_start": 1466,
+          "char_end": 1478
+        },
+        {
+          "type": "PHONE",
+          "value": "x3-6928",
+          "char_start": 1789,
+          "char_end": 1796
+        },
+        {
+          "type": "PHONE",
+          "value": "(800) 718-0830",
+          "char_start": 1955,
+          "char_end": 1969
+        }
+      ]
+    }
+  ],
+  "annotation_policy": "PERSON full + clearly-referential first names; ORG companies/divisions/agencies incl. abbreviations (GSA, NNG, EES, TW, INGAA, EEI, CSC, BECO, HAFB); LOCATION cities/states/countries/addresses incl. ZIPs; PHONE any phone/ext/pager format incl. 8915473 pager-address and x3-6928 ext; ACCOUNT hyphenated/long-digit/order/confirmation/card-last4/passcode. Excluded: email addresses, URLs, LDAP O=/OU=/CN= codes, slash-path units (/HOU/EES), bare initials, dates, dollar amounts, agency-code guesses (AFRI/BOS/...).",
+  "annotation_review": "REVIEWED [2026-09-14]"
+}
