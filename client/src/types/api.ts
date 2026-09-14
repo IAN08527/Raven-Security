@@ -1,8 +1,9 @@
-// Shared shapes for the client<->server and client<->engine-node boundaries
-// (API_CONTRACTS.md §1.2, §2.6, §3.2). Hand-written here because these are
-// the first client-side consumers; §6 rule 2's "generated, not hand-written"
-// applies to types crossing the Rust command boundary specifically, and
-// none of these cross it (REST/WS payloads, not Tauri IPC).
+// TEMPORARY: hand-written types, see DECISIONS.md D30.
+// Do not treat this file as generated. Keep in sync with
+// server Rust structs manually until ts-rs is added.
+//
+// Shared shapes for the client<->server and client<->engine-node
+// boundaries (API_CONTRACTS.md §1.2, §2.6, §3.2).
 
 export type CameraMode = "live" | "recorded";
 
@@ -148,11 +149,22 @@ export interface GraphIdentifier {
 
 export interface EntityDetail {
   id: string;
+  case_id: string;
   type: GraphEntityType;
-  label: string;
-  identifiers: GraphIdentifier[];
+  canonical_name: string;
   aliases: string[];
+  identifiers: string[];
+  relationships: string[];
+  associated_cases: string[];
+  case_count: number;
+  provenance: string;
+  sync_state: string;
+  notes: EntityNote[];
 }
+
+// Alias kept so existing §2.5 call sites read naturally; one shape,
+// one owner (EntityDetail above).
+export type EntityRecord = EntityDetail;
 
 // API_CONTRACTS.md §2.5 entity listing and detail (server/src/api/entities.rs).
 // `EntityDetail` above stays as the graph projection's shape; the shapes
@@ -181,19 +193,4 @@ export interface EntityNote {
   text: string;
   created_by: string;
   created_at: string; // mirrors the annotation's audit row (server-side)
-}
-
-export interface EntityRecord {
-  id: string;
-  case_id: string;
-  type: GraphEntityType;
-  canonical_name: string;
-  aliases: string[];
-  identifiers: string[];
-  relationships: string[];
-  associated_cases: string[];
-  case_count: number;
-  provenance: string;
-  sync_state: string;
-  notes: EntityNote[];
 }

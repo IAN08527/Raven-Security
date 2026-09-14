@@ -567,3 +567,18 @@ job is span resolution only.
 
 **Origin:** Session 12 - implementation showed the original spec was
 underspecified.
+
+### D30 - TypeScript type generation `ACTIVE, not yet implemented`
+
+**Context:** API_CONTRACTS.md §6 rule 2 requires client TypeScript types
+to be generated from Rust signatures. No generation tooling (ts-rs,
+specta, utoipa) exists in the tree. `client/src/types/api.ts` is
+currently hand-written and marked temporary.
+
+**Decision:** add ts-rs derives to server Rust structs and a
+`cargo xtask generate-types` command before M6. The hand-written file
+must be kept in sync manually until then and is a known correctness
+risk.
+
+**Origin:** Session 12 - type generation tooling absent from tree,
+discovered when Entity Profile endpoint shape changed.

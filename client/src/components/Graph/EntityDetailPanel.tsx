@@ -44,15 +44,15 @@ export function EntityDetailPanel({
     <div className="flex h-full w-full flex-col bg-[#1B1B19]">
       <div className="flex items-start justify-between gap-2 border-b border-[#30302D] p-3">
         <div className="min-w-0">
-          <button
-            type="button"
-            onClick={() => onOpenProfile(detail.id)}
-            title="Open entity profile"
-            className="block max-w-full truncate text-left text-sm font-semibold text-[#E8E5DD] hover:underline"
-            style={{ viewTransitionName: `entity-name-${detail.id}` }}
-          >
-            {detail.label}
-          </button>
+            <button
+              type="button"
+              onClick={() => onOpenProfile(detail.id)}
+              title="Open entity profile"
+              className="block max-w-full truncate text-left text-sm font-semibold text-[#E8E5DD] hover:underline"
+              style={{ viewTransitionName: `entity-name-${detail.id}` }}
+            >
+              {detail.canonical_name}
+            </button>
           <span
             className="mt-1 inline-block rounded-sm border px-1.5 py-0.5 text-[11px] font-semibold"
             style={{ color: visual.color, borderColor: visual.color }}
@@ -97,11 +97,8 @@ export function EntityDetailPanel({
               ) : (
                 <ul className="flex flex-col gap-1">
                   {detail.identifiers.map((identifier) => (
-                    <li key={`${identifier.type}:${identifier.value}`} className="text-[#E8E5DD]">
-                      <span className="mr-2 rounded-sm bg-[#262624] px-1 py-0.5 text-[11px] text-[#A5A29A]">
-                        {identifier.type}
-                      </span>
-                      {identifier.value}
+                    <li key={identifier} className="font-mono text-[#E8E5DD]">
+                      {identifier}
                     </li>
                   ))}
                 </ul>

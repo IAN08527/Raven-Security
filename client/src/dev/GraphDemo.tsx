@@ -70,10 +70,17 @@ const DEMO_EVIDENCE: Record<string, EdgeEvidenceItem[]> = {
 
 const DEMO_DETAIL: EntityDetail = {
   id: "p1",
+  case_id: "demo-case",
   type: "PERSON",
-  label: "Ravi Kumar",
-  identifiers: [{ type: "PHONE", value: "9822012345" }],
+  canonical_name: "Ravi Kumar",
   aliases: ["Ravi"],
+  identifiers: ["9822012345"],
+  relationships: [],
+  associated_cases: ["demo-case"],
+  case_count: 1,
+  provenance: "synthetic",
+  sync_state: "synced",
+  notes: [],
 };
 
 export function GraphDemo(): JSX.Element {
