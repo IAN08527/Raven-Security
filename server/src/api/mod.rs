@@ -122,7 +122,7 @@ pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router 
     };
     let v1 = Router::new()
         .merge(health)
-        .merge(cameras::router(stores.cameras.clone()))
+        .merge(cameras::router(stores.cameras.clone(), stores.auth.clone()))
         .merge(nodes::router(stores.nodes))
         .merge(reid::router(stores.targets, stores.candidates, stores.cameras, reid_deps))
         .merge(review::router(stores.reviews, review_deps))

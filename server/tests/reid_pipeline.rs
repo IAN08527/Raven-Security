@@ -14,7 +14,7 @@ use std::collections::HashSet;
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
 use serde_json::Value;
-use server::api::{cameras::CameraStore, reid::{CandidateStore, DecideDeps, TargetStore}};
+use server::api::{cameras::{Camera, CameraStore}, reid::{CandidateStore, DecideDeps, TargetStore}};
 use server::audit::AuditStore;
 use server::auth::ProfilesStore;
 use server::reid::pipeline::{
@@ -74,24 +74,18 @@ async fn decide_deps() -> DecideDeps {
 }
 
 async fn register_camera(store: &CameraStore) -> Uuid {
-    let app = server::api::cameras::router(store.clone());
-    let body = serde_json::json!({
-        "code": "CAM-1",
-        "label": "Terrace north",
-        "declared_start_ts": "2025-11-02T10:00:00Z",
-        "fps": 10.0,
+    // Direct seed, not an HTTP registration: these tests exercise
+    // lock-on against a known camera, while POST /cameras auth lives in
+    // case_clock.rs (admin gate) and needs no re-proving here.
+    let id = Uuid::new_v4();
+    store.insert(Camera {
+        id,
+        code: "CAM-1".to_string(),
+        label: "Terrace north".to_string(),
+        declared_start_ts: datetime!(2025-11-02 10:00:00 UTC),
+        fps: 10.0,
     });
-    let request = Request::builder()
-        .method("POST")
-        .uri("/cameras")
-        .header("content-type", "application/json")
-        .body(Body::from(body.to_string()))
-        .expect("request builds");
-    let response = app.oneshot(request).await.expect("router responds");
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let bytes = to_bytes(response.into_body(), usize::MAX).await.expect("body reads");
-    let parsed: Value = serde_json::from_slice(&bytes).expect("body is valid JSON");
-    parsed["id"].as_str().expect("camera id").parse().expect("uuid")
+    id
 }
 
 #[tokio::test]

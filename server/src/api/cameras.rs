@@ -13,13 +13,15 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use axum::extract::State;
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
+
+use crate::auth::{authenticate_request, AppRole, JwksCache};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Camera {
@@ -94,16 +96,32 @@ impl CameraStore {
     }
 }
 
-pub fn router(store: CameraStore) -> Router {
+pub fn router(store: CameraStore, auth: Arc<JwksCache>) -> Router {
+    let state = CameraState { store, auth };
     Router::new()
         .route("/cameras", get(list_cameras).post(register_camera))
-        .with_state(store)
+        .with_state(state)
 }
 
+#[derive(Clone)]
+struct CameraState {
+    store: CameraStore,
+    auth: Arc<JwksCache>,
+}
+
+/// POST /cameras (API_CONTRACTS.md §2.6): administrator only. Camera
+/// registration shapes every downstream inference, so an
+/// unauthenticated LAN caller must not reach it (D21 admin duties).
+/// The D16 declared-start validation runs after the gate: auth
+/// failures answer 401/403, bad bodies 422.
 async fn register_camera(
-    State(store): State<CameraStore>,
+    State(state): State<CameraState>,
+    headers: HeaderMap,
     Json(req): Json<RegisterCameraRequest>,
 ) -> impl IntoResponse {
+    if let Err(boxed) = authenticate_request(&headers, &state.auth, &[AppRole::Admin]).await {
+        return *boxed;
+    }
     let Some(declared_start_ts) = req.declared_start_ts else {
         return validation_failed(
             "declared_start_ts is required (D16): it has no default because a wrong value \
@@ -115,10 +133,10 @@ async fn register_camera(
 
     let camera =
         Camera { id: Uuid::new_v4(), code: req.code, label: req.label, declared_start_ts, fps: req.fps };
-    store.lock().push(camera.clone());
+    state.store.lock().push(camera.clone());
     (StatusCode::CREATED, Json(camera)).into_response()
 }
 
-async fn list_cameras(State(store): State<CameraStore>) -> Json<Vec<Camera>> {
-    Json(store.lock().clone())
+async fn list_cameras(State(state): State<CameraState>) -> Json<Vec<Camera>> {
+    Json(state.store.lock().clone())
 }
