@@ -1,0 +1,34 @@
+# Development crypto material (M5-T2). cryptogen is deprecated upstream
+# but remains the legible dev path; production enrols through the three
+# fabric-ca services in docker-compose.yml instead.
+#
+#   cryptogen generate --config=crypto-config.yaml --output=crypto-config
+
+OrdererOrgs:
+  - Name: Orderer
+    Domain: raven.local
+    Specs:
+      - Hostname: orderer
+
+PeerOrgs:
+  - Name: DistrictCID
+    Domain: district-cid.raven.local
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+    Users:
+      Count: 1
+  - Name: CyberCell
+    Domain: cyber-cell.raven.local
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+    Users:
+      Count: 1
+  - Name: RecordsBureau
+    Domain: records-bureau.raven.local
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+    Users:
+      Count: 1

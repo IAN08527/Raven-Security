@@ -1,0 +1,40 @@
+{
+  "name": "raven-client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.x",
+    "@tauri-apps/plugin-fs": "2.x",
+    "cytoscape": "3.30.x",
+    "cytoscape-fcose": "2.x",
+    "maplibre-gl": "4.x",
+    "pmtiles": "3.x",
+    "react": "18.x",
+    "react-dom": "18.x",
+    "zustand": "4.x"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.x",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/cytoscape": "3.x",
+    "@types/react": "18.x",
+    "@types/react-dom": "18.x",
+    "@vitejs/plugin-react": "4.x",
+    "autoprefixer": "10.x",
+    "jsdom": "^29.1.1",
+    "postcss": "8.x",
+    "tailwindcss": "3.x",
+    "typescript": "5.x",
+    "vite": "5.x",
+    "vitest": "^4.1.11"
+  }
+}

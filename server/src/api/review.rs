@@ -1,0 +1,327 @@
+//! Review queue endpoints (M3-6, FR-2.7, D9 transferred from M2).
+//!
+//! Rule 1 applies to recognised text exactly as it does to Re-ID
+//! candidates: a transcription is a candidate until a person resolves it
+//! through `POST /review/{id}` -- the ONLY path that changes a review
+//! status. There is no auto-accept path, no bulk-approve, no timeout that
+//! flips pending rows on its own. Corrected, accepted and rejected rows
+//! all remain visible as audit evidence; nothing is hidden.
+//!
+//! Auth is real GoTrue JWT verification plus the io-only role gate
+//! (M5-T1/T3, D21 -- same discipline as `reid.rs decide_candidate`),
+//! and stores are in-memory -- with the same documented follow-up
+//! (real persistence through the baseline `review_items` table with
+//! per-case RLS). The stub carries `case_id` on the item so the
+//! case-scoped listing works; real persistence joins through
+//! `source_files` instead (the baseline table has no `case_id` column).
+
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex, MutexGuard};
+
+use axum::extract::{Path, Query, State};
+use axum::http::{HeaderMap, StatusCode};
+use axum::response::IntoResponse;
+use axum::routing::{get, post};
+use axum::{Json, Router};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use time::OffsetDateTime;
+use uuid::Uuid;
+
+use crate::audit::{record_action, AuditStore};
+use crate::auth::{authenticate_io, authenticate_request, AppRole, JwksCache, ProfilesStore};
+use crate::ledger::LedgerClient;
+
+/// Baseline `review_status`: pending → corrected | accepted | rejected.
+/// `Pending` is the only status any path other than `decide_review`
+/// constructs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReviewStatus {
+    Pending,
+    Corrected,
+    Accepted,
+    Rejected,
+}
+
+/// One queue row, mirroring the baseline `review_items` columns plus the
+/// stub-only `case_id` (see module docs).
+#[derive(Debug, Clone, Serialize)]
+pub struct ReviewItem {
+    pub id: i64,
+    pub case_id: Uuid,
+    pub source_file_id: Uuid,
+    pub page_no: Option<i32>,
+    pub line_no: Option<i32>,
+    pub field_name: Option<String>,
+    pub script: String,
+    pub crop_path: String,
+    pub recognised_text: Option<String>,
+    pub confidence: Option<f32>,
+    pub corrected_text: Option<String>,
+    pub status: ReviewStatus,
+    pub reviewed_by: Option<Uuid>,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub reviewed_at: Option<OffsetDateTime>,
+    pub ledger_tx_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ReviewStore(Arc<Mutex<Vec<ReviewItem>>>);
+
+impl ReviewStore {
+    fn lock(&self) -> MutexGuard<'_, Vec<ReviewItem>> {
+        self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// Inserts a pipeline queue entry. The caller supplies the
+    /// fully-populated row including its stated reason upstream (the
+    /// reason travels in the docs-lane `ReviewItem`, not this stub);
+    /// this does not default anything except `status`, which must
+    /// already be `Pending`.
+    pub fn insert(&self, item: ReviewItem) {
+        debug_assert_eq!(item.status, ReviewStatus::Pending);
+        self.lock().push(item);
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DecideReviewRequest {
+    pub corrected_text: Option<String>,
+    pub status: TerminalStatus,
+}
+
+/// Only terminal statuses are reachable through the decide endpoint: there
+/// is no transition back to `pending`, so `Pending` has no variant here
+/// and sending `"pending"` fails deserialization (422).
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TerminalStatus {
+    Corrected,
+    Accepted,
+    Rejected,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DecideReviewResponse {
+    pub id: i64,
+    pub status: ReviewStatus,
+    pub ledger_tx_id: Option<String>,
+    pub ledger_status: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ListReviewQuery {
+    status: Option<ReviewStatus>,
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorEnvelope {
+    error: ErrorBody,
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorBody {
+    code: &'static str,
+    message: String,
+    detail: serde_json::Value,
+    retryable: bool,
+    trace_id: String,
+}
+
+fn error(code: &'static str, status: StatusCode, message: impl Into<String>) -> impl IntoResponse {
+    (
+        status,
+        Json(ErrorEnvelope {
+            error: ErrorBody {
+                code,
+                message: message.into(),
+                detail: serde_json::json!({}),
+                retryable: false,
+                trace_id: ulid::Ulid::new().to_string(),
+            },
+        }),
+    )
+}
+
+/// Whether extraction may auto-commit text from `script` without human
+/// review (API_CONTRACTS.md §2.3, FR-2.6). `Err("SCRIPT_NOT_GATED")` until
+/// S3 publishes the per-script status table and the script is on it.
+///
+/// M4 hook: the extraction-commit path (ingest saga step 9) calls this
+/// before creating entities from machine text. Nothing calls it yet --
+/// human review through `decide_review` below is always legitimate and
+/// goes through no gate -- so it is `dead_code` until M4 wires its
+/// caller. It exists, tested, so M4 uses this code instead of
+/// reinventing it.
+#[allow(dead_code)]
+pub fn extraction_may_autocommit(
+    script: &str,
+    gated_scripts: &HashSet<String>,
+) -> Result<(), &'static str> {
+    if gated_scripts.contains(script) {
+        Ok(())
+    } else {
+        Err("SCRIPT_NOT_GATED")
+    }
+}
+
+#[derive(Clone)]
+struct ReviewState {
+    reviews: ReviewStore,
+    auth: Arc<JwksCache>,
+    ledger: LedgerClient,
+    audit: AuditStore,
+    profiles: ProfilesStore,
+}
+
+/// M5 attribution dependencies shared with `reid.rs` (D21).
+#[derive(Clone)]
+pub struct ReviewDeps {
+    pub auth: Arc<JwksCache>,
+    pub ledger: LedgerClient,
+    pub audit: AuditStore,
+    pub profiles: ProfilesStore,
+}
+
+pub fn router(reviews: ReviewStore, deps: ReviewDeps) -> Router {
+    let state = ReviewState {
+        reviews,
+        auth: deps.auth,
+        ledger: deps.ledger,
+        audit: deps.audit,
+        profiles: deps.profiles,
+    };
+    Router::new()
+        .route("/cases/:case_id/review", get(list_reviews))
+        .route("/review/:id", post(decide_review))
+        .with_state(state)
+}
+
+/// GET /cases/{id}/review?status= (API_CONTRACTS.md §2.3, FR-2.7): the
+/// reviewer's worklist. Every status stays listed -- filtering a decided
+/// row out of existence would hide the decision record.
+async fn list_reviews(
+    State(state): State<ReviewState>,
+    headers: HeaderMap,
+    Path(case_id): Path<Uuid>,
+    Query(query): Query<ListReviewQuery>,
+) -> impl IntoResponse {
+    // Verified identity (any case role may read the queue; assignment
+    // enforcement lives on the audit endpoints and, with real
+    // persistence, in RLS).
+    if let Err(boxed) = authenticate_request(
+        &headers,
+        &state.auth,
+        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor],
+    )
+    .await
+    {
+        return *boxed;
+    }
+    let reviews = state.reviews.lock();
+    let filtered: Vec<ReviewItem> = reviews
+        .iter()
+        .filter(|item| item.case_id == case_id)
+        .filter(|item| match query.status {
+            None => true,
+            Some(status) => item.status == status,
+        })
+        .cloned()
+        .collect();
+    (StatusCode::OK, Json(filtered)).into_response()
+}
+
+/// POST /review/{id} (API_CONTRACTS.md §2.3): the ONLY path that changes
+/// (rule 1). Accepts `corrected` (with the human's transcription),
+/// `accepted` (machine text confirmed as-is), or `rejected`, records who
+/// decided and when (`reviewed_at` is infrastructure audit time; the
+/// sighting's own data is untouched), and anchors via the ledger gateway
+/// (mock path until per-request identity wiring lands -- see `reid.rs`).
+async fn decide_review(
+    State(state): State<ReviewState>,
+    headers: HeaderMap,
+    Path(id): Path<i64>,
+    Json(req): Json<DecideReviewRequest>,
+) -> impl IntoResponse {
+    // M5-T1/T3: verified GoTrue identity, io role only (rule 1 --
+    // transcription is a candidate until a person resolves it).
+    let reviewer = match authenticate_io(&headers, &state.auth).await {
+        Ok(user_id) => user_id,
+        Err(boxed) => return *boxed,
+    };
+    // Single terminal-status construction site (rule 1): grep for
+    // `ReviewStatus::Corrected` etc. must return exactly this match plus
+    // the enum definition and tests.
+    let status = match req.status {
+        TerminalStatus::Corrected => ReviewStatus::Corrected,
+        TerminalStatus::Accepted => ReviewStatus::Accepted,
+        TerminalStatus::Rejected => ReviewStatus::Rejected,
+    };
+    let corrected_text =
+        if req.status == TerminalStatus::Corrected { req.corrected_text } else { None };
+    let case_id = {
+        let mut reviews = state.reviews.lock();
+        let Some(item) = reviews.iter_mut().find(|item| item.id == id) else {
+            return error("NOT_FOUND", StatusCode::NOT_FOUND, format!("review {id} not found"))
+                .into_response();
+        };
+        if item.status != ReviewStatus::Pending {
+            return error(
+                "CONFLICT",
+                StatusCode::CONFLICT,
+                format!("review {id} already decided"),
+            )
+            .into_response();
+        }
+        item.status = status;
+        item.corrected_text = corrected_text;
+        item.reviewed_by = Some(reviewer);
+        // Infrastructure audit time, not case data (rule 3).
+        item.reviewed_at = Some(OffsetDateTime::now_utc());
+        item.case_id
+    };
+    // Attributable anchor (D21, FR-7.4), mirroring `decide_candidate`.
+    let review_digest = {
+        let mut hasher = Sha256::new();
+        hasher.update(id.to_be_bytes());
+        hasher.update(format!("{status:?}").as_bytes());
+        hasher.update(reviewer.as_bytes());
+        hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect::<String>()
+    };
+    let row = record_action(
+        crate::audit::ActionDeps {
+            audit: &state.audit,
+            ledger: &state.ledger,
+            profiles: &state.profiles,
+        },
+        crate::audit::ActionRecord {
+            case_id,
+            user_id: reviewer,
+            user_role: AppRole::Io,
+            action: match status {
+                ReviewStatus::Corrected => "review.correct".to_string(),
+                ReviewStatus::Accepted => "review.accept".to_string(),
+                ReviewStatus::Rejected => "review.reject".to_string(),
+                ReviewStatus::Pending => "review.decide".to_string(),
+            },
+            object_type: "review_item".to_string(),
+            object_id: id.to_string(),
+            payload_hash: review_digest,
+        },
+    )
+    .await;
+    {
+        let mut reviews = state.reviews.lock();
+        if let Some(item) = reviews.iter_mut().find(|item| item.id == id) {
+            item.ledger_tx_id = row.ledger_tx_id.clone();
+        }
+    }
+    let response = DecideReviewResponse {
+        id,
+        status,
+        ledger_tx_id: row.ledger_tx_id,
+        ledger_status: row.ledger_status,
+    };
+    (StatusCode::OK, Json(response)).into_response()
+}

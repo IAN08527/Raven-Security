@@ -1,0 +1,1 @@
+{"file_id": "enron-s4-04", "attempt": 3, "raw": "{\"entities\": [{\"type\": \"ORGANIZATION\", \"value\": \"The New Power Company\"}], \"identifiers\": [], \"relationships\": [{\"src_index\": 1, \"dst_index\": 1, \"type\": \"CO_ACCUSED\", \"occurred_at\": null}]}"}

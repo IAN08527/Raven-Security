@@ -1,0 +1,18 @@
+{
+  "experiment": "M0-T6-smoke",
+  "dataset": "harness-smoke-public-domain-text",
+  "split": "fixture",
+  "note": "Harness mechanism check (M0-T6), not a system measurement: no recogniser exists yet, so 'hypothesis' is hand-perturbed public-domain text, not real model output. Real S3 CER numbers require a trained recogniser plus IIIT-INDIC-HW-WORDS/IAM splits (EVALUATION.md §2).",
+  "rows": [
+    {"reference": "A stitch in time saves nine.", "hypothesis": "A stiteh in time saves nine.", "provenance": "benchmark"},
+    {"reference": "Actions speak louder than words.", "hypothesis": "Actions speak Iouder than words.", "provenance": "benchmark"},
+    {"reference": "Better late than never.", "hypothesis": "Better 1ate than never.", "provenance": "benchmark"},
+    {"reference": "Do not count your chickens before they hatch.", "hypothesis": "Do not count your chickens before they hateh.", "provenance": "benchmark"},
+    {"reference": "Every cloud has a silver lining.", "hypothesis": "Every cloud has a siIver lining.", "provenance": "benchmark"},
+    {"reference": "Honesty is the best policy.", "hypothesis": "Honesty is the best poIicy", "provenance": "benchmark"},
+    {"reference": "Look before you leap.", "hypothesis": "Look befbre you leap.", "provenance": "benchmark"},
+    {"reference": "Practice makes perfect.", "hypothesis": "Praetice makes perfect.", "provenance": "benchmark"},
+    {"reference": "The early bird catches the worm.", "hypothesis": "The early bird eatches the worm.", "provenance": "benchmark"},
+    {"reference": "When in Rome, do as the Romans do.", "hypothesis": "When in Rome do as the Romans do", "provenance": "benchmark"}
+  ]
+}

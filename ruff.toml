@@ -1,0 +1,3 @@
+# Repo-wide scope for `ruff check .`. Per-lane rules live in
+# engine/pyproject.toml and docs-lane/pyproject.toml.
+extend-exclude = [".agents", ".claude"]

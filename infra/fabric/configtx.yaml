@@ -1,0 +1,182 @@
+# Channel configuration (M5-T2, D22). Three application orgs with
+# separate MSPs; chaincode endorsement policy requires two of three
+# orgs to sign: AND('district-cid.member', 'cyber-cell.member').
+#
+# MSP ids use the task's org names verbatim so the policy string reads
+# exactly as specified. Generate with:
+#   configtxgen -profile RavenOrdererGenesis -outputBlock ./channel-artifacts/genesis.block -channelID system-channel
+#   configtxgen -profile RavenChannel -outputCreateChannelTx ./channel-artifacts/ravenchannel.tx -channelID ravenchannel
+
+Organizations:
+  - &OrdererOrg
+    Name: OrdererOrg
+    ID: OrdererMSP
+    MSPDir: crypto-config/ordererOrganizations/raven.local/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('OrdererMSP.member')"
+      Writers:
+        Type: Signature
+        Rule: "OR('OrdererMSP.member')"
+      Admins:
+        Type: Signature
+        Rule: "OR('OrdererMSP.admin')"
+
+  - &DistrictCID
+    Name: DistrictCID
+    ID: district-cid
+    MSPDir: crypto-config/peerOrganizations/district-cid.raven.local/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('district-cid.member')"
+      Writers:
+        Type: Signature
+        Rule: "OR('district-cid.member')"
+      Admins:
+        Type: Signature
+        Rule: "OR('district-cid.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('district-cid.member')"
+    AnchorPeers:
+      - Host: peer0.district-cid.raven.local
+        Port: 7051
+
+  - &CyberCell
+    Name: CyberCell
+    ID: cyber-cell
+    MSPDir: crypto-config/peerOrganizations/cyber-cell.raven.local/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('cyber-cell.member')"
+      Writers:
+        Type: Signature
+        Rule: "OR('cyber-cell.member')"
+      Admins:
+        Type: Signature
+        Rule: "OR('cyber-cell.member')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('cyber-cell.member')"
+    AnchorPeers:
+      - Host: peer0.cyber-cell.raven.local
+        Port: 8051
+
+  - &RecordsBureau
+    Name: RecordsBureau
+    ID: records-bureau
+    MSPDir: crypto-config/peerOrganizations/records-bureau.raven.local/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('records-bureau.member')"
+      Writers:
+        Type: Signature
+        Rule: "OR('records-bureau.member')"
+      Admins:
+        Type: Signature
+        Rule: "OR('records-bureau.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('records-bureau.member')"
+    AnchorPeers:
+      - Host: peer0.records-bureau.raven.local
+        Port: 9051
+
+Capabilities:
+  Channel: &ChannelCapabilities
+    V2_0: true
+  Orderer: &OrdererCapabilities
+    V2_0: true
+  Application: &ApplicationCapabilities
+    V2_0: true
+
+Application: &ApplicationDefaults
+  Organizations: []
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "ANY Admins"
+    LifecycleEndorsement:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Endorsement"
+    Endorsement:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Endorsement"
+  Capabilities:
+    <<: *ApplicationCapabilities
+
+Orderer: &OrdererDefaults
+  OrdererType: etcdraft
+  Addresses:
+    - orderer.raven.local:7050
+  BatchTimeout: 2s
+  BatchSize:
+    MaxMessageCount: 10
+    AbsoluteMaxBytes: 99 MB
+    PreferredMaxBytes: 512 KB
+  Organizations:
+    - *OrdererOrg
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "ANY Admins"
+    BlockValidation:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+
+Channel: &ChannelDefaults
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "ANY Admins"
+  Capabilities:
+    <<: *ChannelCapabilities
+
+Profiles:
+  RavenOrdererGenesis:
+    <<: *ChannelDefaults
+    Orderer:
+      <<: *OrdererDefaults
+      Organizations:
+        - *OrdererOrg
+      Capabilities:
+        <<: *OrdererCapabilities
+    Consortiums:
+      RavenConsortium:
+        Organizations:
+          - *DistrictCID
+          - *CyberCell
+          - *RecordsBureau
+  RavenChannel:
+    <<: *ChannelDefaults
+    Consortium: RavenConsortium
+    Application:
+      <<: *ApplicationDefaults
+      Organizations:
+        - *DistrictCID
+        - *CyberCell
+        - *RecordsBureau
+      Capabilities:
+        <<: *ApplicationCapabilities

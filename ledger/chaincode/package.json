@@ -1,0 +1,13 @@
+{
+  "name": "raven-ledger-chaincode",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Raven evidence-anchor chaincode (M5-T2, D22): anchor/action/verify/history with per-write creator-MSP endorsements.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "fabric-contract-api": "2.5.x"
+  }
+}

@@ -1,0 +1,1 @@
+{"file_id": "enron-s4-19", "attempt": 1, "raw": "{\n  \"entities\": [\n    {\n      \"type\": \"LOCATION\",\n      \"value\": \"Compressor Station #17\"\n    }\n  ],\n  \"identifiers\": [],\n  \"relationships\": []\n}"}

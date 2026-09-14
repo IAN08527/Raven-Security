@@ -1,0 +1,102 @@
+# All-in-one deployment profile (D20, ARCHITECTURE.md §8): server, one engine
+# node and client on one machine. Development and the campus pilot.
+#
+# Brings up the infrastructure dependencies the server's health gate
+# checks (server/src/startup.rs): Postgres+pgvector, Neo4j, and the mock
+# ledger gateway — plus the basemap file server, which is a client-side
+# dependency on :8802 (D6) and is NOT part of the server health gate.
+# This does not run the full Supabase stack (GoTrue/
+# PostgREST/Storage) or apply supabase/migrations/ -- that is `supabase
+# start` / `supabase db reset` (CLAUDE.md Commands), a separate local-dev
+# schema path from this deployment-shaped compose file. Wiring this
+# Postgres to the full application schema (auth + RLS) is a follow-up, not
+# decided here.
+#
+# TLS with mutual authentication on all inter-service traffic is required
+# even in development (ARCHITECTURE.md §1.1) and is not implemented in this
+# file yet -- everything below is plain HTTP/Bolt on a trusted local
+# network. Flagged, not fixed, in M0-T8.
+
+services:
+  postgres:
+    # Not the Supabase-flavoured image (public.ecr.aws/supabase/postgres) used
+    # by `supabase start`: it hardcodes supabase_admin as the role its own
+    # init scripts run as, which fights a plain POSTGRES_USER override, and
+    # this compose runs no GoTrue/PostgREST to make that image's assumptions
+    # correct anyway. pgvector/pgvector is plain Postgres 17 + pgvector
+    # preinstalled, with standard POSTGRES_USER/PASSWORD/DB behaviour.
+    image: pgvector/pgvector:pg17
+    container_name: raven-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: raven-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/ravenpassword
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ledger-mock:
+    image: node:20-alpine
+    container_name: raven-ledger-mock
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ../../ledger/mock:/app:ro
+    command: ["node", "index.js"]
+    ports:
+      - "8801:8801"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8801/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  basemap:
+    # Static file server, not the pmtiles server image: the client reads
+    # the archive with the pmtiles.js protocol (byte-range GETs against
+    # the raw file), which `pmtiles serve` does not offer (D6, nginx.conf
+    # header comment). Serves infra/tiles read-only on :8802.
+    image: nginx:1.27-alpine
+    container_name: raven-basemap
+    restart: unless-stopped
+    volumes:
+      - ../tiles:/tiles:ro
+      - ./basemap/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8802:8802"
+    healthcheck:
+      # 127.0.0.1, not localhost: busybox wget prefers ::1 while this
+      # nginx server block binds IPv4, which reads as refused (not down).
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8802/maharashtra || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+  neo4j_data:

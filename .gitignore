@@ -1,39 +1,57 @@
-# Dependencies & Build artifacts
-node_modules/
-dist/
-target/
-src-tauri/target/
-src-tauri/binaries/*.exe
-src-tauri/binaries/*.pdb
-tools/*/target/
-tools/raven_saga_cli/target/
-tools/rust_cloud_probe/target/
+# Rust
+/target/
+**/target/
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
 .venv/
 venv/
-*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
 
-# Environment & Secrets
-.env
-.env.*
-!.env.example
-*.log
-opencode.json
+# Node
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
 
-# Large Binary Assets & Models
-assets/basemap/*.pmtiles
-assets/cctv/*.mp4
+# Tauri
+client/src-tauri/gen/
+
+# Supabase local dev
+supabase/.branches
+supabase/.temp
+
+# Downloaded datasets (tools/fetch_datasets.py). Licence terms vary per
+# dataset and several forbid redistribution; nothing under here ships.
+eval/datasets/*
+!eval/datasets/.gitkeep
+
+# Model weights and exported engines (STACK.md §5: pulled once and cached
+# locally, never committed).
+models/*
+!models/.gitkeep
 *.pt
 *.onnx
 *.engine
-yolov8n.pt
 
-# OS & IDE
+# Local eval tooling binaries (mediamtx, ffmpeg) fetched for S1 throughput
+# measurement (M1-T8). Downloaded, never committed.
+eval/_bin/
+
+# Local PMTiles basemap extract (D6, FR-6.2: MapLibre over a locally hosted
+# PMTiles extract, no third-party tile requests). Pulled once via
+# `pmtiles extract` from the planet build and served locally on :8802;
+# never committed. ODbL Produced Work, OSM attribution required.
+infra/tiles/*
+!infra/tiles/.gitkeep
+
+# OS / editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
-.agents/

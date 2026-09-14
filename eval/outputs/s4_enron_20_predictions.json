@@ -1,0 +1,173 @@
+{
+  "experiment": "S4",
+  "dataset": "enron-s4-20",
+  "split": "s4-annotation-set",
+  "model": "qwen2.5:1.5b",
+  "backend": "OllamaBackend(warmup=True)",
+  "quarantined_items": 18,
+  "items": [
+    {
+      "id": "enron-s4-01",
+      "gold_n": 12,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 1 failure(s): ollama qwen2.5:1.5b unreachable at http://127.0.0.1:11434: timed out"
+    },
+    {
+      "id": "enron-s4-02",
+      "gold_n": 12,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 1 failure(s): ollama qwen2.5:1.5b unreachable at http://127.0.0.1:11434: timed out"
+    },
+    {
+      "id": "enron-s4-03",
+      "gold_n": 14,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 1 failure(s): ollama qwen2.5:1.5b unreachable at http://127.0.0.1:11434: timed out"
+    },
+    {
+      "id": "enron-s4-04",
+      "gold_n": 37,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 1 failure(s): ollama qwen2.5:1.5b unreachable at http://127.0.0.1:11434: timed out"
+    },
+    {
+      "id": "enron-s4-05",
+      "gold_n": 21,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 1 failure(s): ollama qwen2.5:1.5b unreachable at http://127.0.0.1:11434: timed out"
+    },
+    {
+      "id": "enron-s4-06",
+      "gold_n": 13,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 3 failure(s): 1 validation error for ExtractionModel\n  Value error, relationship CALLED points outside 1 entities (src 1, dst 1) [type=value_error, input_value={'entities': [{'type': 'P...art': 0, 'char_end': 10}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/value_error"
+    },
+    {
+      "id": "enron-s4-07",
+      "gold_n": 30,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 3 failure(s): 1 validation error for ExtractionModel\n  Value error, relationship CALLED points outside 0 entities (src 0, dst 0) [type=value_error, input_value={'entities': [], 'identif..., 'occurred_at': None}]}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/value_error"
+    },
+    {
+      "id": "enron-s4-08",
+      "gold_n": 37,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 1 failure(s): ollama qwen2.5:1.5b unreachable at http://127.0.0.1:11434: timed out"
+    },
+    {
+      "id": "enron-s4-09",
+      "gold_n": 21,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 3 failure(s): 1 validation error for ExtractionModel\n  Value error, relationship CALLED points outside 0 entities (src 0, dst 0) [type=value_error, input_value={'entities': [], 'identif...08:10:14 -0700 (PDT)'}]}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/value_error"
+    },
+    {
+      "id": "enron-s4-10",
+      "gold_n": 15,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 3 failure(s): 1 validation error for ExtractionModel\n  Value error, relationship CALLED points outside 0 entities (src 0, dst 0) [type=value_error, input_value={'entities': [], 'identif...art': 0, 'char_end': 10}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/value_error"
+    },
+    {
+      "id": "enron-s4-11",
+      "gold_n": 23,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 1 failure(s): ollama qwen2.5:1.5b unreachable at http://127.0.0.1:11434: timed out"
+    },
+    {
+      "id": "enron-s4-12",
+      "gold_n": 15,
+      "pred_n": 2,
+      "hits": 0,
+      "status": "extracted",
+      "attempts": 1
+    },
+    {
+      "id": "enron-s4-13",
+      "gold_n": 8,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 1 failure(s): ollama qwen2.5:1.5b unreachable at http://127.0.0.1:11434: timed out"
+    },
+    {
+      "id": "enron-s4-14",
+      "gold_n": 27,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 1 failure(s): ollama qwen2.5:1.5b unreachable at http://127.0.0.1:11434: timed out"
+    },
+    {
+      "id": "enron-s4-15",
+      "gold_n": 14,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 3 failure(s): 1 validation error for ExtractionModel\n  Value error, relationship CO_LOCATED is a self-loop on entity 0: social relations are binary, a self-loop is always a model error [type=value_error, input_value={'entities': [{'type': 'L..., 'occurred_at': None}]}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/value_error"
+    },
+    {
+      "id": "enron-s4-16",
+      "gold_n": 3,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 3 failure(s): 1 validation error for ExtractionModel\n  Value error, relationship CO_LOCATED is a self-loop on entity 0: social relations are binary, a self-loop is always a model error [type=value_error, input_value={'entities': [{'type': 'L..., 'occurred_at': None}]}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/value_error"
+    },
+    {
+      "id": "enron-s4-17",
+      "gold_n": 7,
+      "pred_n": 3,
+      "hits": 0,
+      "status": "extracted",
+      "attempts": 1
+    },
+    {
+      "id": "enron-s4-18",
+      "gold_n": 84,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 3 failure(s): 1 validation error for ExtractionModel\n  Value error, relationship CO_ACCUSED points outside 0 entities (src 0, dst 0) [type=value_error, input_value={'entities': [], 'identif...12:01:00 -0800 (PST)'}]}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/value_error"
+    },
+    {
+      "id": "enron-s4-19",
+      "gold_n": 13,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 3 failure(s): 1 validation error for ExtractionModel\n  Value error, relationship CO_ACCUSED points outside 1 entities (src 0, dst 1) [type=value_error, input_value={'entities': [{'type': 'L..., 'occurred_at': None}]}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/value_error"
+    },
+    {
+      "id": "enron-s4-20",
+      "gold_n": 24,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "reason": "extraction quarantined after 3 failure(s): 1 validation error for ExtractionModel\n  Value error, relationship CALLED points outside 1 entities (src 1, dst 0) [type=value_error, input_value={'entities': [{'type': 'P...art': 0, 'char_end': 14}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/value_error"
+    }
+  ],
+  "pooled_gold_n": 430,
+  "pooled_pred_n": 5,
+  "pooled_hits": 0
+}

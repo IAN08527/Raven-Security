@@ -1,0 +1,264 @@
+{
+  "experiment": "S4",
+  "dataset": "fir-style-synthetic-20",
+  "split": "fixture",
+  "provenance": "synthetic",
+  "note": "NOT a benchmark and NOT results input (D19/rule 4: the harness refuses synthetic rows). Hand-written FIR-style English sentences with hand-chosen entity annotations; a loader resolves each annotated surface to its span and fails loudly unless the surface occurs exactly once, so offsets are reproducible, not hand-counted. Purpose: unit/integration tests for the extractor and the S4 metric math, plus the annotation set a future non-synthetic S4 run replaces. Real S4 numbers need annotated benchmark/collected text (Corpus B or an Enron slice), which does not exist yet.",
+  "items": [
+    {
+      "id": "fir-01",
+      "text": "Complainant Ravi Kumar states that Suresh Yadav called him on 9822012345 regarding payment for Sharma Traders.",
+      "entities": [
+        {"type": "PERSON", "surface": "Ravi Kumar"},
+        {"type": "PERSON", "surface": "Suresh Yadav"},
+        {"type": "ORGANIZATION", "surface": "Sharma Traders"}
+      ],
+      "identifiers": [
+        {"type": "PHONE", "value": "9822012345", "entity_surface": "Ravi Kumar"}
+      ],
+      "relationships": [
+        {"src_surface": "Suresh Yadav", "dst_surface": "Ravi Kumar", "type": "CALLED"}
+      ]
+    },
+    {
+      "id": "fir-02",
+      "text": "Suresh Yadav was seen with Amit Verma near Dadar station on the evening of the incident.",
+      "entities": [
+        {"type": "PERSON", "surface": "Suresh Yadav"},
+        {"type": "PERSON", "surface": "Amit Verma"},
+        {"type": "LOCATION", "surface": "Dadar"}
+      ],
+      "identifiers": [],
+      "relationships": [
+        {"src_surface": "Suresh Yadav", "dst_surface": "Amit Verma", "type": "SEEN_WITH"}
+      ]
+    },
+    {
+      "id": "fir-03",
+      "text": "Ravi Kumar transferred Rs 25000 to account 50200012345678 maintained by Sharma Traders.",
+      "entities": [
+        {"type": "PERSON", "surface": "Ravi Kumar"},
+        {"type": "ORGANIZATION", "surface": "Sharma Traders"}
+      ],
+      "identifiers": [
+        {"type": "ACCOUNT", "value": "50200012345678", "entity_surface": "Sharma Traders"}
+      ],
+      "relationships": [
+        {"src_surface": "Ravi Kumar", "dst_surface": "Sharma Traders", "type": "TRANSFERRED_TO"}
+      ]
+    },
+    {
+      "id": "fir-04",
+      "text": "The white Maruti Swift MH-02-AB-1234 belongs to Amit Verma and was parked outside Sharma Traders.",
+      "entities": [
+        {"type": "VEHICLE", "surface": "Maruti Swift"},
+        {"type": "PERSON", "surface": "Amit Verma"},
+        {"type": "ORGANIZATION", "surface": "Sharma Traders"}
+      ],
+      "identifiers": [
+        {"type": "VEHICLE", "value": "MH-02-AB-1234", "entity_surface": "Amit Verma"}
+      ],
+      "relationships": [
+        {"src_surface": "Amit Verma", "dst_surface": "Sharma Traders", "type": "CO_LOCATED"}
+      ]
+    },
+    {
+      "id": "fir-05",
+      "text": "Witness Meena Iyer confirmed that Ravi Kumar resides with Suresh Yadav at Andheri West.",
+      "entities": [
+        {"type": "PERSON", "surface": "Meena Iyer"},
+        {"type": "PERSON", "surface": "Ravi Kumar"},
+        {"type": "PERSON", "surface": "Suresh Yadav"},
+        {"type": "LOCATION", "surface": "Andheri West"}
+      ],
+      "identifiers": [],
+      "relationships": [
+        {"src_surface": "Ravi Kumar", "dst_surface": "Suresh Yadav", "type": "RESIDES_WITH"}
+      ]
+    },
+    {
+      "id": "fir-06",
+      "text": "Call records show Ravi Kumar on 9822012345 contacted Suresh Yadav on 9811098110 twelve times.",
+      "entities": [
+        {"type": "PERSON", "surface": "Ravi Kumar"},
+        {"type": "PERSON", "surface": "Suresh Yadav"}
+      ],
+      "identifiers": [
+        {"type": "PHONE", "value": "9822012345", "entity_surface": "Ravi Kumar"},
+        {"type": "PHONE", "value": "9811098110", "entity_surface": "Suresh Yadav"}
+      ],
+      "relationships": [
+        {"src_surface": "Ravi Kumar", "dst_surface": "Suresh Yadav", "type": "CALLED"}
+      ]
+    },
+    {
+      "id": "fir-07",
+      "text": "The handset of Amit Verma, IMEI 490154203237518, was seized at Dadar station.",
+      "entities": [
+        {"type": "PERSON", "surface": "Amit Verma"},
+        {"type": "LOCATION", "surface": "Dadar"}
+      ],
+      "identifiers": [
+        {"type": "IMEI", "value": "490154203237518", "entity_surface": "Amit Verma"}
+      ],
+      "relationships": []
+    },
+    {
+      "id": "fir-08",
+      "text": "Sharma Traders received three transfers from an account held by Meena Iyer in February.",
+      "entities": [
+        {"type": "ORGANIZATION", "surface": "Sharma Traders"},
+        {"type": "PERSON", "surface": "Meena Iyer"}
+      ],
+      "identifiers": [],
+      "relationships": [
+        {"src_surface": "Meena Iyer", "dst_surface": "Sharma Traders", "type": "TRANSFERRED_TO"}
+      ]
+    },
+    {
+      "id": "fir-09",
+      "text": "Ravi Kumar and Amit Verma were named co-accused in FIR 142 filed at Andheri police station.",
+      "entities": [
+        {"type": "PERSON", "surface": "Ravi Kumar"},
+        {"type": "PERSON", "surface": "Amit Verma"},
+        {"type": "LOCATION", "surface": "Andheri"}
+      ],
+      "identifiers": [],
+      "relationships": [
+        {"src_surface": "Ravi Kumar", "dst_surface": "Amit Verma", "type": "CO_ACCUSED"}
+      ]
+    },
+    {
+      "id": "fir-10",
+      "text": "Suresh Yadav drives a black Honda Activa MH-01-CD-5678 registered in the name of Meena Iyer.",
+      "entities": [
+        {"type": "PERSON", "surface": "Suresh Yadav"},
+        {"type": "VEHICLE", "surface": "Honda Activa"},
+        {"type": "PERSON", "surface": "Meena Iyer"}
+      ],
+      "identifiers": [
+        {"type": "VEHICLE", "value": "MH-01-CD-5678", "entity_surface": "Meena Iyer"}
+      ],
+      "relationships": []
+    },
+    {
+      "id": "fir-11",
+      "text": "The complainant stated that the incident occurred near Dadar station at about 9 pm.",
+      "entities": [
+        {"type": "LOCATION", "surface": "Dadar"}
+      ],
+      "identifiers": [],
+      "relationships": []
+    },
+    {
+      "id": "fir-12",
+      "text": "Meena Iyer called the Andheri police station to report the missing handset.",
+      "entities": [
+        {"type": "PERSON", "surface": "Meena Iyer"},
+        {"type": "LOCATION", "surface": "Andheri"}
+      ],
+      "identifiers": [],
+      "relationships": []
+    },
+    {
+      "id": "fir-13",
+      "text": "Amit Verma met Suresh Yadav at Sharma Traders on two occasions last month.",
+      "entities": [
+        {"type": "PERSON", "surface": "Amit Verma"},
+        {"type": "PERSON", "surface": "Suresh Yadav"},
+        {"type": "ORGANIZATION", "surface": "Sharma Traders"}
+      ],
+      "identifiers": [],
+      "relationships": [
+        {"src_surface": "Amit Verma", "dst_surface": "Suresh Yadav", "type": "SEEN_WITH"}
+      ]
+    },
+    {
+      "id": "fir-14",
+      "text": "Sharma Traders account 50200012345678 shows a transfer of Rs 25000 to Ravi Kumar on 12 March.",
+      "entities": [
+        {"type": "ORGANIZATION", "surface": "Sharma Traders"},
+        {"type": "PERSON", "surface": "Ravi Kumar"}
+      ],
+      "identifiers": [
+        {"type": "ACCOUNT", "value": "50200012345678", "entity_surface": "Sharma Traders"}
+      ],
+      "relationships": [
+        {"src_surface": "Sharma Traders", "dst_surface": "Ravi Kumar", "type": "TRANSFERRED_TO"}
+      ]
+    },
+    {
+      "id": "fir-15",
+      "text": "Witnesses saw Amit Verma with an unknown person near Andheri West bus depot.",
+      "entities": [
+        {"type": "PERSON", "surface": "Amit Verma"},
+        {"type": "LOCATION", "surface": "Andheri West"}
+      ],
+      "identifiers": [],
+      "relationships": []
+    },
+    {
+      "id": "fir-16",
+      "text": "Ravi Kumar told officers that Suresh Yadav uses phone 9811098110 and drives MH-01-CD-5678.",
+      "entities": [
+        {"type": "PERSON", "surface": "Ravi Kumar"},
+        {"type": "PERSON", "surface": "Suresh Yadav"}
+      ],
+      "identifiers": [
+        {"type": "PHONE", "value": "9811098110", "entity_surface": "Suresh Yadav"},
+        {"type": "VEHICLE", "value": "MH-01-CD-5678", "entity_surface": "Suresh Yadav"}
+      ],
+      "relationships": []
+    },
+    {
+      "id": "fir-17",
+      "text": "The NAFIS record NAF1234567 matches Amit Verma.",
+      "entities": [
+        {"type": "PERSON", "surface": "Amit Verma"}
+      ],
+      "identifiers": [
+        {"type": "NAFIS", "value": "NAF1234567", "entity_surface": "Amit Verma"}
+      ],
+      "relationships": []
+    },
+    {
+      "id": "fir-18",
+      "text": "Suresh Yadav resides at 4 Sea View, Andheri West, while Ravi Kumar lives in Dadar East.",
+      "entities": [
+        {"type": "PERSON", "surface": "Suresh Yadav"},
+        {"type": "LOCATION", "surface": "Andheri West"},
+        {"type": "PERSON", "surface": "Ravi Kumar"},
+        {"type": "LOCATION", "surface": "Dadar East"}
+      ],
+      "identifiers": [],
+      "relationships": []
+    },
+    {
+      "id": "fir-19",
+      "text": "Meena Iyer and Ravi Kumar jointly operate Sharma Traders from its Dadar office.",
+      "entities": [
+        {"type": "PERSON", "surface": "Meena Iyer"},
+        {"type": "PERSON", "surface": "Ravi Kumar"},
+        {"type": "ORGANIZATION", "surface": "Sharma Traders"},
+        {"type": "LOCATION", "surface": "Dadar"}
+      ],
+      "identifiers": [],
+      "relationships": []
+    },
+    {
+      "id": "fir-20",
+      "text": "On 12 March, Amit Verma called Meena Iyer from 9768012345 to discuss the Sharma Traders payment.",
+      "entities": [
+        {"type": "PERSON", "surface": "Amit Verma"},
+        {"type": "PERSON", "surface": "Meena Iyer"},
+        {"type": "ORGANIZATION", "surface": "Sharma Traders"}
+      ],
+      "identifiers": [
+        {"type": "PHONE", "value": "9768012345", "entity_surface": "Amit Verma"}
+      ],
+      "relationships": [
+        {"src_surface": "Amit Verma", "dst_surface": "Meena Iyer", "type": "CALLED"}
+      ]
+    }
+  ]
+}

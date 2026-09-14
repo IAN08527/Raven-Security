@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = [
+    "server",
+    "client/src-tauri",
+]
+
+[workspace.package]
+edition = "2021"
+license = "UNLICENSED"
+publish = false
+
+[profile.dev]
+debug = true
+
+[profile.release]
+lto = true

@@ -1,14 +1,14 @@
 {
   "name": "raven-ledger-gateway",
-  "version": "1.0.0",
-  "description": "Project Raven ledger REST gateway (Express over fabric-gateway) - section D13",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Raven Fabric gateway (M5-T2, D13/D22): the five REST endpoints of API_CONTRACTS.md section 5 over mock or multi-org Fabric.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/"
   },
-  "license": "MIT",
   "dependencies": {
-    "@hyperledger/fabric-gateway": "^1.7.0",
-    "express": "^4.19.2"
+    "fabric-network": "2.5.x"
   }
 }

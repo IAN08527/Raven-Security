@@ -1,0 +1,1 @@
+{"file_id": "enron-s4-09", "attempt": 1, "raw": "{\"entities\": [{\"type\": \"PERSON\", \"value\": \"Bill Hatch\"}, {\"type\": \"PERSON\", \"value\": \"Richard Ring\"}], \"identifiers\": [{\"type\": \"ACCOUNT\", \"value\": \"57-1695-094001\"}, {\"type\": \"ACCOUNT\", \"value\": \"516488321650\"}, {\"type\": \"VEHICLE\", \"value\": \"800-711-8000\"}], \"relationships\": []}"}

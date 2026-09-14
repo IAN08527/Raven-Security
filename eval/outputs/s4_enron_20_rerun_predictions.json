@@ -1,0 +1,213 @@
+{
+  "experiment": "S4-rerun",
+  "dataset": "enron-s4-20",
+  "split": "s4-annotation-set",
+  "model": "qwen2.5:1.5b",
+  "backend": "OllamaBackend(warmup=True)",
+  "contract": "D11-A surface-then-resolve",
+  "quarantined_items": 6,
+  "timeout_items": 1,
+  "extracted_items": 14,
+  "surfaces_found": 17,
+  "surfaces_total": 27,
+  "span_not_found_items": 3,
+  "items": [
+    {
+      "id": "enron-s4-01",
+      "gold_n": 12,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 0,
+      "span_not_found": 8
+    },
+    {
+      "id": "enron-s4-02",
+      "gold_n": 12,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 0,
+      "span_not_found": 1
+    },
+    {
+      "id": "enron-s4-03",
+      "gold_n": 14,
+      "pred_n": 2,
+      "hits": 1,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 2,
+      "span_not_found": 0
+    },
+    {
+      "id": "enron-s4-04",
+      "gold_n": 37,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "transport": false,
+      "reason": "extraction quarantined after 3 failure(s): 1 validation error for ModelOutput\n  Value error, relationship CO_ACCUSED points outside 1 entities (src 1, dst 1) [type=value_error, input_value={'entities': [{'type': 'O..., 'occurred_at': None}]}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/value_error"
+    },
+    {
+      "id": "enron-s4-05",
+      "gold_n": 21,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "transport": true,
+      "reason": "extraction quarantined after 1 failure(s): ollama qwen2.5:1.5b unreachable at http://127.0.0.1:11434: timed out"
+    },
+    {
+      "id": "enron-s4-06",
+      "gold_n": 13,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "transport": false,
+      "reason": "extraction quarantined after 3 failure(s): 3 validation errors for ModelOutput\nentities.0.index\n  Extra inputs are not permitted [type=extra_forbidden, input_value=0, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.9/v/extra_forbidden\nentities.1.index\n  Extra inputs are not permitted [type=extra_forbidden, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.9/v/extra_forbidden\nentities.2.index\n  Extra inputs are not permitted [type=extra_forbidden, input_value=2, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.9/v/extra_forbidden"
+    },
+    {
+      "id": "enron-s4-07",
+      "gold_n": 30,
+      "pred_n": 3,
+      "hits": 0,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 3,
+      "span_not_found": 0
+    },
+    {
+      "id": "enron-s4-08",
+      "gold_n": 37,
+      "pred_n": 3,
+      "hits": 3,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 3,
+      "span_not_found": 0
+    },
+    {
+      "id": "enron-s4-09",
+      "gold_n": 21,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "transport": false,
+      "reason": "extraction quarantined after 3 failure(s): 3 validation errors for ModelOutput\nidentifiers.0.entity_index\n  Field required [type=missing, input_value={'type': 'ACCOUNT', 'value': '57-1695-094001'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/missing\nidentifiers.1.entity_index\n  Field required [type=missing, input_value={'type': 'ACCOUNT', 'value': '516488321650'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/missing\nidentifiers.2.entity_index\n  Field required [type=missing, input_value={'type': 'VEHICLE', 'value': '800-711-8000'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/missing"
+    },
+    {
+      "id": "enron-s4-10",
+      "gold_n": 15,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "transport": false,
+      "reason": "extraction quarantined after 3 failure(s): 1 validation error for ModelOutput\n  Value error, identifier '09/21/00' points at missing entity_index 1 (1 entities) [type=value_error, input_value={'entities': [{'type': 'L...}], 'relationships': []}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.9/v/value_error"
+    },
+    {
+      "id": "enron-s4-11",
+      "gold_n": 23,
+      "pred_n": 1,
+      "hits": 0,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 1,
+      "span_not_found": 0
+    },
+    {
+      "id": "enron-s4-12",
+      "gold_n": 15,
+      "pred_n": 1,
+      "hits": 1,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 1,
+      "span_not_found": 0
+    },
+    {
+      "id": "enron-s4-13",
+      "gold_n": 8,
+      "pred_n": 1,
+      "hits": 1,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 1,
+      "span_not_found": 0
+    },
+    {
+      "id": "enron-s4-14",
+      "gold_n": 27,
+      "pred_n": 1,
+      "hits": 0,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 1,
+      "span_not_found": 1
+    },
+    {
+      "id": "enron-s4-15",
+      "gold_n": 14,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 0,
+      "span_not_found": 0
+    },
+    {
+      "id": "enron-s4-16",
+      "gold_n": 3,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 0,
+      "span_not_found": 0
+    },
+    {
+      "id": "enron-s4-17",
+      "gold_n": 7,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "quarantined",
+      "transport": false,
+      "reason": "extraction quarantined after 3 failure(s): 2 validation errors for ModelOutput\nentities.2.type\n  String should match pattern '^(PERSON|ORGANIZATION|LOCATION|VEHICLE|ACCOUNT)$' [type=string_pattern_mismatch, input_value='PHONE', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.9/v/string_pattern_mismatch\nentities.2.entity_index\n  Extra inputs are not permitted [type=extra_forbidden, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.9/v/extra_forbidden"
+    },
+    {
+      "id": "enron-s4-18",
+      "gold_n": 84,
+      "pred_n": 4,
+      "hits": 3,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 4,
+      "span_not_found": 0
+    },
+    {
+      "id": "enron-s4-19",
+      "gold_n": 13,
+      "pred_n": 1,
+      "hits": 0,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 1,
+      "span_not_found": 0
+    },
+    {
+      "id": "enron-s4-20",
+      "gold_n": 24,
+      "pred_n": 0,
+      "hits": 0,
+      "status": "extracted",
+      "attempts": 1,
+      "found": 0,
+      "span_not_found": 0
+    }
+  ],
+  "pooled_gold_n": 430,
+  "pooled_pred_n": 17,
+  "pooled_hits": 9
+}
