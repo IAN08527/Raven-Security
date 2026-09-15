@@ -478,8 +478,8 @@ one division get rewritten the day a different one says yes.
 **Context:** the goal is a real pilot, and there is currently no route to a police
 agency. Agency approvals take months and are not in the team's control.
 
-**Decision:** run a controlled campus deployment first, with institutional ethics
-approval and consenting participants, using either existing campus cameras or four
+**Decision:** run a controlled campus deployment first, with participant consent
+documentation and consenting participants, using either existing campus cameras or four
 placed cameras. Collect the handwriting corpus the same way. Pursue the agency
 conversation in parallel, starting with faculty and an institutional letter.
 
@@ -487,8 +487,18 @@ conversation in parallel, starting with faculty and an institutional letter.
 under real optics, lighting and occlusion, and it produces the consent and ethics
 process an agency will ask about anyway.
 
-**Consequences:** ethics approval and consent forms become gating artifacts for
-data collection. Corpus B cannot be collected before they exist.
+**Consequences:** Participant consent documentation (signed consent records)
+must be obtained before collection starts. Confirm with your faculty contact
+whether the host institution has its own policy requiring additional
+approval — this is a check, not an assumed blocker. Corpus B cannot be
+collected before they exist.
+
+**Note:** Data collection approach confirmed: footage recorded by the team
+themselves with consenting participants (friends and colleagues), FIR forms
+filled by hand with fictional content. Formal institutional ethics approval
+is not required for self-collected data among consenting adults who
+understand the purpose. A signed consent record is maintained for each
+participant.
 
 ### D27 - Calibrated edge weights `ACTIVE`
 

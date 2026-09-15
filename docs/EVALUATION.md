@@ -60,9 +60,10 @@ the repository or must be downloaded by the user.
 
 ### 1.2 Corpus B, collected
 
-Real signal, invented content, collected under institutional ethics approval with
-participant consent (D26). This is the in-domain evaluation set and the only data
-that matches deployment conditions.
+Real signal, invented content, collected with participant consent documentation
+(D26) — a signed consent record from each person appearing in collected footage.
+This is the in-domain evaluation set and the only data that matches deployment
+conditions.
 
 | Item | Target | Purpose |
 |:---|:---|:---|
@@ -72,8 +73,8 @@ that matches deployment conditions.
 
 Two days of collection produces something no public dataset can: in-domain
 handwriting on the actual form layouts, and multi-camera handoff with ground truth
-you control. Consent forms and ethics approval are prerequisites, not paperwork to
-do afterwards (PRD Q2).
+you control. Signed participant consent records are prerequisites
+for data collection. See D26.
 
 ### 1.3 Corpus C, synthetic
 
@@ -276,7 +277,7 @@ cycle. A fortnight with no new `RESULTS.md` row means something is stuck.
 | M3 | Document recognition | S3 reported; per-script status table published |
 | M4 | Extraction and graph | S4 and S5 reported |
 | M5 | Identity and ledger | S6 at 100% on both correctness metrics |
-| M6 | Campus pilot | Ethics approval obtained, Corpus B collected, S7 reported over a multi-day run |
+| M6 | Campus pilot | Participant consent documentation obtained and signed before collection begins, Corpus B collected, S7 reported over a multi-day run |
 
 M6 is where the project becomes defensible: a real deployment, real optics, real
 handwriting, consent documented, numbers published.

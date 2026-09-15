@@ -181,8 +181,8 @@ M3 (document recognition, S3) is independent of M1 and M2, so it is the natural
 parallel track when someone else joins.
 
 M4 (extraction and graph) depends on M3. M5 (identity and ledger) is independent
-of all of them. M6 (campus pilot) needs ethics approval started early, since it
-has a lead time nothing else does.
+of all of them. M6 (campus pilot) needs consent forms prepared and signed before
+collection starts — see D26 for the collection approach.
 
 Full milestone definitions are in `EVALUATION.md` §3.
 

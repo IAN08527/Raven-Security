@@ -293,7 +293,7 @@ operative figure. Re-measuring past 16 needs more provisioned RTSP sources.
 | # | Question | Blocks | Owner |
 |:---|:---|:---|:---|
 | Q1 | Which Indic scripts are in the initial training mix | S3 scope, corpus download | Team |
-| Q2 | Institutional ethics approval process for camera and handwriting collection | Corpus B entirely | Team, with faculty |
+| Q2 | Participant consent process for footage and form collection | Resolved — formal institutional approval not required for self-collected data among consenting participants per D26. Signed consent records maintained. Confirm host institution policy with faculty contact before collection. | Resolved |
 | Q3 | Server hardware for the eventual pilot | NFR-1 at deployment scale | Deferred until a pilot exists |
 | Q4 | Which agency organisations the Fabric orgs represent | D22 MSP design | Deferred, does not block build |
 | Q5 | Retention policy for tracklet embeddings | D7 index growth | Before continuous operation |
