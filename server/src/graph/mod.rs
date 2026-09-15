@@ -1,5 +1,13 @@
 //! Graph queries and endpoints (M4-T3, D23, FR-4.1/FR-4.2/FR-4.3/FR-4.4).
 //!
+//! Auth→assignment→audit (M5-T3, D21), mirroring `api::entities`: verified
+//! GoTrue identity, any assigned role (io, analyst, auditor — the admin has
+//! no case-content access), a case-assignment check before any projection
+//! query runs, and one audit row per successful query. The assignment check
+//! matters more here than on Postgres-backed routes: Neo4j queries do not
+//! go through Postgres RLS, so without it any authenticated user knowing a
+//! case id could read its graph.
+//!
 //! Person-centric (D23): every query defaults to person-to-person.
 //! Other types are returned only when explicitly requested via `types`.
 //! Traversal is pure functions over a `GraphSnapshot`; the `GraphStore`
@@ -21,13 +29,18 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
 use ts_rs::TS;
 use uuid::Uuid;
+
+use crate::audit::{record_action, AssignmentStore, AuditStore};
+use crate::auth::{authenticate_request, AppRole, AuthContext, JwksCache, ProfilesStore};
+use crate::ledger::LedgerClient;
 
 /// Transport guard: BFS stops adding nodes beyond this many. Pagination
 /// is the follow-up; silently truncating relevance-ranked results would
@@ -355,6 +368,17 @@ impl InMemoryGraphStore {
     pub fn seed_verification(&self, file_id: Uuid, state: VerificationState) {
         self.lock().verification.insert(file_id, state);
     }
+
+    /// Owning case of an edge, for the evidence endpoint's assignment
+    /// check. The projection is keyed by case, so the lookup scans
+    /// snapshots for the edge id; production Neo4j resolves this with a
+    /// `MATCH` on the edge instead. `None` means no case holds the edge.
+    pub fn case_for_edge(&self, edge_id: &Uuid) -> Option<Uuid> {
+        let guard = self.lock();
+        guard.cases.iter().find_map(|(case_id, snapshot)| {
+            snapshot.edges.iter().any(|edge| &edge.id == edge_id).then_some(*case_id)
+        })
+    }
 }
 
 impl GraphStore for InMemoryGraphStore {
@@ -414,27 +438,110 @@ fn error(code: &'static str, status: StatusCode, message: impl Into<String>) -> 
     )
 }
 
-/// Bearer presence check (mirrors `api::review`; consolidated when auth
-/// wiring lands -- duplicated, not shared, so M2/M3 files stay untouched).
-fn require_session(headers: &HeaderMap) -> Option<axum::response::Response> {
-    let authorised = headers
-        .get(axum::http::header::AUTHORIZATION)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| {
-            value.strip_prefix("Bearer ").is_some_and(|token| !token.trim().is_empty())
-        });
-    if authorised {
-        None
-    } else {
-        Some(
+fn hex_of(hasher: Sha256) -> String {
+    hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+/// M5 attribution dependencies shared with `api::entities` (D21): every
+/// graph query is an attributable read with an audit row.
+#[derive(Clone)]
+pub struct GraphDeps {
+    pub auth: Arc<JwksCache>,
+    pub ledger: LedgerClient,
+    pub audit: AuditStore,
+    pub profiles: ProfilesStore,
+    pub assignments: AssignmentStore,
+}
+
+#[derive(Clone)]
+struct GraphState {
+    store: InMemoryGraphStore,
+    auth: Arc<JwksCache>,
+    ledger: LedgerClient,
+    audit: AuditStore,
+    profiles: ProfilesStore,
+    assignments: AssignmentStore,
+}
+
+pub fn router(store: InMemoryGraphStore, deps: GraphDeps) -> Router {
+    let state = GraphState {
+        store,
+        auth: deps.auth,
+        ledger: deps.ledger,
+        audit: deps.audit,
+        profiles: deps.profiles,
+        assignments: deps.assignments,
+    };
+    Router::new()
+        .route("/cases/:case_id/graph/ego", get(ego_handler))
+        .route("/cases/:case_id/graph/macro", get(macro_handler))
+        .route("/edges/:id/evidence", get(evidence_handler))
+        .with_state(state)
+        // NOTE: GET /entities/:id is NOT served here. It briefly lived in
+        // both this router and api::entities, which is a boot panic once
+        // merged (axum rejects same-path+method overlaps) or a silent
+        // shadow. The canonical owner is api::entities: verified GoTrue
+        // identity, assignment enforcement, audit row, and the full §2.5
+        // shape (associated cases + provenance), which the projection
+        // detail below never had.
+}
+
+/// Any assigned role may query (mirrors `api::entities`: io, analyst,
+/// auditor; the administrator is excluded by the role gate — admin manages
+/// users and cases without read access to case content, D21). The
+/// assignment check runs before any projection query: Neo4j reads do not
+/// pass Postgres RLS, so this gate is the only thing stopping an
+/// authenticated user who knows a case id from reading its graph.
+/// Unassigned callers get `CASE_ACCESS_DENIED`, never an empty result.
+async fn authorize_case(
+    headers: &HeaderMap,
+    state: &GraphState,
+    case_id: &Uuid,
+) -> Result<AuthContext, Box<Response>> {
+    let context = authenticate_request(
+        headers,
+        &state.auth,
+        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor],
+    )
+    .await?;
+    if !state.assignments.is_assigned(case_id, &context.user_id) {
+        return Err(Box::new(
             error(
-                "UNAUTHENTICATED",
-                StatusCode::UNAUTHORIZED,
-                "valid session required (Bearer token)",
+                "CASE_ACCESS_DENIED",
+                StatusCode::FORBIDDEN,
+                format!("no assignment for this user on case {case_id}"),
             )
             .into_response(),
-        )
+        ));
     }
+    Ok(context)
+}
+
+async fn anchor_query(
+    state: &GraphState,
+    context: &AuthContext,
+    case_id: Uuid,
+    action: &str,
+    object_id: &str,
+    payload_hash: String,
+) {
+    record_action(
+        crate::audit::ActionDeps {
+            audit: &state.audit,
+            ledger: &state.ledger,
+            profiles: &state.profiles,
+        },
+        crate::audit::ActionRecord {
+            case_id,
+            user_id: context.user_id,
+            user_role: context.role,
+            action: action.to_string(),
+            object_type: "case".to_string(),
+            object_id: object_id.to_string(),
+            payload_hash,
+        },
+    )
+    .await;
 }
 
 fn parse_types(raw: Option<String>) -> Result<HashSet<EntityType>, String> {
@@ -455,27 +562,6 @@ fn parse_types(raw: Option<String>) -> Result<HashSet<EntityType>, String> {
     Ok(types)
 }
 
-#[derive(Clone)]
-struct GraphState {
-    store: InMemoryGraphStore,
-}
-
-pub fn router(store: InMemoryGraphStore) -> Router {
-    let state = GraphState { store };
-    Router::new()
-        .route("/cases/:case_id/graph/ego", get(ego_handler))
-        .route("/cases/:case_id/graph/macro", get(macro_handler))
-        .route("/edges/:id/evidence", get(evidence_handler))
-        .with_state(state)
-        // NOTE: GET /entities/:id is NOT served here. It briefly lived in
-        // both this router and api::entities, which is a boot panic once
-        // merged (axum rejects same-path+method overlaps) or a silent
-        // shadow. The canonical owner is api::entities: verified GoTrue
-        // identity, assignment enforcement, audit row, and the full §2.5
-        // shape (associated cases + provenance), which the projection
-        // detail below never had.
-}
-
 #[derive(Debug, Deserialize)]
 struct EgoQuery {
     entity_id: Option<Uuid>,
@@ -486,15 +572,18 @@ struct EgoQuery {
 
 /// GET /cases/{id}/graph/ego (FR-4.2). `entity_id` is required;
 /// `hops` defaults to 2, `min_weight` to 0.0, `types` to person-only.
+/// Verified identity plus case assignment first; one `graph.ego` audit
+/// row per successful query.
 async fn ego_handler(
     State(state): State<GraphState>,
     headers: HeaderMap,
     Path(case_id): Path<Uuid>,
     Query(query): Query<EgoQuery>,
 ) -> impl IntoResponse {
-    if let Some(unauthorised) = require_session(&headers) {
-        return unauthorised;
-    }
+    let context = match authorize_case(&headers, &state, &case_id).await {
+        Ok(context) => context,
+        Err(boxed) => return *boxed,
+    };
     let Some(entity_id) = query.entity_id else {
         return error(
             "VALIDATION_FAILED",
@@ -513,9 +602,18 @@ async fn ego_handler(
     let Some(snapshot) = state.store.snapshot(case_id) else {
         return error("NOT_FOUND", StatusCode::NOT_FOUND, "case graph not found").into_response();
     };
-    match ego_graph(&snapshot, entity_id, query.hops.unwrap_or(2), query.min_weight.unwrap_or(0.0), &types) {
-        Ok(payload) => (StatusCode::OK, Json(serde_json::to_value(payload).unwrap_or_default()))
-            .into_response(),
+    let hops = query.hops.unwrap_or(2);
+    let min_weight = query.min_weight.unwrap_or(0.0);
+    match ego_graph(&snapshot, entity_id, hops, min_weight, &types) {
+        Ok(payload) => {
+            let mut hasher = Sha256::new();
+            hasher.update(case_id.as_bytes());
+            hasher.update(entity_id.as_bytes());
+            anchor_query(&state, &context, case_id, "graph.ego", &case_id.to_string(), hex_of(hasher))
+                .await;
+            (StatusCode::OK, Json(serde_json::to_value(payload).unwrap_or_default()))
+                .into_response()
+        }
         Err(QueryError::TooManyHops(_)) => error(
             "VALIDATION_FAILED",
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -541,16 +639,19 @@ struct MacroQuery {
 }
 
 /// GET /cases/{id}/graph/macro (FR-4.3): full case network above the
-/// floor, person-to-person unless `types` says otherwise.
+/// floor, person-to-person unless `types` says otherwise. Verified
+/// identity plus case assignment first; one `graph.macro` audit row per
+/// successful query.
 async fn macro_handler(
     State(state): State<GraphState>,
     headers: HeaderMap,
     Path(case_id): Path<Uuid>,
     Query(query): Query<MacroQuery>,
 ) -> impl IntoResponse {
-    if let Some(unauthorised) = require_session(&headers) {
-        return unauthorised;
-    }
+    let context = match authorize_case(&headers, &state, &case_id).await {
+        Ok(context) => context,
+        Err(boxed) => return *boxed,
+    };
     let types = match parse_types(query.types) {
         Ok(types) => types,
         Err(message) => {
@@ -562,6 +663,10 @@ async fn macro_handler(
         return error("NOT_FOUND", StatusCode::NOT_FOUND, "case graph not found").into_response();
     };
     let payload = macro_graph(&snapshot, query.min_weight.unwrap_or(0.0), &types);
+    let mut hasher = Sha256::new();
+    hasher.update(case_id.as_bytes());
+    anchor_query(&state, &context, case_id, "graph.macro", &case_id.to_string(), hex_of(hasher))
+        .await;
     (StatusCode::OK, Json(payload)).into_response()
 }
 
@@ -569,14 +674,24 @@ async fn macro_handler(
 /// never triggers a graph re-query or layout reflow. Each row carries
 /// `tamper_state` (FR-4.6): a failed ledger verification marks the row
 /// tampered, pending verification marks it pending.
+///
+/// Verified identity first; the edge's owning case resolves the
+/// assignment check (lookup precedes authorization, matching
+/// `api::entities`: an unknown edge is 404, an unassigned case is 403).
+/// One `graph.evidence` audit row per successful query.
 async fn evidence_handler(
     State(state): State<GraphState>,
     headers: HeaderMap,
     Path(edge_id): Path<Uuid>,
 ) -> impl IntoResponse {
-    if let Some(unauthorised) = require_session(&headers) {
-        return unauthorised;
-    }
+    let Some(case_id) = state.store.case_for_edge(&edge_id) else {
+        return error("NOT_FOUND", StatusCode::NOT_FOUND, format!("edge {edge_id} not found"))
+            .into_response();
+    };
+    let context = match authorize_case(&headers, &state, &case_id).await {
+        Ok(context) => context,
+        Err(boxed) => return *boxed,
+    };
     let items: Vec<EvidenceItem> = state
         .store
         .edge_evidence(edge_id)
@@ -596,5 +711,10 @@ async fn evidence_handler(
             computed_hash: row.computed_hash.clone(),
         })
         .collect();
+    let mut hasher = Sha256::new();
+    hasher.update(case_id.as_bytes());
+    hasher.update(edge_id.as_bytes());
+    anchor_query(&state, &context, case_id, "graph.evidence", &edge_id.to_string(), hex_of(hasher))
+        .await;
     (StatusCode::OK, Json(items)).into_response()
 }

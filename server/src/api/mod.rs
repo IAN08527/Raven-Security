@@ -127,6 +127,13 @@ pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router 
         audit: stores.audit.clone(),
         profiles: stores.profiles.clone(),
     };
+    let graph_deps = crate::graph::GraphDeps {
+        auth: stores.auth.clone(),
+        ledger: stores.ledger.clone(),
+        audit: stores.audit.clone(),
+        profiles: stores.profiles.clone(),
+        assignments: stores.assignments.clone(),
+    };
     let nodes_deps = nodes::NodeDeps {
         auth: stores.auth.clone(),
         ledger: stores.ledger.clone(),
@@ -146,7 +153,7 @@ pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router 
         .merge(search::router(search_deps))
         .merge(map::router(map_deps))
         .merge(audit::router(stores.audit, stores.assignments, stores.auth, stores.ledger))
-        .merge(crate::graph::router(stores.graph));
+        .merge(crate::graph::router(stores.graph, graph_deps));
     Router::new().nest("/v1", v1)
 }
 

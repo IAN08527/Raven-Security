@@ -48,7 +48,7 @@ means LAN-reachable, not internet-reachable — see §1.
 
 | Boundary | Exposed to | Authentication | What an attacker gains on success |
 |:---|:---|:---|:---|
-| Server API `:8443` (HTTPS REST by contract; plaintext HTTP in the current tree — see §5) | Any LAN host; all pilot users | GoTrue RS256 Bearer token plus per-endpoint role gate plus per-case assignment check — **except** `GET /health` (no auth, by design), `GET /cameras` (no auth, by design per D32), `GET /v1/nodes` (no auth — health-board state, operator-visible like the camera list), and the graph projection reads (Bearer-presence check only, no signature verification — §6). `POST /v1/nodes` is admin-only with a `node.register` audit row (fixed; previously unauthenticated — see §9 history) | Full case-data access through the API: read any case's `source_files` rows and stored bytes, evidence and entity rows, candidate sightings, audit rows for assigned cases; confirm or reject sightings and merges as the compromised user; register cameras, engine nodes, and topology edges (admin token only); create or deactivate users (admin token only). A compromised admin token additionally yields account control but, by D21 enforcement, still no case content through the API — the attacker would need an officer/analyst token, or a database credential, for content. |
+| Server API `:8443` (HTTPS REST by contract; plaintext HTTP in the current tree — see §5) | Any LAN host; all pilot users | GoTrue RS256 Bearer token plus per-endpoint role gate plus per-case assignment check — **except** `GET /health` (no auth, by design), `GET /cameras` (no auth, by design per D32), `GET /v1/nodes` (no auth — health-board state, operator-visible like the camera list), and the graph projection reads carry full verification (GoTrue JWT plus case-assignment check plus one audit row per successful query — fixed; previously Bearer-presence only, see §9 history). `POST /v1/nodes` is admin-only with a `node.register` audit row (fixed; previously unauthenticated — see §9 history) | Full case-data access through the API: read any case's `source_files` rows and stored bytes, evidence and entity rows, candidate sightings, audit rows for assigned cases; confirm or reject sightings and merges as the compromised user; register cameras, engine nodes, and topology edges (admin token only); create or deactivate users (admin token only). A compromised admin token additionally yields account control but, by D21 enforcement, still no case content through the API — the attacker would need an officer/analyst token, or a database credential, for content. |
 | Engine node `:8756` (HTTPS + MJPEG + WSS by contract) | Any LAN host (clients fetch video; server sends control) | **None in the current tree.** `engine/main.py` exposes only `POST /calibrate`, which takes no credential. The contract's MJPEG signed-query-token scheme (`API_CONTRACTS.md` §3.1: short-lived token issued by the server because `<img>` cannot send an `Authorization` header) is specified but not implemented — no issuance or verification code exists in the server or engine tree, and the MJPEG and overlay sockets themselves are not present in `engine/main.py`. Status: pending, not partially built. | Today: trigger calibration runs and observe calibration results (compute-budget disclosure, no case data). Once the specified endpoints land without their specified tokens, the gain becomes live pixels from any camera and, on the control socket, forged tracklets and candidate sightings pushed upstream toward human review. The token scheme must land together with the first streaming endpoint, not after it. |
 | Neo4j Bolt `:7687` (HTTP `:7474`) | Any LAN host; engine nodes (topology reads) | Password authentication (`NEO4J_AUTH`, default `neo4j/ravenpassword` in `infra/compose/all-in-one.yml`; the server default `NEO4J_PASSWORD` must match it). No client-certificate or mTLS check in the current tree. | With the writer password: read the entire derived graph for all cases (person network, edge weights, camera topology) and write arbitrary nodes and edges, bypassing the server saga and therefore bypassing the audit emitter entirely — a false association injected here never produces an audit row. With only the engine's read-only topology credential: read camera topology, no writes (D10). The `:7474` browser endpoint exposes the same data over HTTP with the same password. |
 | Postgres `:5432` | Any LAN host; server; Supabase local stack (GoTrue, PostgREST) | Password authentication (compose defaults `postgres/postgres` in `infra/compose/all-in-one.yml`). RLS policies constrain the `authenticated`/`anon` paths; a superuser or service-role connection is not constrained by RLS at all. | With database credentials: read and write every row for every case — `source_files`, entities, identifiers, relationships, evidence spans, appearance embeddings, `audit_log` — and rewrite or delete `audit_log` rows, since row immutability is enforced by the service never issuing deletes, not by any database-level deny. This is the highest-value credential in the system, above any user token. |
@@ -196,6 +196,20 @@ compromised officer account (attributable, anchored, reversible — §6, §4).
   as `POST /cameras` (e951ad6). `GET /v1/nodes` stays unauthenticated by
   design: the health board is operator-visible state, like the D32 camera
   list.
+
+### 3.6 Graph query authorisation
+
+The three graph projection reads (`GET /cases/{id}/graph/ego`,
+`GET /cases/{id}/graph/macro`, `GET /edges/{id}/evidence` in
+`server/src/graph/mod.rs`) carry the same gate as every other case-data
+read: verified GoTrue identity, any assigned role (io, analyst, auditor),
+and a case-assignment check that runs before any projection query
+executes. The check matters more here than on Postgres-backed routes
+because Neo4j reads do not pass RLS — without it, any authenticated user
+who knows a case id could read its graph. Each successful query writes one
+audit row (`graph.ego`, `graph.macro`, `graph.evidence`). Previously these
+routes checked only Bearer-token presence; that gap is closed (see §9
+history).
 
 ---
 
@@ -349,23 +363,22 @@ and rejections, preview-extraction calls, entity listing and single-entity
 reads, entity notes, file reads and verifications, case-timeline reads,
 movement-timeline and routine reads, global search queries (one
 `search.query` row per call; platform-scoped nil-`case_id` when no case is
-specified), camera registrations and topology-edge creations
-(`camera.register`, `camera.edge`, platform-scoped), and user
-creation/deactivation (platform-scoped). File reads by any assigned role —
+ specified), camera registrations and topology-edge creations
+ (`camera.register`, `camera.edge`, platform-scoped), node registrations
+ (`node.register`, platform-scoped), graph projection queries (`graph.ego`,
+ `graph.macro`, `graph.evidence`), and user
+ creation/deactivation (platform-scoped). File reads by any assigned role —
 including the auditor — are logged, so access itself is evidence.
 
 **What it does not cover:**
 
-- **Graph projection reads are not individually audited.** The ego, macro,
-  and edge-evidence handlers write no audit rows. Worse than a logging gap,
-  these three routes are also the weakest-authenticated case-data reads in
-  the tree: they check only Bearer-token *presence*
-  (`server/src/graph/mod.rs`, `require_session`), performing no signature,
-  expiry, issuer, or role verification and no case-assignment check. Any
-  well-formed `Authorization: Bearer <non-empty>` value reaches the
-  projection. Before any deployment beyond the pilot, these routes must be
-  moved onto `authenticate_request` with the io/analyst/auditor gate and
-  given read audit rows like every other case-data read.
+- **Graph projection reads are verified, gated, and audited (fixed).**
+  The ego, macro, and edge-evidence handlers previously checked only
+  Bearer-token presence with no signature verification, no assignment
+  check, and no audit rows. They now verify the GoTrue JWT, admit only
+  assigned io/analyst/auditor roles, check the case assignment before any
+  projection query runs, and write one `graph.ego` / `graph.macro` /
+  `graph.evidence` audit row per successful query (§3.6).
 - **Search queries are audited — no gap here.** This item is listed because
   read-path auditing was assumed incomplete; verification against
   `server/src/api/search.rs` shows every call writes a `search.query` row.
@@ -484,10 +497,6 @@ ordered by harm, not by ease of fixing.
   tokens, database passwords, video, and case data all traverse the LAN in
   plaintext. Acceptable on the trusted pilot LAN; a blocker for any
   agency pilot.
-- **Graph reads are weakly authenticated and unaudited** (§6). The ego,
-  macro, and evidence routes accept any non-empty Bearer value and log
-  nothing. This is the largest currently-exploitable gap below the
-  plaintext-TLS item, because it requires only LAN access and no credential.
 - **Single server is a single point of failure** (`ARCHITECTURE.md` §10.5).
   Acceptable at pilot scale: any single service restart must lose no
   committed data (NFR-9), but total host loss halts everything including the
@@ -528,6 +537,9 @@ ordered by harm, not by ease of fixing.
 Amendment 2026-09-15 (node-registration auth fix): `POST /v1/nodes` is now
 admin-gated with `node.register` audit rows; §§2, 3.5, 6, 8 updated in the
 same change.
+Amendment 2026-09-15 (graph query auth fix): ego, macro, and evidence
+routes now verify JWT, enforce case assignment, and write audit rows;
+§§2, 3.6 (new), 6, 8 updated in the same change.
 No prior version exists; the first review is the pre-pilot review above.
 Every factual claim about implementation state was verified against the
 tree on that date; where the tree was silent, the silence is recorded as

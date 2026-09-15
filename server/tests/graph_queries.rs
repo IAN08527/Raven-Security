@@ -1,13 +1,25 @@
-//! M4-T3. Graph query and endpoint tests (D23, FR-4.1--FR-4.4):
+//! M4-T3 + M5-T3. Graph query and endpoint tests (D23, FR-4.1--FR-4.4):
 //! person-only default, hops rejection, evidence tamper states.
+//!
+//! Endpoint auth (D21): verified GoTrue identity plus a case assignment
+//! before any projection query runs — Neo4j reads do not pass Postgres
+//! RLS, so this gate is the only cross-case protection on these routes.
+//! Unassigned callers get CASE_ACCESS_DENIED on all three routes; every
+//! successful query writes one audit row (`graph.ego` / `graph.macro` /
+//! `graph.evidence`).
+
+#[path = "support/mod.rs"]
+mod support;
 
 use std::collections::{HashMap, HashSet};
 
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
 use serde_json::Value;
+use server::audit::{AssignmentStore, AuditStore};
+use server::auth::{AppRole, ProfilesStore};
 use server::graph::{
-    EntityDetail, EntityType, GraphSnapshot, GraphStore, InMemoryGraphStore, StoredEdge,
+    EntityDetail, EntityType, GraphDeps, GraphSnapshot, GraphStore, InMemoryGraphStore, StoredEdge,
     StoredEvidence, StoredIdentifier, StoredNode, VerificationState, ego_graph, macro_graph,
 };
 use tower::ServiceExt;
@@ -131,21 +143,65 @@ async fn body_json(response: axum::response::Response) -> (StatusCode, Value) {
     (status, serde_json::from_slice(&bytes).expect("valid JSON"))
 }
 
-fn authed_get(uri: String) -> Request<Body> {
-    Request::builder()
-        .method("GET")
-        .uri(uri)
-        .header("authorization", "Bearer test-session")
-        .body(Body::empty())
-        .expect("request builds")
+struct Harness {
+    app: axum::Router,
+    assignments: AssignmentStore,
+    audit: AuditStore,
+    case_id: Uuid,
+    center: Uuid,
+    edge_id: Uuid,
+    _gateway: support::StubGateway,
+}
+
+impl Harness {
+    async fn start() -> Self {
+        let (store, case_id, center, edge_id, _) = seed_store();
+        let assignments = AssignmentStore::default();
+        let audit = AuditStore::default();
+        let profiles = ProfilesStore::default();
+        let auth = support::test_auth_cache();
+        let gateway = support::StubGateway::start().await;
+        let app = server::graph::router(
+            store.clone(),
+            GraphDeps {
+                auth,
+                ledger: gateway.client(),
+                audit: audit.clone(),
+                profiles,
+                assignments: assignments.clone(),
+            },
+        );
+        Self { app, assignments, audit, case_id, center, edge_id, _gateway: gateway }
+    }
+
+    fn officer_token(&self, user: &Uuid) -> String {
+        support::mint_token(user, "io", 3600)
+    }
+
+    /// An assigned officer's token (assignment defaults to the io role).
+    fn assigned_token(&self) -> (Uuid, String) {
+        let user = Uuid::new_v4();
+        self.assignments.assign(self.case_id, user, AppRole::Io);
+        let token = self.officer_token(&user);
+        (user, token)
+    }
+}
+
+fn authed_get(uri: String, token: Option<&str>) -> Request<Body> {
+    let mut builder = Request::builder().method("GET").uri(uri);
+    if let Some(token) = token {
+        builder = builder.header("authorization", format!("Bearer {token}"));
+    }
+    builder.body(Body::empty()).expect("request builds")
 }
 
 #[tokio::test]
 async fn ego_endpoint_hops_3_returns_422() {
-    let (store, case_id, center, _, _) = seed_store();
-    let app = server::graph::router(store);
-    let uri = format!("/cases/{case_id}/graph/ego?entity_id={center}&hops=3");
-    let response = app.oneshot(authed_get(uri)).await.expect("router responds");
+    let harness = Harness::start().await;
+    let (_, token) = harness.assigned_token();
+    let uri = format!("/cases/{}/graph/ego?entity_id={}&hops=3", harness.case_id, harness.center);
+    let response =
+        harness.app.clone().oneshot(authed_get(uri, Some(&token))).await.expect("router responds");
     let (status, parsed) = body_json(response).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(parsed["error"]["code"], "VALIDATION_FAILED");
@@ -153,10 +209,11 @@ async fn ego_endpoint_hops_3_returns_422() {
 
 #[tokio::test]
 async fn evidence_endpoint_returns_tamper_state_per_row() {
-    let (store, _, _, edge_id, _) = seed_store();
-    let app = server::graph::router(store);
-    let uri = format!("/edges/{edge_id}/evidence");
-    let response = app.oneshot(authed_get(uri)).await.expect("router responds");
+    let harness = Harness::start().await;
+    let (_, token) = harness.assigned_token();
+    let uri = format!("/edges/{}/evidence", harness.edge_id);
+    let response =
+        harness.app.clone().oneshot(authed_get(uri, Some(&token))).await.expect("router responds");
     let (status, parsed) = body_json(response).await;
     assert_eq!(status, StatusCode::OK);
     let rows = parsed.as_array().expect("array");
@@ -167,4 +224,100 @@ async fn evidence_endpoint_returns_tamper_state_per_row() {
     // FR-7.2: tampered rows show both hashes, never color alone.
     assert_eq!(rows[0]["ledger_hash"], "ledger-abc123");
     assert_eq!(rows[0]["computed_hash"], "computed-def456");
+}
+
+#[tokio::test]
+async fn unassigned_user_gets_denied_on_ego_query() {
+    let harness = Harness::start().await;
+    let stranger = Uuid::new_v4();
+    let token = harness.officer_token(&stranger);
+    let uri = format!("/cases/{}/graph/ego?entity_id={}", harness.case_id, harness.center);
+    let response =
+        harness.app.clone().oneshot(authed_get(uri, Some(&token))).await.expect("router responds");
+    let (status, parsed) = body_json(response).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(parsed["error"]["code"], "CASE_ACCESS_DENIED");
+
+    // Rejected queries audit nothing.
+    assert!(harness.audit.is_empty());
+}
+
+#[tokio::test]
+async fn unassigned_user_gets_denied_on_macro_query() {
+    let harness = Harness::start().await;
+    let stranger = Uuid::new_v4();
+    let token = harness.officer_token(&stranger);
+    let uri = format!("/cases/{}/graph/macro", harness.case_id);
+    let response =
+        harness.app.clone().oneshot(authed_get(uri, Some(&token))).await.expect("router responds");
+    let (status, parsed) = body_json(response).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(parsed["error"]["code"], "CASE_ACCESS_DENIED");
+
+    assert!(harness.audit.is_empty());
+}
+
+#[tokio::test]
+async fn unassigned_user_gets_denied_on_evidence_query() {
+    let harness = Harness::start().await;
+    let stranger = Uuid::new_v4();
+    let token = harness.officer_token(&stranger);
+    let uri = format!("/edges/{}/evidence", harness.edge_id);
+    let response =
+        harness.app.clone().oneshot(authed_get(uri, Some(&token))).await.expect("router responds");
+    let (status, parsed) = body_json(response).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(parsed["error"]["code"], "CASE_ACCESS_DENIED");
+
+    assert!(harness.audit.is_empty());
+}
+
+#[tokio::test]
+async fn assigned_user_succeeds_on_all_three_queries_with_audit_rows() {
+    let harness = Harness::start().await;
+    let (user, token) = harness.assigned_token();
+
+    let uri = format!("/cases/{}/graph/ego?entity_id={}", harness.case_id, harness.center);
+    let response = harness
+        .app
+        .clone()
+        .oneshot(authed_get(uri, Some(&token)))
+        .await
+        .expect("router responds");
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let uri = format!("/cases/{}/graph/macro", harness.case_id);
+    let response = harness
+        .app
+        .clone()
+        .oneshot(authed_get(uri, Some(&token)))
+        .await
+        .expect("router responds");
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let uri = format!("/edges/{}/evidence", harness.edge_id);
+    let response =
+        harness.app.clone().oneshot(authed_get(uri, Some(&token))).await.expect("router responds");
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let rows = harness.audit.rows_for_case(&harness.case_id);
+    assert_eq!(rows.len(), 3);
+    let actions: Vec<_> = rows.iter().map(|row| row.action.as_str()).collect();
+    assert!(actions.contains(&"graph.ego"));
+    assert!(actions.contains(&"graph.macro"));
+    assert!(actions.contains(&"graph.evidence"));
+    assert!(rows.iter().all(|row| row.user_id == user));
+    assert!(rows.iter().all(|row| row.user_role == AppRole::Io));
+}
+
+#[tokio::test]
+async fn graph_query_without_token_is_unauthenticated() {
+    let harness = Harness::start().await;
+    let uri = format!("/cases/{}/graph/macro", harness.case_id);
+    let response =
+        harness.app.clone().oneshot(authed_get(uri, None)).await.expect("router responds");
+    let (status, parsed) = body_json(response).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(parsed["error"]["code"], "UNAUTHENTICATED");
+    assert!(harness.audit.is_empty());
 }

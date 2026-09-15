@@ -17,7 +17,7 @@ use serde_json::Value;
 use server::api::entities::{ConsolidateGraph, EntitiesDeps, Entity, EntityStore, MergeStore, NotesStore, SyncState};
 use server::audit::{AssignmentStore, AuditStore};
 use server::auth::{AppRole, ProfilesStore};
-use server::graph::InMemoryGraphStore;
+use server::graph::{GraphDeps, InMemoryGraphStore};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -51,16 +51,25 @@ async fn entities_and_graph_routers_merge_without_overlap() {
             entities.clone(),
             MergeStore::default(),
             EntitiesDeps {
-                auth,
+                auth: auth.clone(),
                 ledger: gateway.client(),
                 audit: audit.clone(),
-                profiles,
+                profiles: profiles.clone(),
                 assignments: assignments.clone(),
                 notes: NotesStore::default(),
                 graph: ConsolidateGraph::default(),
             },
         )
-        .merge(server::graph::router(InMemoryGraphStore::default())),
+        .merge(server::graph::router(
+            InMemoryGraphStore::default(),
+            GraphDeps {
+                auth: auth.clone(),
+                ledger: gateway.client(),
+                audit: audit.clone(),
+                profiles: profiles.clone(),
+                assignments: assignments.clone(),
+            },
+        )),
     );
 
     let case_id = Uuid::new_v4();
