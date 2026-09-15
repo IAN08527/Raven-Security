@@ -45,6 +45,9 @@ decision needs a number to be correct, it names the experiment that produces it.
 | D26 | Campus pilot before agency pilot | ACTIVE | - |
 | D27 | Calibrated edge weights | ACTIVE | - |
 | D28 | insight_reviews RLS tightening | ACTIVE | - |
+| D29 | Preview extraction contract | ACTIVE | - |
+| D30 | TypeScript type generation | ACTIVE, not yet implemented | - |
+| D31 | Egress gate scope: anchor hrefs excluded | ACTIVE | - |
 | D32 | Camera list unauthenticated on LAN | ACTIVE | - |
 
 ---
