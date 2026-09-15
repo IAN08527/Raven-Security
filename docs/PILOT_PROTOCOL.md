@@ -57,6 +57,13 @@ unchecked item blocks collection, not just the session.
 - [ ] All services healthy: `GET /health` all green (postgres, neo4j,
   ledger), basemap `GET /maharashtra` 200, glyph range 200, engine
   node `ready` in `GET /nodes` with a sane `budget_dps`.
+- [ ] Engine node enrolment wired (BLOCKING): `POST /v1/nodes` requires a
+  verified admin JWT since the node-registration auth fix, so
+  `register_with_server` answers 401 and the node reports
+  `registered: false` until admin credentials are provided to the engine.
+  Confirm `registered: true` in the engine startup log and the node
+  `ready` in `GET /nodes`. A tracking session cannot start until the
+  node is registered — this item blocks collection, not just the session.
 - [ ] At least one case created and assigned (the pilot case; team
   roles assigned per D21 — io, analyst, auditor — with the admin
   excluded from case content).
