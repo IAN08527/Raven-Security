@@ -127,10 +127,16 @@ pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router 
         audit: stores.audit.clone(),
         profiles: stores.profiles.clone(),
     };
+    let nodes_deps = nodes::NodeDeps {
+        auth: stores.auth.clone(),
+        ledger: stores.ledger.clone(),
+        audit: stores.audit.clone(),
+        profiles: stores.profiles.clone(),
+    };
     let v1 = Router::new()
         .merge(health)
         .merge(cameras::router(stores.cameras.clone(), stores.camera_edges.clone(), cameras_deps))
-        .merge(nodes::router(stores.nodes))
+        .merge(nodes::router(stores.nodes, nodes_deps))
         .merge(reid::router(stores.targets, stores.candidates, stores.cameras, reid_deps))
         .merge(review::router(stores.reviews, review_deps))
         .merge(entities::router(stores.entities, stores.merges, entities_deps))
