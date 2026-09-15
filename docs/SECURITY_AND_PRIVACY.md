@@ -196,6 +196,31 @@ compromised officer account (attributable, anchored, reversible — §6, §4).
   as `POST /cameras` (e951ad6). `GET /v1/nodes` stays unauthenticated by
   design: the health board is operator-visible state, like the D32 camera
   list.
+- **Engine node service token.** The engine node registers with a
+  dedicated service account (`badge_no` `ENGINE-NODE-01`, `admin` role),
+  presenting that account's GoTrue access token as a Bearer credential
+  on `POST /v1/nodes`, read from the `RAVEN_ENGINE_TOKEN` environment
+  variable (`engine/main.py`; setup in `DEPLOYMENT.md` "First-time
+  setup"). It is an ordinary access token, not a non-expiring key: it
+  expires after `jwt_expiry` (`supabase/config.toml`, 3600 seconds by
+  default, maximum 604800), and the server enforces expiry on every
+  request (§3.1) — an expired token answers 401 and the node reports
+  `registered: false` until the operator re-signs in, updates the value,
+  and restarts the node. Registration failure is non-blocking (the node
+  still serves local feeds) but no tracking session is possible until it
+  succeeds. If the token is compromised, revoke it by deactivating the
+  service account (GoTrue user and the in-memory directory entry): the
+  directory overlay rejects its tokens on the next request — with the
+  standing §3.1 caveat that the overlay is in-memory and lost on server
+  restart, so the GoTrue user must be disabled or deleted as well, not
+  just the directory entry. Rotate by re-signing in as the service
+  account (or creating a new one), updating `RAVEN_ENGINE_TOKEN`, and
+  restarting the engine node. The token value is never logged by the
+  engine, not even partially. Blast-radius note: with this token a
+  compromised engine node can additionally register nodes, cameras, and
+  topology edges as admin (each audited to the service account) — still
+  no case content (D21 admin exclusion, enforced in the route gates) and
+  still no graph writes (§3.4, D10).
 
 ### 3.6 Graph query authorisation
 
@@ -540,6 +565,12 @@ routes now verify JWT, enforce case assignment, and write audit rows;
 Amendment 2026-09-15 (merge revert endpoint): `POST /merges/{id}/revert`
 implemented with snapshot restore, pending-marking, audit row, and ledger
 anchor; §§4.4, 6, 8 updated in the same change.
+Amendment 2026-09-15 (engine enrolment credential): `register_with_server`
+presents a dedicated `ENGINE-NODE-01` service-account admin JWT from
+`RAVEN_ENGINE_TOKEN` (Bearer on `POST /v1/nodes`, non-blocking, never
+logged); §3.5 records its hourly-by-default expiry, revocation, rotation,
+and blast radius. Template `engine/.env.example` committed (no secrets);
+`engine/.env` gitignored.
 No prior version exists; the first review is the pre-pilot review above.
 Every factual claim about implementation state was verified against the
 tree on that date; where the tree was silent, the silence is recorded as

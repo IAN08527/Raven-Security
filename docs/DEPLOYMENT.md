@@ -90,12 +90,13 @@ cd raven
 
 ### 2. Copy environment files
 
-There is **no committed `.env` template** in the repository as of this
-writing. The only committed environment file is
-`client/.env.development` (basemap URLs for local development). Every
-other variable below is read directly from the process environment with
-the defaults stated. Until a template is committed, create the files by
-hand from this table and keep them out of git.
+There is one committed `.env` template in the repository:
+`engine/.env.example` (the engine node's service-account token, no
+secrets inside — copy it to `engine/.env`, gitignored, and fill in the
+value locally; step 9). Every other variable below is read directly
+from the process environment with the defaults stated. The only other
+committed environment file is `client/.env.development` (basemap URLs
+for local development).
 
 Two files are needed:
 
@@ -124,6 +125,7 @@ Two files are needed:
 | `RAVEN_SERVER_URL` | Engine node | Has a default; set manually in split deployments | `http://server:8443` | Server URL the engine node registers with (`POST /v1/nodes`) |
 | `RAVEN_NODE_NAME` | Engine node | Has a default | `engine-node-1` | Node name; re-posting with the same name updates the row rather than duplicating it |
 | `RAVEN_NODE_ADDRESS` | Engine node | Has a default | `https://localhost:8756` | Node address reported to the server |
+| `RAVEN_ENGINE_TOKEN` | Engine node (`engine/main.py`) | **Must be set manually** (copy `engine/.env.example` to `engine/.env`, gitignored); no default | unset (registration is refused without it) | Service-account admin JWT the engine presents as a Bearer credential on `POST /v1/nodes` (step 9); never commit or log the value |
 | `LEDGER_MODE` | Ledger gateway (`ledger/gateway/server.js`) | Has a default; **the pilot runs the mock only until Fabric is stood up** | `mock` | `mock` = in-process log; `fabric` = multi-org network in `infra/fabric/` |
 | `LEDGER_GATEWAY_PORT` | Ledger gateway | Has a default | `8801` | Port the gateway listens on |
 | `LEDGER_MOCK_PORT` | Standalone mock (`ledger/mock/index.js`) | Has a default | `8801` | Port for the standalone mock twin (the compose file runs the mock, not this twin) |
@@ -350,7 +352,93 @@ established on that machine). This is a real gap, not a documentation
 gap: confirm the exact first-login path on the pilot machine and write
 it down there rather than following this section blindly.
 
-### 9. Run the GPU calibration check
+### 9. Create engine node service account
+
+`POST /v1/nodes` requires a verified admin JWT
+(`server/src/api/nodes.rs`: 401 without a token, 403 for a non-admin
+identity), so the engine node registers with a dedicated service
+account — a machine identity for the engine process, not any operator's
+personal token. Without it the node logs `RAVEN_ENGINE_TOKEN not set`
+(or `Engine token rejected by server`) and reports `registered: false`;
+calibration numbers are still returned, but no tracking session is
+possible until registration succeeds.
+
+**Step A — create the service user through the GoTrue admin API.**
+With Supabase local running (API on :54321), using the `service_role`
+key from `supabase status` (machine-local, never committed):
+
+```bash
+curl -X POST http://localhost:54321/auth/v1/admin/users \
+  -H "apikey: <service_role>" \
+  -H "Authorization: Bearer <service_role>" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"engine-node-01@raven.local","password":"<long-random-password>",
+       "email_confirm":true,
+       "app_metadata":{"app_role":"admin"},
+       "user_metadata":{"app_role":"admin"}}'
+```
+
+Set the role in both metadata objects: the server reads
+`app_metadata.app_role` first and falls back to
+`user_metadata.app_role` (`server/src/auth.rs`), so either path
+resolves to `admin`. Read back the returned user `id`. There is no
+GoTrue endpoint that mints a token directly for a user id — the token
+comes from signing in as this account (Step B), which is the standard
+GoTrue password-grant flow, not an admin shortcut.
+
+**Step B — sign in as the service account to get its token.**
+
+```bash
+curl -X POST "http://localhost:54321/auth/v1/token?grant_type=password" \
+  -H "apikey: <anon-key-from-supabase-status>" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"engine-node-01@raven.local","password":"<same-password>"}'
+```
+
+The response's `access_token` is the value for `RAVEN_ENGINE_TOKEN`.
+It is an ordinary GoTrue access token: it expires after `jwt_expiry`
+(`supabase/config.toml`, 3600 seconds by default, maximum 604800 = one
+week). For the pilot, consider setting `jwt_expiry = 604800` so the
+engine credential rotates weekly rather than hourly — a configuration
+choice, recorded on the pilot machine, not a code change. Refresh is
+re-signing in (this step again), updating the value, and restarting the
+engine node.
+
+**Step C — record the service account in the server's directory.**
+Like every admin user in step 8, the service account must also exist in
+the running server's in-memory directory (`POST /admin/users` with
+`badge_no` `ENGINE-NODE-01`, role `admin`, full name `Engine Node
+Service Account`) until per-request Postgres wiring lands — a `profiles`
+row or GoTrue user alone does not yet confer API rights on a fresh
+server boot.
+
+**Step D — write `engine/.env` and export it.** Copy
+`engine/.env.example` to `engine/.env` (gitignored — never commit the
+value) and fill in:
+
+```bash
+RAVEN_SERVER_URL=http://localhost:8443
+RAVEN_ENGINE_TOKEN=<access-token-from-step-B>
+```
+
+The URL is `http`, not `https`, for the all-in-one loopback: TLS on
+inter-service traffic is required by design but unimplemented in the
+current tree (see Health verification caveats and
+`SECURITY_AND_PRIVACY.md` §5) — change the scheme when TLS lands. In
+split deployments set this to the server's reachable address. The
+engine reads its process environment directly (no dotenv loader is
+committed), so export these into the engine process however the pilot
+machine manages it (shell export, systemd `EnvironmentFile`, or
+equivalent) and treat the token as a secret everywhere: never commit
+it, never log it (the engine never logs the value, not even partially).
+
+**Step E — restart the engine node and verify.** Confirm `Engine node
+registered: <node_id>` in the engine log and the node `ready` in `GET
+/nodes` on the server. `registered: false` with `Engine token rejected
+by server` means the token is missing, expired, or not an admin token —
+re-do Step B (tokens expire hourly on the default `jwt_expiry`).
+
+### 10. Run the GPU calibration check
 
 Specified command:
 
@@ -411,7 +499,7 @@ before proceeding.
 is bytes of headroom on the pilot machine and cannot be stated here
 without measuring that machine.)
 
-### 10. Open the client: how to build and launch the Tauri desktop app
+### 11. Open the client: how to build and launch the Tauri desktop app
 
 ```bash
 cd client
@@ -522,7 +610,12 @@ diagnosing, not for running the pilot on.
   server outage must not hide a real measurement (API_CONTRACTS §4).
   Check `RAVEN_SERVER_URL` (default `http://server:8443` is the split
   hostname, not loopback — set it to the server's reachable address),
-  then check the server is up and `GET /nodes` on the server.
+  then `RAVEN_ENGINE_TOKEN`: unset logs `RAVEN_ENGINE_TOKEN not set`,
+  a 401 (`Engine token rejected by server`) means the token is missing,
+  expired (hourly on the default `jwt_expiry` — re-sign in per step 9),
+  or not an admin token, and a 403 (`Engine token lacks admin role`)
+  means the service account's role is not `admin`. Then check the
+  server is up and `GET /nodes` on the server.
 - **GPU not detected (falls back to CPU, what that means).** There is
   no silent CPU fallback in the calibration path: `calibrate()` raises
   `RuntimeError("calibrate() requires a CUDA device")` when CUDA is

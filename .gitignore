@@ -44,6 +44,11 @@ models/*
 *.onnx
 *.engine
 
+# Engine node enrolment credential (RAVEN_ENGINE_TOKEN): a machine-local
+# service-account token, never committed. engine/.env.example is the
+# committed template (no secrets); engine/.env holds the real value.
+engine/.env
+
 # Local eval tooling binaries (mediamtx, ffmpeg) fetched for S1 throughput
 # measurement (M1-T8). Downloaded, never committed.
 eval/_bin/
