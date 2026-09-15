@@ -49,6 +49,14 @@ eval/_bin/
 # never committed. ODbL Produced Work, OSM attribution required.
 infra/tiles/*
 !infra/tiles/.gitkeep
+# Offline map glyphs (OpenMapTiles Noto Sans PBF stacks, served locally
+# with the basemap; never committed). The PBF files stay ignored; the
+# FONTS_LICENCE text file is tracked (required for the tiles-audit row).
+# NOTE: git cannot re-include a file inside an excluded directory, so the
+# glyphs dir itself is un-excluded first, then its contents re-excluded.
+!infra/tiles/glyphs/
+infra/tiles/glyphs/*
+!infra/tiles/glyphs/FONTS_LICENCE
 
 # OS / editor
 .DS_Store

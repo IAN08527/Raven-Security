@@ -45,6 +45,7 @@ decision needs a number to be correct, it names the experiment that produces it.
 | D26 | Campus pilot before agency pilot | ACTIVE | - |
 | D27 | Calibrated edge weights | ACTIVE | - |
 | D28 | insight_reviews RLS tightening | ACTIVE | - |
+| D32 | Camera list unauthenticated on LAN | ACTIVE | - |
 
 ---
 
@@ -599,3 +600,26 @@ all six fetching vectors caught, all three inert anchor cases ignored.
 
 **Origin:** Session 12 Map screen — MapLibre bundle included
 maplibre.org anchor strings that triggered a false positive.
+
+### D32 - Camera list unauthenticated on LAN `ACTIVE`
+
+**Context:** `GET /cameras` requires no authentication. This was
+intentional — officers need the camera list without admin rights —
+but was never recorded as a decision, so it read as an oversight.
+
+**Decision:** `GET /cameras` requires no authentication. Rationale:
+any authenticated endpoint on a premises LAN that lists camera
+locations is not meaningfully more secure than an unauthenticated
+one — an attacker with LAN access already has the information.
+Requiring auth adds friction for legitimate users (investigators
+checking feeds) with no real security benefit in the threat model.
+Camera registration (`POST /cameras`) requires admin auth (e951ad6),
+and topology edge creation (`POST /camera-edges`) requires admin auth
+with the same auth→audit pattern; both write platform-scoped
+(nil-`case_id`) audit rows (`camera.register`, `camera.edge`).
+
+**Revisit if:** the system is ever exposed beyond a premises LAN.
+Pinned by `server/tests/cameras.rs`
+(`list_cameras_needs_no_authentication`).
+
+**Origin:** Session 13 — Part 4 camera auth audit.

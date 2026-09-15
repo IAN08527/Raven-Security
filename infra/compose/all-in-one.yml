@@ -86,6 +86,7 @@ services:
     restart: unless-stopped
     volumes:
       - ../tiles:/tiles:ro
+      - ../tiles/glyphs:/tiles/glyphs:ro
       - ./basemap/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "8802:8802"

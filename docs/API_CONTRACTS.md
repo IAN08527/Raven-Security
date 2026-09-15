@@ -192,6 +192,12 @@ DELETE /targets/{id}                    end tracking
 `stream_url` points at the engine node, not the server. Video never proxies
 through the server.
 
+`GET /cameras` requires no authentication (D32: camera locations on a
+premises LAN are not meaningfully protected by an auth gate). `POST
+/cameras` and `POST /camera-edges` are admin-only; each success writes
+one platform-scoped (nil-`case_id`, like §2.11) audit row —
+`camera.register` / `camera.edge` — before returning (rule 6).
+
 ### 2.7 Map
 
 ```

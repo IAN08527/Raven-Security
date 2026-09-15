@@ -7,13 +7,17 @@
 //! execution. All timestamps are case-clock (D16); nothing here reads
 //! system time.
 
+use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::reid::search::{TimeWindow, MAX_PRIOR_ADJUSTMENT};
 
-/// One ``LEADS_TO`` edge's travel statistics.
-#[derive(Debug, Clone, PartialEq)]
+/// One ``LEADS_TO`` edge's travel statistics. Serialised because
+/// `POST /camera-edges` (API_CONTRACTS.md §2.6) creates these rows
+/// through the server, the sole graph writer (D10); the prior only
+/// ever reads them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CameraEdge {
     pub from_camera: Uuid,
     pub to_camera: Uuid,

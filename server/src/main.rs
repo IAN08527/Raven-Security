@@ -62,6 +62,7 @@ async fn main() -> Result<()> {
         config,
         api::RouterStores {
             cameras: api::cameras::CameraStore::default(),
+            camera_edges: api::cameras::CameraEdgeStore::default(),
             nodes: api::nodes::NodeStore::default(),
             targets: api::reid::TargetStore::default(),
             candidates: api::reid::CandidateStore::default(),

@@ -14,11 +14,34 @@ mod support;
 use axum::body::{to_bytes, Body};
 use axum::http::{Request, StatusCode};
 use serde_json::Value;
-use server::api::cameras::CameraStore;
+use server::api::cameras::{CameraDeps, CameraEdgeStore, CameraStore};
+use server::audit::AuditStore;
+use server::auth::ProfilesStore;
 use server::case_clock::CaseClock;
 use time::macros::datetime;
 use tower::ServiceExt;
 use uuid::Uuid;
+
+/// Camera router with attribution dependencies. The ledger client never
+/// dials in these tests: registration success is not exercised here
+/// (all three router tests expect rejection), and `record_action`
+/// short-circuits to `skipped_no_identity` without an HTTP call when
+/// the actor has no `profiles.ledger_id`.
+fn test_router() -> axum::Router {
+    let auth = support::test_auth_cache();
+    let ledger = server::ledger::LedgerClient::new("http://127.0.0.1:8801/")
+        .expect("test ledger client builds");
+    server::api::cameras::router(
+        CameraStore::default(),
+        CameraEdgeStore::default(),
+        CameraDeps {
+            auth,
+            ledger,
+            audit: AuditStore::default(),
+            profiles: ProfilesStore::default(),
+        },
+    )
+}
 
 #[test]
 fn frame_250_at_25fps_is_ten_seconds_after_declared_start() {
@@ -34,7 +57,7 @@ fn frame_zero_is_exactly_the_declared_start() {
 
 #[tokio::test]
 async fn post_cameras_without_declared_start_ts_is_rejected() {
-    let app = server::api::cameras::router(CameraStore::default(), support::test_auth_cache());
+    let app = test_router();
     let admin = support::mint_token(&Uuid::new_v4(), "admin", 3600);
 
     let body = serde_json::json!({
@@ -62,7 +85,7 @@ async fn post_cameras_without_declared_start_ts_is_rejected() {
 
 #[tokio::test]
 async fn post_cameras_without_session_is_unauthenticated() {
-    let app = server::api::cameras::router(CameraStore::default(), support::test_auth_cache());
+    let app = test_router();
 
     let body = serde_json::json!({
         "code": "CAM-1",
@@ -88,7 +111,7 @@ async fn post_cameras_without_session_is_unauthenticated() {
 
 #[tokio::test]
 async fn post_cameras_with_non_admin_role_is_forbidden() {
-    let app = server::api::cameras::router(CameraStore::default(), support::test_auth_cache());
+    let app = test_router();
     let officer = support::mint_token(&Uuid::new_v4(), "io", 3600);
 
     let body = serde_json::json!({

@@ -32,6 +32,7 @@ pub mod timeline;
 /// still constructed explicitly at the call site, so nothing is hidden.
 pub struct RouterStores {
     pub cameras: cameras::CameraStore,
+    pub camera_edges: cameras::CameraEdgeStore,
     pub nodes: nodes::NodeStore,
     pub targets: reid::TargetStore,
     pub candidates: reid::CandidateStore,
@@ -120,9 +121,15 @@ pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router 
         locations: stores.locations.clone(),
         cameras: stores.cameras.clone(),
     };
+    let cameras_deps = cameras::CameraDeps {
+        auth: stores.auth.clone(),
+        ledger: stores.ledger.clone(),
+        audit: stores.audit.clone(),
+        profiles: stores.profiles.clone(),
+    };
     let v1 = Router::new()
         .merge(health)
-        .merge(cameras::router(stores.cameras.clone(), stores.auth.clone()))
+        .merge(cameras::router(stores.cameras.clone(), stores.camera_edges.clone(), cameras_deps))
         .merge(nodes::router(stores.nodes))
         .merge(reid::router(stores.targets, stores.candidates, stores.cameras, reid_deps))
         .merge(review::router(stores.reviews, review_deps))
