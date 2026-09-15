@@ -105,6 +105,8 @@ impl Harness {
             sync_state: SyncState::Synced,
             decided_by: None,
             ledger_tx_id: None,
+            reversible_snapshot: None,
+            reverted_at: None,
         });
         id
     }

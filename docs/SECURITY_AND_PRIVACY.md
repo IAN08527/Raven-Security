@@ -281,20 +281,20 @@ nothing in this system verifies it.
 
 Merges are proposals (`status='proposed'`) until a human confirms; the
 baseline schema carries `entity_merges.reversible_snapshot` (the merged
-row's pre-merge state) and a `reverted_at` column, so a wrong merge — two
-people's records fused — can be unwound by restoring the snapshot.
+row's pre-merge state) and a `reverted_at` column, and
+`POST /merges/{id}/revert` unwinds a confirmed merge through the API:
+io role only, confirmed-and-not-yet-reverted only (anything else is 409),
+both participants restored from the snapshot, both marked
+`sync_state='pending'` for the reconciler, the merge row returned to
+`proposed` with `reverted_at` set so the revert stays visible in history,
+and one `merge.revert` audit row with a ledger anchor. No unaudited
+database intervention is needed to undo a wrong merge.
 
-Two honest qualifications. First, **the revert exists in the schema but has
-no HTTP route in the current server tree**: `API_CONTRACTS.md` §2.5 lists
-`POST /merges/{id}/revert`, but the entities router serves only propose,
-decide, list, read, and notes — no revert handler exists. Until the endpoint
-lands, unwinding a merge means direct database intervention, which bypasses
-the audit emitter and should be treated as an exceptional, separately
-recorded act. Second, **some things are not reversible by design**: ledger
-entries (append-only; erasure is a new ledger action, never a deletion —
-DPIA §5), confirmed sightings once anchored, and `audit_log` rows (the
-service issues no deletes; there is no delete path for accountability
-records).
+One honest qualification: **some things are not reversible by design**:
+ledger entries (append-only; erasure is a new ledger action, never a
+deletion — DPIA §5), confirmed sightings once anchored, and `audit_log`
+rows (the service issues no deletes; there is no delete path for
+accountability records).
 
 ---
 
@@ -357,8 +357,8 @@ attempts a ledger anchor **before the endpoint returns**, so a recorded
 action and its cryptographic receipt travel together.
 
 **What the audit log covers in the current tree** (each verified at its call
-site): sighting lock-on and candidate confirmations/rejections (io only),
-merge proposals and confirm/reject decisions, review corrections, acceptances
+ site): sighting lock-on and candidate confirmations/rejections (io only),
+ merge proposals, confirm/reject decisions and reverts, review corrections, acceptances
 and rejections, preview-extraction calls, entity listing and single-entity
 reads, entity notes, file reads and verifications, case-timeline reads,
 movement-timeline and routine reads, global search queries (one
@@ -504,9 +504,6 @@ ordered by harm, not by ease of fixing.
 - **Ledger identity coverage is partial** (§6, `skipped_no_identity`). Every
   unattributed action weakens the evidentiary chain the ledger exists to
   provide; the pilot should track the unattributed share.
-- **Merge revert has no API route** (§4.4). Schema-ready, endpoint-missing;
-  the safety net against fused records currently requires unaudited direct
-  database work.
 - **Token expiry mid-session is a prospective gap** (§3.5). Polling clients
   re-authenticate per request today; the specified WebSocket must not
   convert that into authenticate-once semantics when it lands.
@@ -540,6 +537,9 @@ same change.
 Amendment 2026-09-15 (graph query auth fix): ego, macro, and evidence
 routes now verify JWT, enforce case assignment, and write audit rows;
 §§2, 3.6 (new), 6, 8 updated in the same change.
+Amendment 2026-09-15 (merge revert endpoint): `POST /merges/{id}/revert`
+implemented with snapshot restore, pending-marking, audit row, and ledger
+anchor; §§4.4, 6, 8 updated in the same change.
 No prior version exists; the first review is the pre-pilot review above.
 Every factual claim about implementation state was verified against the
 tree on that date; where the tree was silent, the silence is recorded as

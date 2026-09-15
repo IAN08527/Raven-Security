@@ -68,6 +68,8 @@ pub fn export_all(out_dir: &Path) -> Result<(), ts_rs::ExportError> {
         crate::api::entities::DecideMergeRequest,
         crate::api::entities::DecideDecision,
         crate::api::entities::DecideMergeResponse,
+        crate::api::entities::ReversibleSnapshot,
+        crate::api::entities::RevertMergeResponse,
         crate::api::entities::EntityListItem,
         crate::api::entities::ListEntitiesResponse,
         crate::api::entities::EntityDetailResponse,

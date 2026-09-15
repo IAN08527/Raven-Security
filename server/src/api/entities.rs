@@ -72,6 +72,19 @@ pub enum MergeStatus {
     Rejected,
 }
 
+/// Pre-merge state of both merge participants, captured at confirm
+/// time (FR-3.3 `entity_merges.reversible_snapshot`). A wrong merge fuses
+/// two people's records; the snapshot is what unwinds it.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct ReversibleSnapshot {
+    pub surviving_aliases: Vec<String>,
+    pub surviving_identifiers: Vec<String>,
+    pub surviving_relationships: Vec<Uuid>,
+    pub merged_aliases: Vec<String>,
+    pub merged_identifiers: Vec<String>,
+    pub merged_relationships: Vec<Uuid>,
+}
+
 /// One merge proposal row as held by this service.
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct MergeProposal {
@@ -88,6 +101,10 @@ pub struct MergeProposal {
     pub sync_state: SyncState,
     pub decided_by: Option<Uuid>,
     pub ledger_tx_id: Option<String>,
+    pub reversible_snapshot: Option<ReversibleSnapshot>,
+    #[serde(with = "time::serde::rfc3339::option")]
+    #[ts(type = "string | null")]
+    pub reverted_at: Option<OffsetDateTime>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -233,6 +250,16 @@ pub struct DecideMergeResponse {
 }
 
 #[derive(Debug, Serialize, TS)]
+pub struct RevertMergeResponse {
+    #[ts(type = "number")]
+    pub merge_id: i64,
+    #[serde(with = "time::serde::rfc3339")]
+    #[ts(type = "string")]
+    pub reverted_at: OffsetDateTime,
+    pub ledger_tx_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, TS)]
 pub(crate) struct ErrorEnvelope {
     error: ErrorBody,
 }
@@ -307,6 +334,7 @@ pub fn router(entities: EntityStore, merges: MergeStore, deps: EntitiesDeps) -> 
         .route("/entities/:id/notes", post(create_note))
         .route("/entities/merge", post(propose_merge))
         .route("/merges/:id/decide", post(decide_merge))
+        .route("/merges/:id/revert", post(revert_merge))
         .with_state(state)
 }
 
@@ -366,6 +394,8 @@ async fn propose_merge(
         sync_state: SyncState::Synced,
         decided_by: None,
         ledger_tx_id: None,
+        reversible_snapshot: None,
+        reverted_at: None,
     });
     (StatusCode::CREATED, Json(ProposeMergeResponse { merge_id, status: MergeStatus::Proposed }))
         .into_response()
@@ -412,18 +442,40 @@ async fn decide_merge(
     };
     // Postgres first (D4 source of truth). Graph consolidation follows and
     // its failure only marks pending — never rolls this back.
-    let graph_outcome: Option<Result<(), String>> = if status == MergeStatus::Confirmed {
-        {
-            let mut guard = state.entities.lock();
-            let merged_snapshot = guard.iter().find(|entity| entity.id == merged_id).cloned();
-            let Some(merged) = merged_snapshot else {
-                return error(
-                    "INTERNAL",
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("merge {id} points at a missing entity"),
-                )
-                .into_response();
+    let (graph_outcome, confirmed_snapshot): (Option<Result<(), String>>, Option<ReversibleSnapshot>) =
+        if status == MergeStatus::Confirmed {
+            // Snapshot both participants BEFORE mutating: this is the
+            // `reversible_snapshot` that `POST /merges/{id}/revert`
+            // restores. Scoped so the lock is released before the graph
+            // call below — a guard held across work it does not protect
+            // is how silent deadlocks start.
+            let snapshot = {
+                let guard = state.entities.lock();
+                let surviving = guard.iter().find(|entity| entity.id == surviving_id).cloned();
+                let merged = guard.iter().find(|entity| entity.id == merged_id).cloned();
+                match (surviving, merged) {
+                    (Some(surviving), Some(merged)) => Some(ReversibleSnapshot {
+                        surviving_aliases: surviving.aliases,
+                        surviving_identifiers: surviving.identifiers,
+                        surviving_relationships: surviving.relationships,
+                        merged_aliases: merged.aliases,
+                        merged_identifiers: merged.identifiers,
+                        merged_relationships: merged.relationships,
+                    }),
+                    _ => None,
+                }
             };
+            {
+                let mut guard = state.entities.lock();
+                let merged_snapshot = guard.iter().find(|entity| entity.id == merged_id).cloned();
+                let Some(merged) = merged_snapshot else {
+                    return error(
+                        "INTERNAL",
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("merge {id} points at a missing entity"),
+                    )
+                    .into_response();
+                };
             if let Some(surviving) = guard.iter_mut().find(|entity| entity.id == surviving_id) {
                 let mut aliases: HashSet<String> =
                     surviving.aliases.iter().cloned().collect();
@@ -457,15 +509,18 @@ async fn decide_merge(
                 merged_row.sync_state = SyncState::Merged;
             }
         }
-        Some(state.graph.consolidate(surviving_id, merged_id))
+        (Some(state.graph.consolidate(surviving_id, merged_id)), snapshot)
     } else {
-        None
+        (None, None)
     };
     {
         let mut guard = state.merges.lock();
         if let Some(proposal) = guard.iter_mut().find(|proposal| proposal.id == id) {
             proposal.status = status;
             proposal.decided_by = Some(decider);
+            if status == MergeStatus::Confirmed {
+                proposal.reversible_snapshot = confirmed_snapshot;
+            }
             proposal.sync_state = match &graph_outcome {
                 None => SyncState::Synced,
                 Some(Ok(())) => SyncState::Synced,
@@ -521,6 +576,123 @@ async fn decide_merge(
         ledger_tx_id: row.ledger_tx_id,
         ledger_status: row.ledger_status,
     };
+    (StatusCode::OK, Json(response)).into_response()
+}
+
+/// POST /merges/{id}/revert (API_CONTRACTS.md §2.5): unwind a confirmed
+/// merge by restoring both participants from the `reversible_snapshot`
+/// captured at confirm time (FR-3.3). Only a confirmed, not-yet-reverted
+/// merge can be reverted: a pending or rejected merge has nothing to
+/// unwind (409), and an already-reverted merge cannot be reverted twice
+/// (409). Both entities go back to `sync_state='pending'` so the
+/// reconciler re-syncs the derived Neo4j projection (D4 — Postgres is the
+/// source of truth). Status returns to `proposed` so the merge stays
+/// visible in history as reverted rather than vanishing. The revert is
+/// audit-logged (`merge.revert`) and ledger-anchored like every other
+/// merge decision.
+async fn revert_merge(
+    State(state): State<EntitiesState>,
+    headers: HeaderMap,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
+    // M5-T1/T3: verified GoTrue identity, io role only — the auditor is
+    // read-only and the admin has no case-content access, same as decide.
+    let reverter = match authenticate_io(&headers, &state.auth).await {
+        Ok(user_id) => user_id,
+        Err(boxed) => return *boxed,
+    };
+    let (case_id, surviving_id, merged_id, snapshot) = {
+        let guard = state.merges.lock();
+        let Some(proposal) = guard.iter().find(|proposal| proposal.id == id) else {
+            return error("NOT_FOUND", StatusCode::NOT_FOUND, format!("merge {id} not found"))
+                .into_response();
+        };
+        if proposal.status != MergeStatus::Confirmed {
+            return error(
+                "CONFLICT",
+                StatusCode::CONFLICT,
+                format!("merge {id} is not confirmed: only a confirmed merge can be reverted"),
+            )
+            .into_response();
+        }
+        if proposal.reverted_at.is_some() {
+            return error(
+                "CONFLICT",
+                StatusCode::CONFLICT,
+                format!("merge {id} was already reverted"),
+            )
+            .into_response();
+        }
+        let Some(snapshot) = proposal.reversible_snapshot.clone() else {
+            // Confirm always stores a snapshot: a confirmed merge without
+            // one is corrupt state, failed loud rather than half-unwound.
+            return error(
+                "INTERNAL",
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("merge {id} has no reversible snapshot"),
+            )
+            .into_response();
+        };
+        (proposal.case_id, proposal.surviving_id, proposal.merged_id, snapshot)
+    };
+    // Postgres first (D4 source of truth): restore both participants to
+    // their pre-merge state and mark them pending for the reconciler.
+    // Scoped so the lock is released before the audit call below.
+    {
+        let mut guard = state.entities.lock();
+        if let Some(surviving) = guard.iter_mut().find(|entity| entity.id == surviving_id) {
+            surviving.aliases = snapshot.surviving_aliases.clone();
+            surviving.identifiers = snapshot.surviving_identifiers.clone();
+            surviving.relationships = snapshot.surviving_relationships.clone();
+            surviving.sync_state = SyncState::Pending;
+        }
+        if let Some(merged) = guard.iter_mut().find(|entity| entity.id == merged_id) {
+            merged.aliases = snapshot.merged_aliases.clone();
+            merged.identifiers = snapshot.merged_identifiers.clone();
+            merged.relationships = snapshot.merged_relationships.clone();
+            merged.sync_state = SyncState::Pending;
+        }
+    }
+    // now() correct here: revert is a system event timestamp, not a case clock event
+    let reverted_at = OffsetDateTime::now_utc();
+    {
+        let mut guard = state.merges.lock();
+        if let Some(proposal) = guard.iter_mut().find(|proposal| proposal.id == id) {
+            proposal.status = MergeStatus::Proposed;
+            proposal.reverted_at = Some(reverted_at);
+        }
+    }
+    let revert_digest = {
+        let mut hasher = Sha256::new();
+        hasher.update(id.to_be_bytes());
+        hasher.update(b"revert");
+        hasher.update(reverter.as_bytes());
+        hex_of(hasher)
+    };
+    let row = record_action(
+        crate::audit::ActionDeps {
+            audit: &state.audit,
+            ledger: &state.ledger,
+            profiles: &state.profiles,
+        },
+        crate::audit::ActionRecord {
+            case_id,
+            user_id: reverter,
+            user_role: crate::auth::AppRole::Io,
+            action: "merge.revert".to_string(),
+            object_type: "entity_merge".to_string(),
+            object_id: id.to_string(),
+            payload_hash: revert_digest,
+        },
+    )
+    .await;
+    {
+        let mut guard = state.merges.lock();
+        if let Some(proposal) = guard.iter_mut().find(|proposal| proposal.id == id) {
+            proposal.ledger_tx_id = row.ledger_tx_id.clone();
+        }
+    }
+    let response = RevertMergeResponse { merge_id: id, reverted_at, ledger_tx_id: row.ledger_tx_id };
     (StatusCode::OK, Json(response)).into_response()
 }
 
