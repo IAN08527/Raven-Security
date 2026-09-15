@@ -5,33 +5,12 @@
 // decide call returns.
 
 import { getSession } from "./session";
+import type { PreviewExtractionRequest, PreviewSpan } from "../types/api";
+import type { DecideReviewResponse, ReviewItem, ReviewStatus } from "../types/api";
 
-export type ReviewStatus = "pending" | "corrected" | "accepted" | "rejected";
-
-export interface ReviewItem {
-  id: number;
-  case_id: string;
-  source_file_id: string;
-  page_no: number | null;
-  line_no: number | null;
-  field_name: string | null;
-  script: string;
-  crop_path: string;
-  recognised_text: string | null;
-  confidence: number | null;
-  corrected_text: string | null;
-  status: ReviewStatus;
-  reviewed_by: string | null;
-  reviewed_at: string | null;
-  ledger_tx_id: string | null;
-}
-
-export interface DecideReviewResponse {
-  id: number;
-  status: ReviewStatus;
-  ledger_tx_id: string | null;
-  ledger_status: string;
-}
+// Generated types re-exported so existing `lib/review` importers keep
+// working; the wire shapes live in types/generated/ (D30).
+export type { DecideReviewResponse, ReviewItem, ReviewStatus } from "../types/api";
 
 function serverBase(): string {
   const env = (import.meta as unknown as { env?: Record<string, string> }).env;
@@ -85,4 +64,21 @@ export async function decideReview(
     body: JSON.stringify(decision),
   });
   return (await check(response)).json() as Promise<DecideReviewResponse>;
+}
+
+// Span preview (D29, API_CONTRACTS.md §2.3): resolves caller-supplied
+// surfaces against the given text. No model call, no persistence --
+// the server returns character spans (or found: false) plus one audit
+// row. Request/response shapes are generated (PreviewExtractionRequest
+// / PreviewSpan), never hand-written.
+export async function previewExtraction(
+  caseId: string,
+  request: PreviewExtractionRequest,
+): Promise<PreviewSpan[]> {
+  const response = await fetch(`${serverBase()}/v1/cases/${caseId}/preview-extraction`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(request),
+  });
+  return (await check(response)).json() as Promise<PreviewSpan[]>;
 }

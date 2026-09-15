@@ -5,7 +5,11 @@
 // endpoint (server/src/auth.rs), so a hidden item is unreachable, not
 // just invisible.
 
-export type AppRole = "io" | "analyst" | "auditor" | "admin";
+import type { AppRole } from "../types/api";
+
+// Generated type re-exported so existing `lib/roles` importers keep
+// working; the wire shape lives in types/generated/ (D30).
+export type { AppRole } from "../types/api";
 
 export interface NavItem {
   id: string;

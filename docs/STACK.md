@@ -44,6 +44,7 @@ that phones home is disqualified regardless of how good it is (CLAUDE.md rule 6)
 | uuid | 1.x | Entity/camera/etc ids, matching the baseline schema's `uuid` PKs and API_CONTRACTS.md §1.3 |
 | ulid | 1.x | `trace_id` in the error envelope (API_CONTRACTS.md §1.1), matching the native client's copy |
 | sha2 | 0.10.x | SHA-256 of the canonical extraction JSON for the D5 ledger anchor (M4-T2). Pure Rust, no network |
+| ts-rs | 10.x (`uuid-impl`, `serde-json-impl`) | TypeScript bindings from Rust API structs (D30): `#[derive(TS)]` on boundary types, `server/src/ts_export.rs` registry, `cargo xtask generate-types`. Build-time only, no runtime. Note: upstream has no `chrono`/`uuid` features and no `time` support — case-clock fields carry explicit `#[ts(type = "string")]` |
 
 ## 3. Frontend
 
@@ -159,6 +160,28 @@ Install notes (M0-T2):
   (detector: 0.8-1.5GB budgeted at batched TensorRT FP16; this run was
   FP32 and unbatched-optimized, so a smaller number here is expected and
   consistent, not a discrepancy).
+
+OSNet engine record (S2 unblocking, 2026-09-15, reference machine):
+
+- Weights: `models/osnet_x1_0.pth` (10994685 bytes) and
+  `models/osnet_x0_25.pth` (3057863 bytes), MSMT17 same-domain
+  checkpoints from the torchreid model zoo (MIT repo, direct Drive
+  links; weights files carry no separate licence statement — see
+  `RESULTS.md` S2-dataset-audit row). `torch.load` strict: 567/567
+  keys, conv1 widths 64/16, 512-d features.
+- Engine: `models/osnet_x1_0.engine` (9905548 bytes), TensorRT
+  11.3.0.99, torch → ONNX (opset 17, 256x128 input) → FP16 build with
+  batch 1/8/16 profile. Verified: ONNX vs torch cosine ≥ 0.99999
+  (L2-normed, 3 random inputs); engine deserializes with input
+  (-1,3,256,128) / output (-1,512) and infers on CUDA at cosine
+  0.999993 vs torch. TRT 10+ has no FP16 flag (mixed precision is the
+  builder default) and exposes no per-layer precision readout, so the
+  CUDA inference check above stands in for a precision-flag audit.
+- Not wired: `engine/reid.py` still serves fallback vectors and no
+  production call passes engine paths, so the file changes no
+  runtime behaviour — variant-selection leg only. One-off tooling
+  (`torchreid` 0.2.5 arch definition, `gdown`) lives in the local
+  Python env, not the repo: no dependency row owed.
 
 ## 7. Infrastructure
 

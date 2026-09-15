@@ -28,6 +28,7 @@ use axum::{Json, Router};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::audit::{record_action, AssignmentStore, AuditStore};
@@ -41,7 +42,7 @@ const HASH_CHUNK_BYTES: usize = 65536;
 /// `source_files` columns the contract exposes. `ingested_at` mirrors
 /// `created_at`: the infrastructure receive moment (SYSTEM TIME, never
 /// case data — D16, CLAUDE.md rule 3).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct FileRecord {
     pub id: Uuid,
     pub case_id: Uuid,
@@ -53,11 +54,12 @@ pub struct FileRecord {
     pub source_node: Option<String>,
     pub ledger_tx_id: Option<String>,
     #[serde(with = "time::serde::rfc3339")]
+    #[ts(type = "string")]
     pub ingested_at: OffsetDateTime,
 }
 
 /// One ingest-job row as held by this service (saga step history).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct IngestJob {
     pub file_id: Uuid,
     pub stage: String,
@@ -126,14 +128,14 @@ impl FileStore {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct FileDetailResponse {
     pub file: FileRecord,
     pub jobs: Vec<IngestJob>,
     pub ledger_tx_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "lowercase")]
 pub enum VerifyStatus {
     Verified,
@@ -141,7 +143,7 @@ pub enum VerifyStatus {
     Pending,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct VerifyFileResponse {
     pub status: VerifyStatus,
     pub computed_hash: String,
@@ -150,13 +152,13 @@ pub struct VerifyFileResponse {
     pub endorsements: Vec<Endorsement>,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorEnvelope {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorEnvelope {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorBody {
     code: &'static str,
     message: String,
     detail: serde_json::Value,

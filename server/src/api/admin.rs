@@ -23,6 +23,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, patch};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::audit::{record_action, AuditStore};
@@ -61,13 +62,13 @@ pub fn router(deps: AdminDeps) -> Router {
         .with_state(state)
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorEnvelope {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorEnvelope {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorBody {
     code: &'static str,
     message: String,
     detail: serde_json::Value,
@@ -139,7 +140,7 @@ async fn list_users(State(state): State<AdminState>, headers: HeaderMap) -> Resp
     (StatusCode::OK, Json(state.users.list())).into_response()
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, TS)]
 pub struct CreateUserRequest {
     pub email: String,
     pub badge_no: String,
@@ -192,7 +193,7 @@ async fn create_user(
     (StatusCode::CREATED, Json(record)).into_response()
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, TS)]
 pub struct DeactivateUserRequest {
     pub active: bool,
 }

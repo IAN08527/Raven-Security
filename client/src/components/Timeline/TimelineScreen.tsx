@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import type { TimelineEvent } from "../../types/api";
+import type { JsonValue, TimelineEvent } from "../../types/api";
 import { fetchCaseTimeline, timelineToCsv } from "../../lib/timeline";
+
+function asRecord(detail: JsonValue): Record<string, JsonValue> {
+  // Timeline `detail` is arbitrary JSON (JsonValue); evidence events
+  // carry an object. Non-object details read as empty, never crash.
+  if (typeof detail === "object" && detail !== null && !Array.isArray(detail)) {
+    return detail as Record<string, JsonValue>;
+  }
+  return {};
+}
 
 interface TimelineScreenProps {
   caseId: string;
@@ -185,11 +194,11 @@ export function TimelineScreen({ caseId, onOpenEntity }: TimelineScreenProps): J
         ) : (
           <ol className="flex flex-col gap-2">
             {events.map((event, index) => {
+              const detail = asRecord(event.detail);
               const tampered =
-                event.event_type === "evidence_committed" &&
-                event.detail["tamper_state"] === "tampered";
-              const ledgerHash = asText(event.detail["ledger_hash"]);
-              const computedHash = asText(event.detail["computed_hash"]);
+                event.event_type === "evidence_committed" && detail["tamper_state"] === "tampered";
+              const ledgerHash = asText(detail["ledger_hash"]);
+              const computedHash = asText(detail["computed_hash"]);
               return (
                 <li
                   key={`${event.ts}:${event.event_type}:${index}`}

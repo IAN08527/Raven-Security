@@ -3,7 +3,7 @@
 // the in-memory session JWT; the server enforces assignment + role.
 
 import { getSession } from "./session";
-import type { EntityListResponse, EntityNote, EntityRecord } from "../types/api";
+import type { EntityListResponse, EntityNote, EntityRecord, ProposeMergeResponse } from "../types/api";
 
 function serverBase(): string {
   const env = (import.meta as unknown as { env?: Record<string, string> }).env;
@@ -80,20 +80,15 @@ export async function postEntityNote(entityId: string, text: string): Promise<En
   return (await check(response)).json() as Promise<EntityNote>;
 }
 
-export interface MergeProposal {
-  merge_id: number;
-  status: string;
-}
-
 export async function proposeMerge(
   survivingId: string,
   mergedId: string,
   reason: string,
-): Promise<MergeProposal> {
+): Promise<ProposeMergeResponse> {
   const response = await fetch(`${serverBase()}/v1/entities/merge`, {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ surviving_id: survivingId, merged_id: mergedId, reason }),
   });
-  return (await check(response)).json() as Promise<MergeProposal>;
+  return (await check(response)).json() as Promise<ProposeMergeResponse>;
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { EntityDetail, GraphEdge } from "../../types/api";
-import { NODE_STYLE } from "./NetworkGraph";
+import { nodeStyleFor } from "./NetworkGraph";
 
 interface EntityDetailPanelProps {
   detail: EntityDetail | null;
@@ -38,7 +38,7 @@ export function EntityDetailPanel({
       </div>
     );
   }
-  const visual = NODE_STYLE[detail.type];
+  const visual = nodeStyleFor(detail.type);
   const tabs: Tab[] = ["Overview", "Relations", "Evidence", "Activity"];
   return (
     <div className="flex h-full w-full flex-col bg-[#1B1B19]">

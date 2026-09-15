@@ -1,11 +1,11 @@
 import { useCallback, useRef, useState } from "react";
-import type { Camera } from "../../types/api";
+import type { CameraView } from "../../types/api";
 import { useCvBoxesOverlay } from "../../lib/overlaySocket";
 import { BoxOverlay } from "./BoxOverlay";
 import { FeedStatusBar } from "./FeedStatusBar";
 
 interface CameraFeedProps {
-  camera: Camera;
+  camera: CameraView;
   onSelect: (cameraId: string) => void;
 }
 

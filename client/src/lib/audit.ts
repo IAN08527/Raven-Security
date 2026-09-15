@@ -3,35 +3,11 @@
 // session JWT; the server enforces assignment + role.
 
 import { getSession } from "./session";
+import type { AuditRow, Endorsement, VerifyRowResponse as VerifyResult } from "../types/api";
 
-export interface Endorsement {
-  org: string;
-  mode?: string;
-}
-
-export interface AuditRow {
-  id: string;
-  case_id: string;
-  user_id: string;
-  user_role: string;
-  action: string;
-  object_type: string;
-  object_id: string;
-  payload_hash: string;
-  ledger_tx_id: string | null;
-  ledger_status: string;
-  created_at: string;
-}
-
-export interface VerifyResult {
-  row_id: string;
-  object_id: string;
-  stored_hash: string;
-  ledger_hash: string | null;
-  tampered: boolean;
-  endorsements: Endorsement[];
-  ledger_tx_id: string | null;
-}
+// Generated types re-exported so existing `lib/audit` importers keep
+// working; the wire shapes live in types/generated/ (D30).
+export type { AuditRow, Endorsement, VerifyRowResponse as VerifyResult } from "../types/api";
 
 export interface AuditFilters {
   from?: string;

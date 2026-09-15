@@ -103,6 +103,12 @@ export function useReidEvents(serverWsUrl: string | null): ReidSocketState & {
           expected_window: payload.expected_window,
           crop_path: payload.crop_path,
           status: "proposed",
+          // Fresh engine proposal: undecided, so no decider, no
+          // decision time, no ledger anchor yet (generated Candidate
+          // requires all three — null, not omitted).
+          decided_by: null,
+          decided_at: null,
+          ledger_tx_id: null,
         };
         // A new proposal clears the lost banner: the search is producing
         // again, so there is no longer a loss to state.

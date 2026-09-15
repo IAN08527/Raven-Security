@@ -28,12 +28,13 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use uuid::Uuid;
 
 /// Application roles (baseline `app_role` enum, D21). The administrator
 /// manages users, cases, cameras and templates and has no case-content
 /// access; only the investigating officer confirms or rejects.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 pub enum AppRole {
     Io,
@@ -326,13 +327,13 @@ pub fn require_roles(context: &AuthContext, allowed: &[AppRole]) -> Result<(), A
     }
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorEnvelope {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorEnvelope {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorBody {
     code: &'static str,
     message: String,
     detail: serde_json::Value,
@@ -425,7 +426,7 @@ impl ProfilesStore {
 /// One managed user row (API_CONTRACTS.md §2.11, baseline `profiles`).
 /// In-memory until per-request Postgres wiring lands; production
 /// creates the matching `auth.users` entry through the GoTrue admin API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct UserRecord {
     pub id: Uuid,
     pub email: String,

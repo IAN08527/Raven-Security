@@ -15,9 +15,10 @@ use axum::routing::get;
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct Node {
     pub id: Uuid,
     pub name: String,
@@ -26,18 +27,22 @@ pub struct Node {
     pub gpu_name: String,
     pub cameras: Vec<String>,
     #[serde(with = "time::serde::rfc3339")]
+    #[ts(type = "string")]
     pub last_seen: OffsetDateTime,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, TS)]
 pub struct RegisterNodeRequest {
     pub name: String,
     #[allow(dead_code)] // not yet used for routing; carried for the future assignment path
     pub address: String,
     pub budget_dps: f64,
     #[allow(dead_code)] // recorded for the health board; not consumed server-side yet
+    // Wire integers are JSON numbers (see entities.rs MergeProposal).
+    #[ts(type = "number")]
     pub vram_ceiling: i64,
     #[allow(dead_code)]
+    #[ts(type = "number")]
     pub max_batch: i64,
     pub gpu_name: String,
     pub status: String,

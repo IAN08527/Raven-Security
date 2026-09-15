@@ -123,6 +123,9 @@ cd client && npm run build         # tsc + vite, must be clean
 pytest engine/ docs-lane/
 ruff check . && mypy engine docs-lane
 
+# Type generation (run after changing any API struct)
+cargo xtask generate-types
+
 # Evaluation
 python eval/run_all.py             # appends a row to docs/RESULTS.md
 python eval/run_all.py --fast      # CI subset

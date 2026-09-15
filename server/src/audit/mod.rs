@@ -23,6 +23,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::Serialize;
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::auth::{AppRole, ProfilesStore};
@@ -30,7 +31,7 @@ use crate::ledger::LedgerClient;
 
 /// One audit row, mirroring the baseline `audit_log` columns plus the
 /// ledger outcome fields the auditor view renders.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct AuditRow {
     pub id: Uuid,
     pub case_id: Uuid,
@@ -43,6 +44,7 @@ pub struct AuditRow {
     pub ledger_tx_id: Option<String>,
     pub ledger_status: String,
     #[serde(with = "time::serde::rfc3339")]
+    #[ts(type = "string")]
     pub created_at: OffsetDateTime,
 }
 

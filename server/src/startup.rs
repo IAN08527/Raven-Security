@@ -7,15 +7,16 @@
 use std::time::Duration;
 
 use serde::Serialize;
+use ts_rs::TS;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct DependencyStatus {
     pub name: &'static str,
     pub healthy: bool,
     pub detail: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct HealthReport {
     pub dependencies: Vec<DependencyStatus>,
 }

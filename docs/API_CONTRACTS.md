@@ -112,10 +112,21 @@ HTTP response for a scanned 40-page document is doing it wrong.
 GET    /cases/{id}/review?status=pending   -> [{id, crop_url, recognised_text,
                                                  confidence, script, field_name}]
 POST   /review/{id}                        {corrected_text, status}
+POST   /cases/{id}/preview-extraction      {text, surfaces: [{type, value}]}
+                                           -> [{type, value, char_start, char_end,
+                                               found}]
 ```
 
 `SCRIPT_NOT_GATED` on any attempt to auto-commit extraction from a script below
 its CER gate (FR-2.6).
+
+`POST /cases/{id}/preview-extraction` (D29) is io role only. It runs
+span resolution only — no model call, no persistence: caller-supplied
+`{type, value}` surfaces are grounded against the supplied text and
+returned with character offsets. Surfaces absent from the text come
+back with `char_start`/`char_end` null and `found: false`, not an
+error; an empty `surfaces` array returns an empty array. Every call
+writes one `preview.extraction` audit row (rule 6).
 
 ### 2.4 Graph
 

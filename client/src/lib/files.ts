@@ -6,41 +6,21 @@
 // server-side, so nothing here pretends to listen on it).
 
 import { getSession } from "./session";
+import type {
+  FileDetailResponse as FileDetail,
+  IngestJob,
+  VerifyFileResponse as FileVerify,
+} from "../types/api";
 
-export interface FileRecord {
-  id: string;
-  case_id: string;
-  name: string;
-  mime: string;
-  sha256: string;
-  status: string;
-  provenance: string;
-  source_node: string | null;
-  ledger_tx_id: string | null;
-}
-
-export interface IngestJob {
-  file_id: string;
-  stage: string;
-  status: string;
-  reason: string | null;
-}
-
-export interface FileDetail {
-  file: FileRecord;
-  jobs: IngestJob[];
-  ledger_tx_id: string | null;
-}
-
-export type VerifyState = "verified" | "tampered" | "pending";
-
-export interface FileVerify {
-  status: VerifyState;
-  computed_hash: string;
-  ledger_hash: string | null;
-  tx_id: string | null;
-  endorsements: { org: string; mode?: string }[];
-}
+// Generated types re-exported so existing `lib/files` importers keep
+// working; the wire shapes live in types/generated/ (D30).
+export type {
+  FileDetailResponse as FileDetail,
+  FileRecord,
+  IngestJob,
+  VerifyFileResponse as FileVerify,
+  VerifyStatus as VerifyState,
+} from "../types/api";
 
 function serverBase(): string {
   const env = (import.meta as unknown as { env?: Record<string, string> }).env;

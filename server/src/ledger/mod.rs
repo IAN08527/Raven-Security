@@ -10,6 +10,7 @@
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 fn default_gateway_url() -> String {
     std::env::var("LEDGER_GATEWAY_URL").unwrap_or_else(|_| "http://127.0.0.1:8801".into())
@@ -18,7 +19,7 @@ fn default_gateway_url() -> String {
 /// One endorsement entry as returned by `GET /verify/{docId}`. `mode` is
 /// `"mock"` for the development ledger and absent (or another value) for
 /// real Fabric org signatures -- the UI branches on exactly this.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 pub struct Endorsement {
     pub org: String,
     #[serde(default)]

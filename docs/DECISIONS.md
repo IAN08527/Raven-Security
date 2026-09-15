@@ -46,7 +46,7 @@ decision needs a number to be correct, it names the experiment that produces it.
 | D27 | Calibrated edge weights | ACTIVE | - |
 | D28 | insight_reviews RLS tightening | ACTIVE | - |
 | D29 | Preview extraction contract | ACTIVE | - |
-| D30 | TypeScript type generation | ACTIVE, not yet implemented | - |
+| D30 | TypeScript type generation | ACTIVE | - |
 | D31 | Egress gate scope: anchor hrefs excluded | ACTIVE | - |
 | D32 | Camera list unauthenticated on LAN | ACTIVE | - |
 
@@ -572,7 +572,7 @@ job is span resolution only.
 **Origin:** Session 12 - implementation showed the original spec was
 underspecified.
 
-### D30 - TypeScript type generation `ACTIVE, not yet implemented`
+### D30 - TypeScript type generation `ACTIVE`
 
 **Context:** API_CONTRACTS.md §6 rule 2 requires client TypeScript types
 to be generated from Rust signatures. No generation tooling (ts-rs,
@@ -586,6 +586,21 @@ risk.
 
 **Origin:** Session 12 - type generation tooling absent from tree,
 discovered when Entity Profile endpoint shape changed.
+
+**Implemented:** `cargo xtask generate-types`, 2026-09-15. Generated
+types in `client/src/types/generated/` (gitignored, derived from Rust
+structs via `#[derive(TS)]`). Notes: upstream ts-rs 10.1 has no
+`chrono`/`uuid` features and no `time` support, so the features used
+are `uuid-impl` + `serde-json-impl` with explicit `#[ts(type =
+"string")]` on case-clock fields and `#[ts(type = "number")]` on i64
+fields (JSON wire carries numbers, never bigint); `#[ts(export)]` is
+deliberately not used (it emits file-writing tests — parallel writers
+on shared paths), the registry in `server/src/ts_export.rs` enumerates
+boundary types instead, with a unit test pinning the shape-identical
+duplicate sources (nine ErrorEnvelope/ErrorBody copies, two
+DecideDecisions). The rich client `Camera` is a contract-target view
+model (`CameraView`), not wire truth: the stub `GET /cameras` serves
+only the five M1-T1 fields (see `main.tsx`).
 
 ### D31 - Egress gate scope: anchor hrefs excluded `ACTIVE`
 

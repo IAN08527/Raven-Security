@@ -26,6 +26,7 @@ use axum::routing::get;
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
 /// Transport guard: BFS stops adding nodes beyond this many. Pagination
@@ -35,7 +36,7 @@ pub const RESULT_LIMIT: usize = 500;
 
 /// Baseline `entity_type` spellings. `Organisation` (contract §2.4 task
 /// text) is accepted on input and normalised to `ORGANIZATION`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum EntityType {
     Person,
@@ -62,7 +63,7 @@ impl EntityType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct GraphNode {
     pub id: Uuid,
     #[serde(rename = "type")]
@@ -70,7 +71,7 @@ pub struct GraphNode {
     pub label: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct GraphEdge {
     pub id: Uuid,
     pub src: Uuid,
@@ -80,13 +81,13 @@ pub struct GraphEdge {
     pub weight: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct GraphPayload {
     pub nodes: Vec<GraphNode>,
     pub edges: Vec<GraphEdge>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 pub enum TamperState {
     Verified,
@@ -94,18 +95,24 @@ pub enum TamperState {
     Tampered,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct EvidenceItem {
+    // Wire integers are JSON numbers (see entities.rs MergeProposal).
+    #[ts(type = "number")]
     pub id: i64,
     pub kind: String,
     pub snippet: Option<String>,
+    // Wire integers are JSON numbers (see entities.rs MergeProposal).
+    #[ts(type = "number | null")]
     pub char_start: Option<i64>,
+    #[ts(type = "number | null")]
     pub char_end: Option<i64>,
     pub page_no: Option<i32>,
     pub source_file_id: Uuid,
     pub provenance: String,
     pub tamper_state: TamperState,
     #[serde(with = "time::serde::rfc3339::option")]
+    #[ts(type = "string | null")]
     pub occurred_at: Option<OffsetDateTime>,
     /// Ledger anchor hash vs recomputed content hash (FR-7.2): both are
     /// shown on tampered rows. `None` until verification runs.
@@ -378,13 +385,13 @@ fn tamper_state(state: VerificationState) -> TamperState {
 
 // --- HTTP surface (API_CONTRACTS.md §2.4) ---------------------------------
 
-#[derive(Debug, Serialize)]
-struct ErrorEnvelope {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorEnvelope {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorBody {
     code: &'static str,
     message: String,
     detail: serde_json::Value,

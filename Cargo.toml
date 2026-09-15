@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "server",
     "client/src-tauri",
+    "xtask",
 ]
 
 [workspace.package]

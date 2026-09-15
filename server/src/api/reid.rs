@@ -31,6 +31,7 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::api::cameras::CameraStore;
@@ -41,11 +42,13 @@ use crate::reid::pipeline::DecisionStatus;
 
 /// One lock-on target. ``ledger_tx_id`` is the anchor of the officer's
 /// selection (D9: evidentiary weight, signed and anchored).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct Target {
     pub id: Uuid,
     pub case_id: Uuid,
     pub camera_id: Uuid,
+    // Wire integers are JSON numbers (see entities.rs MergeProposal).
+    #[ts(type = "number")]
     pub track_id: i64,
     pub label: String,
     pub ledger_tx_id: String,
@@ -56,12 +59,14 @@ pub struct Target {
 /// One candidate row as held by this service. ``threshold_used`` and
 /// ``prior_adjustment`` are non-optional: a candidate without them is
 /// invalid (API_CONTRACTS.md §4) and the DB migration enforces NOT NULL.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct Candidate {
+    #[ts(type = "number")]
     pub id: i64,
     pub target_id: Uuid,
     pub camera_id: Uuid,
     #[serde(with = "time::serde::rfc3339")]
+    #[ts(type = "string")]
     pub ts: OffsetDateTime,
     pub similarity: f32,
     pub threshold_used: f32,
@@ -71,6 +76,7 @@ pub struct Candidate {
     pub status: DecisionStatus,
     pub decided_by: Option<Uuid>,
     #[serde(with = "time::serde::rfc3339::option")]
+    #[ts(type = "string | null")]
     pub decided_at: Option<OffsetDateTime>,
     pub ledger_tx_id: Option<String>,
 }
@@ -123,47 +129,52 @@ impl CandidateStore {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, TS)]
 pub struct CreateTargetRequest {
     pub camera_id: Uuid,
+    #[ts(type = "number")]
     pub track_id: i64,
     pub label: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct CreateTargetResponse {
     pub target_id: Uuid,
     pub ledger_tx_id: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, TS)]
 pub struct DecideRequest {
     pub decision: DecideDecision,
     pub note: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
+// NOTE: entities.rs has an identical DecideDecision; both export to the
+// same DecideDecision.ts (contents identical). If either shape changes,
+// rename one of them instead of silently forking the generated file.
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq, TS)]
 #[serde(rename_all = "lowercase")]
 pub enum DecideDecision {
     Confirmed,
     Rejected,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct DecideResponse {
+    #[ts(type = "number")]
     pub candidate_id: i64,
     pub status: DecisionStatus,
     pub ledger_tx_id: Option<String>,
     pub ledger_status: String,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorEnvelope {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorEnvelope {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorBody {
     code: &'static str,
     message: String,
     detail: serde_json::Value,

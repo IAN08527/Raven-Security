@@ -10,6 +10,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
 /// Re-ID embeddings are 512-d (STACK.md §5: OSNet, 512-d).
@@ -31,11 +32,13 @@ pub enum SearchError {
 
 /// Half-open arrival window the topology prior predicted (D15). Both ends
 /// are case-clock timestamps (D16), never system time.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct TimeWindow {
     #[serde(with = "time::serde::rfc3339")]
+    #[ts(type = "string")]
     pub start: OffsetDateTime,
     #[serde(with = "time::serde::rfc3339")]
+    #[ts(type = "string")]
     pub end: OffsetDateTime,
 }
 
@@ -43,8 +46,10 @@ pub struct TimeWindow {
 /// plain (non-optional) floats: serde rejects any payload that omits them,
 /// which is what makes "a candidate without threshold_used and
 /// prior_adjustment is invalid" a schema property rather than a convention.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct CandidateMatch {
+    // Wire integers are JSON numbers (see entities.rs MergeProposal).
+    #[ts(type = "number")]
     pub candidate_id: i64,
     pub similarity: f32,
     pub threshold_used: f32,

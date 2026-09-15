@@ -17,7 +17,7 @@ import {
 import { fetchFile } from "../../lib/files";
 import { provenanceColor } from "../../lib/provenance";
 import { getSession } from "../../lib/session";
-import { NODE_STYLE } from "./NetworkGraph";
+import { nodeStyleFor } from "./NetworkGraph";
 
 interface EntityProfileProps {
   entityId: string;
@@ -335,7 +335,7 @@ export function EntityProfile({
     return <p className="p-6 text-sm text-[#706E68]">Loading entity…</p>;
   }
 
-  const visual = NODE_STYLE[record.type];
+  const visual = nodeStyleFor(record.type);
   const nodeById = new Map(egoNodes.map((node) => [node.id, node]));
   const evidenceCount = (edgeId: string): number => evidenceByEdge[edgeId]?.length ?? 0;
   const sortedEdges = [...egoEdges].sort((a, b) => {

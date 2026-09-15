@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchCameras, registerCamera, type ServerCamera } from "../../lib/health";
+import { fetchCameras, registerCamera, type Camera } from "../../lib/health";
 
 /**
  * Settings — cameras (FR-8.1). Lists registered cameras and registers
@@ -10,7 +10,7 @@ import { fetchCameras, registerCamera, type ServerCamera } from "../../lib/healt
  * that pretends to save.
  */
 export function CameraSettings(): JSX.Element {
-  const [cameras, setCameras] = useState<ServerCamera[]>([]);
+  const [cameras, setCameras] = useState<Camera[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [label, setLabel] = useState("");

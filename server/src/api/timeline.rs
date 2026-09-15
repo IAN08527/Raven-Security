@@ -36,6 +36,7 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::audit::{record_action, AssignmentStore, AuditStore};
@@ -53,14 +54,14 @@ const EVENT_EVIDENCE_COMMITTED: &str = "evidence_committed";
 const EVENT_CANDIDATE_PROPOSED: &str = "candidate_proposed";
 const EVENT_AUDIT_ACTION: &str = "audit_action";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "lowercase")]
 pub enum Clock {
     Case,
     System,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct TimelineEvent {
     pub event_type: String,
     pub ts: String,
@@ -71,7 +72,7 @@ pub struct TimelineEvent {
     pub detail: serde_json::Value,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct TimelineResponse {
     pub results: Vec<TimelineEvent>,
     pub next_cursor: Option<String>,
@@ -130,13 +131,13 @@ pub fn router(deps: TimelineDeps) -> Router {
     Router::new().route("/cases/:id/timeline", get(case_timeline)).with_state(state)
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorEnvelope {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorEnvelope {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorBody {
     code: &'static str,
     message: String,
     detail: serde_json::Value,

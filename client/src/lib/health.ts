@@ -5,38 +5,11 @@
 // empty states in the dashboard — never mock numbers.
 
 import { getSession } from "./session";
+import type { Camera, EngineNode, HealthReport } from "../types/api";
 
-export interface DependencyStatus {
-  name: string;
-  healthy: boolean;
-  detail: string;
-}
-
-export interface HealthReport {
-  dependencies?: DependencyStatus[];
-}
-
-export interface EngineNode {
-  id: string;
-  name: string;
-  status: string;
-  budget_dps: number;
-  gpu_name: string;
-  cameras: string[];
-  last_seen: string;
-}
-
-// M1-T1 camera shape: registration carries no coordinates, no status and
-// no effective FPS yet. Online/offline is derived from engine nodes
-// (a camera code claimed by a ready node reads online); anything else is
-// reported as unknown, never guessed.
-export interface ServerCamera {
-  id: string;
-  code: string;
-  label: string;
-  declared_start_ts: string;
-  fps: number;
-}
+// Generated types re-exported so existing `lib/health` importers keep
+// working; the wire shapes live in types/generated/ (D30).
+export type { Camera, DependencyStatus, EngineNode, HealthReport } from "../types/api";
 
 function serverBase(): string {
   const env = (import.meta as unknown as { env?: Record<string, string> }).env;
@@ -69,8 +42,8 @@ export function fetchNodes(): Promise<EngineNode[]> {
   return get<EngineNode[]>("/nodes", true);
 }
 
-export function fetchCameras(): Promise<ServerCamera[]> {
-  return get<ServerCamera[]>("/cameras", true);
+export function fetchCameras(): Promise<Camera[]> {
+  return get<Camera[]>("/cameras", true);
 }
 
 export async function registerCamera(input: {
@@ -78,7 +51,7 @@ export async function registerCamera(input: {
   label: string;
   declared_start_ts: string;
   fps: number;
-}): Promise<ServerCamera> {
+}): Promise<Camera> {
   const session = getSession();
   if (!session) {
     throw new Error("not signed in");
@@ -91,7 +64,7 @@ export async function registerCamera(input: {
   if (!response.ok) {
     throw new Error(`camera registration failed: ${response.status}`);
   }
-  return (await response.json()) as ServerCamera;
+  return (await response.json()) as Camera;
 }
 
 /** Camera codes claimed by nodes whose status is not degraded. */

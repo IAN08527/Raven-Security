@@ -1,0 +1,3 @@
+# `cargo xtask <subcommand>` runs the workspace xtask binary (D30).
+[alias]
+xtask = "run -p xtask --"

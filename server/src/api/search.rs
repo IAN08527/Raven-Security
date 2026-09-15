@@ -23,6 +23,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::audit::{record_action, AssignmentStore, AuditStore};
@@ -35,7 +36,7 @@ use crate::ledger::LedgerClient;
 /// `cases` columns the search contract exposes. Populated by the case
 /// lifecycle (and by tests); production reads the `cases` table through
 /// RLS instead.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct CaseRecord {
     pub id: Uuid,
     pub case_code: String,
@@ -62,7 +63,7 @@ impl CaseStore {
 const GROUP_CAP: usize = 10;
 const TOTAL_CAP: usize = 40;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct EntityHit {
     pub id: Uuid,
     pub case_id: Uuid,
@@ -72,14 +73,14 @@ pub struct EntityHit {
     pub provenance: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct CaseHit {
     pub id: Uuid,
     pub case_code: String,
     pub title: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct FileHit {
     pub id: Uuid,
     pub case_id: Uuid,
@@ -87,7 +88,7 @@ pub struct FileHit {
     pub provenance: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct IdentifierHit {
     pub entity_id: Uuid,
     pub case_id: Uuid,
@@ -95,7 +96,7 @@ pub struct IdentifierHit {
     pub provenance: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct SearchResponse {
     pub entities: Vec<EntityHit>,
     pub cases: Vec<CaseHit>,
@@ -155,13 +156,13 @@ pub fn router(deps: SearchDeps) -> Router {
     Router::new().route("/search", get(global_search)).with_state(state)
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorEnvelope {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorEnvelope {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorBody {
     code: &'static str,
     message: String,
     detail: serde_json::Value,

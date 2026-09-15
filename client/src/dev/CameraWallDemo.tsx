@@ -1,4 +1,4 @@
-import type { Camera } from "../types/api";
+import type { CameraView } from "../types/api";
 import { CameraWall } from "../components/CameraWall";
 import { FeedStatusBar } from "../components/CameraWall/FeedStatusBar";
 
@@ -31,7 +31,7 @@ function placeholderFrame(label: string, hue: number): string {
 
 const DECLARED_START = "2025-11-02T14:00:00.000Z";
 
-function onlineCamera(index: number, effectiveFps: number): Camera {
+function onlineCamera(index: number, effectiveFps: number): CameraView {
   const code = `cam_${String(index).padStart(2, "0")}`;
   return {
     id: code,
@@ -49,7 +49,7 @@ function onlineCamera(index: number, effectiveFps: number): Camera {
   };
 }
 
-function offlineCamera(index: number): Camera {
+function offlineCamera(index: number): CameraView {
   const code = `cam_${String(index).padStart(2, "0")}`;
   return {
     id: code,
@@ -67,7 +67,7 @@ function offlineCamera(index: number): Camera {
   };
 }
 
-const DEMO_CAMERAS: Camera[] = [
+const DEMO_CAMERAS: CameraView[] = [
   onlineCamera(1, 10),
   onlineCamera(2, 9.8),
   onlineCamera(3, 10),

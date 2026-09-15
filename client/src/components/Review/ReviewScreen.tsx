@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { decideReview, fetchReviewQueue, type ReviewItem } from "../../lib/review";
+import { decideReview, fetchReviewQueue, previewExtraction, type ReviewItem } from "../../lib/review";
+import type { PreviewSpan, PreviewSurface } from "../../types/api";
 
 // Document Review (screen 07, FR-2.7 made visible). Every field below the
 // confidence threshold and every non-gated script routes here before any
@@ -33,6 +34,18 @@ export function ReviewScreen({ caseId: initialCaseId }: { caseId: string }): JSX
   const [busy, setBusy] = useState(false);
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [cropBroken, setCropBroken] = useState(false);
+  // Span preview (D29): reviewer-supplied surfaces located in the
+  // current text via POST /cases/{id}/preview-extraction. `resolvedText`
+  // records which text the shown spans belong to -- editing the
+  // transcription afterwards marks them stale instead of silently
+  // showing offsets into the wrong string.
+  const [surfaces, setSurfaces] = useState<PreviewSurface[]>([]);
+  const [spans, setSpans] = useState<PreviewSpan[] | null>(null);
+  const [resolvedText, setResolvedText] = useState<string | null>(null);
+  const [previewNote, setPreviewNote] = useState<string | null>(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [surfaceType, setSurfaceType] = useState("PERSON");
+  const [surfaceValue, setSurfaceValue] = useState("");
 
   const selected = useMemo(
     () => queue.find((item) => item.id === selectedId) ?? null,
@@ -67,6 +80,41 @@ export function ReviewScreen({ caseId: initialCaseId }: { caseId: string }): JSX
     setCropBroken(false);
   }, [selected?.id, selected?.recognised_text]);
 
+  const runPreview = useCallback(
+    async (surfaceList: PreviewSurface[], against: string) => {
+      if (!selected || !caseId) return;
+      setPreviewBusy(true);
+      setPreviewNote(null);
+      try {
+        const rows = await previewExtraction(caseId, { text: against, surfaces: surfaceList });
+        setSpans(rows);
+        setResolvedText(against);
+      } catch (err) {
+        setSpans(null);
+        setResolvedText(null);
+        setPreviewNote(err instanceof Error ? err.message : "Preview unavailable.");
+      } finally {
+        setPreviewBusy(false);
+      }
+    },
+    [selected, caseId],
+  );
+
+  // A new selection starts with no surfaces and one live call, so the
+  // panel always shows endpoint data (possibly an empty list), never a
+  // static placeholder.
+  useEffect(() => {
+    setSurfaces([]);
+    setSpans(null);
+    setResolvedText(null);
+    setPreviewNote(null);
+    setSurfaceValue("");
+    if (selected) {
+      void runPreview([], selected.recognised_text ?? "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id]);
+
   async function decide(
     item: ReviewItem,
     status: "corrected" | "accepted" | "rejected",
@@ -97,6 +145,22 @@ export function ReviewScreen({ caseId: initialCaseId }: { caseId: string }): JSX
     const index = queue.findIndex((item) => item.id === selectedId);
     const following = queue[(index + 1) % queue.length];
     setSelectedId(following.id);
+  }
+
+  function addSurface(): void {
+    if (!selected) return;
+    const value = surfaceValue.trim();
+    if (value === "") return;
+    const nextSurfaces = [...surfaces, { type: surfaceType, value }];
+    setSurfaces(nextSurfaces);
+    setSurfaceValue("");
+    void runPreview(nextSurfaces, text);
+  }
+
+  function removeSurface(index: number): void {
+    const nextSurfaces = surfaces.filter((_, i) => i !== index);
+    setSurfaces(nextSurfaces);
+    void runPreview(nextSurfaces, text);
   }
 
   // Keyboard shortcuts, visible in the action bar below.
@@ -256,9 +320,94 @@ export function ReviewScreen({ caseId: initialCaseId }: { caseId: string }): JSX
         <section aria-label="Extracted entities preview" className="border border-neutral-800 bg-neutral-900 p-3">
           <h2 className="text-xs font-semibold text-neutral-200">Entities (preview)</h2>
           <p className="mt-2 text-xs text-neutral-500">
-            Preview only — nothing is created until the decide call returns. Entity preview needs the
-            extraction step; unreviewed text yields no entities (FR-2.7).
+            Preview only — nothing is created until the decide call returns. Add a surface below
+            to locate it in the transcription via span resolution (D29); the queue carries no
+            extracted entities yet (FR-2.7).
           </p>
+          {!selected ? (
+            <p className="mt-2 text-xs text-neutral-500">Select an item from the queue.</p>
+          ) : (
+            <>
+              <div className="mt-2 flex gap-1">
+                <select
+                  aria-label="Surface type"
+                  className="border border-neutral-700 bg-neutral-950 px-1 py-1 text-xs text-neutral-100"
+                  value={surfaceType}
+                  onChange={(event) => setSurfaceType(event.target.value)}
+                >
+                  {["PERSON", "ORGANIZATION", "LOCATION", "VEHICLE", "ACCOUNT", "PHONE", "IMEI", "NAFIS"].map(
+                    (option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ),
+                  )}
+                </select>
+                <input
+                  aria-label="Surface value"
+                  placeholder="surface text"
+                  className="min-w-0 flex-1 border border-neutral-700 bg-neutral-950 px-2 py-1 text-xs text-neutral-100"
+                  value={surfaceValue}
+                  onChange={(event) => setSurfaceValue(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addSurface();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={previewBusy}
+                  onClick={addSurface}
+                  className="border border-neutral-600 px-2 py-1 text-xs text-neutral-100 disabled:opacity-50"
+                >
+                  Locate
+                </button>
+              </div>
+              {previewNote ? (
+                <p role="alert" className="mt-2 text-xs text-red-400">
+                  {previewNote}
+                </p>
+              ) : null}
+              {resolvedText !== null && resolvedText !== text ? (
+                <p className="mt-2 text-xs text-amber-400">
+                  Resolved against earlier text — press Locate again to refresh.
+                </p>
+              ) : null}
+              <ul className="mt-2 flex flex-col gap-1">
+                {(spans ?? []).map((span, index) => (
+                  <li
+                    key={`${span.type}:${span.value}:${index}`}
+                    className="flex items-center justify-between gap-2 border border-neutral-800 px-2 py-1 text-xs"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-neutral-200">
+                      <span className="text-neutral-500">{span.type}</span> {span.value}{" "}
+                      {span.found && span.char_start !== null && span.char_end !== null ? (
+                        <span className="text-neutral-400">
+                          · chars {span.char_start}–{span.char_end}
+                        </span>
+                      ) : (
+                        <span className="text-neutral-500">· not in text</span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Remove surface ${span.value}`}
+                      onClick={() => removeSurface(index)}
+                      className="shrink-0 text-neutral-500 hover:text-neutral-200"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+                {spans !== null && spans.length === 0 && !previewBusy ? (
+                  <li className="text-xs text-neutral-500">No surfaces located yet.</li>
+                ) : null}
+                {previewBusy ? <li className="text-xs text-neutral-500">Locating…</li> : null}
+              </ul>
+            </>
+          )}
           {selected?.status !== "pending" && selected ? (
             <p className="mt-2 border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition-colors duration-[180ms]">
               {selected.status.toUpperCase()} — kept visible as audit evidence.

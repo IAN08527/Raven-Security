@@ -25,33 +25,36 @@ use crate::audit::{record_action, AuditStore};
 use crate::auth::{authenticate_request, AppRole, AuthContext, JwksCache, ProfilesStore};
 use crate::ledger::LedgerClient;
 use crate::reid::topology::CameraEdge;
+use ts_rs::TS;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct Camera {
     pub id: Uuid,
     pub code: String,
     pub label: String,
     #[serde(with = "time::serde::rfc3339")]
+    #[ts(type = "string")]
     pub declared_start_ts: OffsetDateTime,
     pub fps: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, TS)]
 pub struct RegisterCameraRequest {
     pub code: String,
     pub label: String,
     #[serde(default, with = "time::serde::rfc3339::option")]
+    #[ts(type = "string | null")]
     pub declared_start_ts: Option<OffsetDateTime>,
     pub fps: f64,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorEnvelope {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorEnvelope {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorBody {
     code: &'static str,
     message: String,
     detail: serde_json::Value,
@@ -248,7 +251,7 @@ async fn register_camera(
     (StatusCode::CREATED, Json(camera)).into_response()
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, TS)]
 pub struct CreateEdgeRequest {
     pub from: Uuid,
     pub to: Uuid,

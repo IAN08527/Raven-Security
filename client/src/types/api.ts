@@ -1,18 +1,124 @@
-// TEMPORARY: hand-written types, see DECISIONS.md D30.
-// Do not treat this file as generated. Keep in sync with
-// server Rust structs manually until ts-rs is added.
-//
-// Shared shapes for the client<->server and client<->engine-node
-// boundaries (API_CONTRACTS.md §1.2, §2.6, §3.2).
+// Types generated from Rust structs via cargo xtask generate-types.
+// Generated files live in types/generated/ (gitignored).
+// To regenerate: cargo xtask generate-types
+// Client-only types (UI state, component props) remain below.
 
-export type CameraMode = "live" | "recorded";
+// --- Generated re-exports (Rust is the source of truth, D30) ---
+
+export type { AppRole } from "./generated/AppRole";
+export type { AuditRow } from "./generated/AuditRow";
+export type { Camera } from "./generated/Camera";
+export type { CameraEdge } from "./generated/CameraEdge";
+export type { Candidate } from "./generated/Candidate";
+export type { CandidateMatch } from "./generated/CandidateMatch";
+export type { CaseHit } from "./generated/CaseHit";
+export type { CaseRecord } from "./generated/CaseRecord";
+export type { Clock } from "./generated/Clock";
+export type { CreateEdgeRequest } from "./generated/CreateEdgeRequest";
+export type { CreateNoteRequest } from "./generated/CreateNoteRequest";
+export type { CreateTargetRequest } from "./generated/CreateTargetRequest";
+export type { CreateTargetResponse } from "./generated/CreateTargetResponse";
+export type { CreateUserRequest } from "./generated/CreateUserRequest";
+export type { DeactivateUserRequest } from "./generated/DeactivateUserRequest";
+export type { DecideDecision } from "./generated/DecideDecision";
+export type { DecideMergeRequest } from "./generated/DecideMergeRequest";
+export type { DecideMergeResponse } from "./generated/DecideMergeResponse";
+export type { DecideRequest } from "./generated/DecideRequest";
+export type { DecideResponse } from "./generated/DecideResponse";
+export type { DecideReviewRequest } from "./generated/DecideReviewRequest";
+export type { DecideReviewResponse } from "./generated/DecideReviewResponse";
+export type { DecisionStatus } from "./generated/DecisionStatus";
+export type { DecisionStatus as CandidateStatus } from "./generated/DecisionStatus";
+export type { DependencyStatus } from "./generated/DependencyStatus";
+export type { Endorsement } from "./generated/Endorsement";
+export type { Entity } from "./generated/Entity";
+export type { EntityDetailResponse as EntityDetail } from "./generated/EntityDetailResponse";
+export type { EntityHit } from "./generated/EntityHit";
+export type { EntityListItem } from "./generated/EntityListItem";
+export type { EntityNote } from "./generated/EntityNote";
+export type { EntityType } from "./generated/EntityType";
+export type { EntityType as GraphEntityType } from "./generated/EntityType";
+export type { ErrorBody } from "./generated/ErrorBody";
+export type { ErrorEnvelope } from "./generated/ErrorEnvelope";
+export type { EvidenceItem as EdgeEvidenceItem } from "./generated/EvidenceItem";
+export type { FileDetailResponse } from "./generated/FileDetailResponse";
+export type { FileHit } from "./generated/FileHit";
+export type { FileRecord } from "./generated/FileRecord";
+export type { GraphEdge } from "./generated/GraphEdge";
+export type { GraphNode } from "./generated/GraphNode";
+export type { GraphPayload } from "./generated/GraphPayload";
+export type { HealthReport } from "./generated/HealthReport";
+export type { IdentifierHit } from "./generated/IdentifierHit";
+export type { IngestJob } from "./generated/IngestJob";
+export type { ListEntitiesResponse as EntityListResponse } from "./generated/ListEntitiesResponse";
+export type { LostEvent as ReidLostPayload } from "./generated/LostEvent";
+export type { MergeProposal } from "./generated/MergeProposal";
+export type { MergeStatus } from "./generated/MergeStatus";
+export type { MovementPoint } from "./generated/MovementPoint";
+export type { MovementTimelineResponse as MovementTimeline } from "./generated/MovementTimelineResponse";
+export type { Node } from "./generated/Node";
+export type { Node as EngineNode } from "./generated/Node";
+export type { ProposedCandidate } from "./generated/ProposedCandidate";
+export type { PreviewExtractionRequest } from "./generated/PreviewExtractionRequest";
+export type { PreviewSpan } from "./generated/PreviewSpan";
+export type { PreviewSurface } from "./generated/PreviewSurface";
+export type { ProposeMergeRequest } from "./generated/ProposeMergeRequest";
+export type { ProposeMergeResponse } from "./generated/ProposeMergeResponse";
+export type { RegisterCameraRequest } from "./generated/RegisterCameraRequest";
+export type { RegisterNodeRequest } from "./generated/RegisterNodeRequest";
+export type { ReviewItem } from "./generated/ReviewItem";
+export type { ReviewStatus } from "./generated/ReviewStatus";
+export type { RoutineCluster } from "./generated/RoutineCluster";
+export type { RoutineResponse } from "./generated/RoutineResponse";
+export type { SearchResponse } from "./generated/SearchResponse";
+export type { SyncState } from "./generated/SyncState";
+export type { TamperState } from "./generated/TamperState";
+export type { Target } from "./generated/Target";
+export type { TerminalStatus } from "./generated/TerminalStatus";
+export type { TimelineEvent } from "./generated/TimelineEvent";
+export type { TimelineResponse as CaseTimeline } from "./generated/TimelineResponse";
+export type { TimeWindow as ExpectedWindow } from "./generated/TimeWindow";
+export type { UserRecord as AdminUser } from "./generated/UserRecord";
+export type { VerifyFileResponse } from "./generated/VerifyFileResponse";
+export type { VerifyRowResponse } from "./generated/VerifyRowResponse";
+export type { VerifyStatus } from "./generated/VerifyStatus";
+export type { JsonValue } from "./generated/serde_json/JsonValue";
+
+// Local bindings for the client-only types below. (A bare
+// `export ... from` re-exports without declaring a local name.)
+import type { Candidate } from "./generated/Candidate";
+import type { DecisionStatus as CandidateStatus } from "./generated/DecisionStatus";
+import type { EntityDetailResponse as EntityDetail } from "./generated/EntityDetailResponse";
+import type { LostEvent as ReidLostPayload } from "./generated/LostEvent";
+import type { TimeWindow as ExpectedWindow } from "./generated/TimeWindow";
+
+// Alias kept so existing §2.5 call sites read naturally; one shape,
+// one owner (EntityDetail above, re-exported from generated/).
+export type EntityRecord = EntityDetail;
+
+// --- Client-only types below ---
+//
+// These have no Rust counterpart: engine-socket payloads (the client
+// talks to engine nodes directly per API_CONTRACTS.md §3, a boundary
+// the server's ts-rs registry does not cover), the CameraView
+// contract-target view model, and UI state. If the server ever serves
+// one of these shapes, delete the local copy and re-export instead.
 
 // API_CONTRACTS.md §2.6 does not enumerate `status`'s values explicitly.
 // "online" / "offline" / "degraded" mirror D14's node-degraded language and
 // the CCTV status-indicator vocabulary in the design system (§3.3, §10.5).
 export type CameraStatus = "online" | "offline" | "degraded";
 
-export interface Camera {
+export type CameraMode = "live" | "recorded";
+
+// Client-assembled §2.6 view model, NOT the wire type (see `Camera`
+// above, the generated M1-T1 stub shape). The stub `GET /cameras`
+// carries no coordinates, mode, status, node or stream URL yet
+// (main.tsx documents the gap); the video wall needs the contracted
+// shape, so callers assemble it from the wire Camera plus engine-node
+// status (HomeDashboard-style), never by fetching it. When the server
+// serves the full §2.6 shape, delete this and use generated `Camera`.
+export interface CameraView {
   id: string;
   code: string;
   label: string;
@@ -56,28 +162,12 @@ export interface EventEnvelope<Type extends string, Payload> {
 
 export type CvBoxesEvent = EventEnvelope<"cv.boxes", CvBoxesPayload>;
 
-// M2-T4/M2-T5. Re-ID candidate flow (API_CONTRACTS.md §2.6, §4). Every
-// candidate carries threshold_used and prior_adjustment: a candidate
-// without them is invalid (§4 rule 4) and the DB enforces NOT NULL.
-export type CandidateStatus = "proposed" | "confirmed" | "rejected";
-
-export interface ExpectedWindow {
-  start: string; // RFC 3339, case clock (D16)
-  end: string; // RFC 3339, case clock (D16)
-}
-
-export interface ReidCandidate {
-  id: number;
-  target_id: string;
-  camera_id: string;
-  ts: string; // case_clock_ts of the sighting (D16)
-  similarity: number;
-  threshold_used: number;
-  prior_adjustment: number;
-  expected_from: string | null;
+// Engine-socket candidate: the generated `Candidate` wire base plus the
+// expected arrival window the engine delivers on its control socket
+// (API_CONTRACTS.md §4). `status` reuses the generated DecisionStatus
+// values via CandidateStatus above.
+export interface ReidCandidate extends Candidate {
   expected_window: ExpectedWindow | null;
-  crop_path: string | null;
-  status: CandidateStatus;
 }
 
 export interface ReidCandidatePayload {
@@ -92,211 +182,5 @@ export interface ReidCandidatePayload {
   status: CandidateStatus;
 }
 
-export interface ReidLostPayload {
-  case_id: string;
-  camera_id: string;
-  last_seen_ts: string; // case clock (D16)
-}
-
 export type ReidCandidateEvent = EventEnvelope<"reid.candidate", ReidCandidatePayload>;
 export type ReidLostEvent = EventEnvelope<"reid.lost", ReidLostPayload>;
-
-// M4-T3/M4-T5. Graph analytics (API_CONTRACTS.md §2.4, D23, FR-4).
-// `types` defaults to person-only server-side; the client repeats the
-// default explicitly rather than relying on it.
-export type GraphEntityType = "PERSON" | "ORGANIZATION" | "ACCOUNT" | "LOCATION" | "VEHICLE";
-
-export interface GraphNode {
-  id: string;
-  type: GraphEntityType;
-  label: string;
-}
-
-export interface GraphEdge {
-  id: string;
-  src: string;
-  dst: string;
-  type: string;
-  weight: number;
-}
-
-export interface GraphPayload {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-}
-
-export type TamperState = "verified" | "pending" | "tampered";
-
-export interface EdgeEvidenceItem {
-  id: number;
-  kind: string;
-  snippet: string | null;
-  char_start: number | null;
-  char_end: number | null;
-  page_no: number | null;
-  source_file_id: string;
-  provenance: string;
-  tamper_state: TamperState;
-  occurred_at: string | null; // case clock (D16)
-  ledger_hash: string | null; // FR-7.2: both hashes shown on tampered rows
-  computed_hash: string | null;
-}
-
-export interface GraphIdentifier {
-  type: string;
-  value: string;
-}
-
-export interface EntityDetail {
-  id: string;
-  case_id: string;
-  type: GraphEntityType;
-  canonical_name: string;
-  aliases: string[];
-  identifiers: string[];
-  relationships: string[];
-  associated_cases: string[];
-  case_count: number;
-  provenance: string;
-  sync_state: string;
-  notes: EntityNote[];
-}
-
-// Alias kept so existing §2.5 call sites read naturally; one shape,
-// one owner (EntityDetail above).
-export type EntityRecord = EntityDetail;
-
-// API_CONTRACTS.md §2.12 global search (server/src/api/search.rs).
-// Groups arrive pre-capped (10 per group, 40 total); tabs split them
-// client-side without re-querying.
-
-export interface EntityHit {
-  id: string;
-  case_id: string;
-  type: GraphEntityType;
-  canonical_name: string;
-  provenance: string;
-}
-
-export interface CaseHit {
-  id: string;
-  case_code: string;
-  title: string;
-}
-
-export interface FileHit {
-  id: string;
-  case_id: string;
-  name: string;
-  provenance: string;
-}
-
-export interface IdentifierHit {
-  entity_id: string;
-  case_id: string;
-  value: string;
-  provenance: string;
-}
-
-export interface SearchResponse {
-  entities: EntityHit[];
-  cases: CaseHit[];
-  files: FileHit[];
-  identifiers: IdentifierHit[];
-}
-
-// API_CONTRACTS.md §2.5 entity listing and detail (server/src/api/entities.rs).
-// `EntityDetail` above stays as the graph projection's shape; the shapes
-// below are the entities endpoints' contract (associated cases, provenance,
-// sync state, embedded notes). No risk score: PRD §5 excludes risk scoring
-// of individuals, recorded in the contract.
-
-export interface EntityListItem {
-  id: string;
-  type: GraphEntityType;
-  canonical_name: string;
-  identifiers: string[];
-  case_count: number;
-  provenance: string;
-  sync_state: string;
-}
-
-export interface EntityListResponse {
-  results: EntityListItem[];
-  next_cursor: string | null;
-}
-
-export interface EntityNote {
-  id: string;
-  entity_id: string;
-  text: string;
-  created_by: string;
-  created_at: string; // mirrors the annotation's audit row (server-side)
-}
-
-// API_CONTRACTS.md §2.7 movement (server/src/api/map.rs). Timestamps
-// are case-clock, labelled CASE TIME in the UI (D16); `clock` repeats
-// that on the wire so no consumer has to remember it.
-
-export interface MovementPoint {
-  ts: string;
-  clock: "case" | "system";
-  lat: number;
-  lon: number;
-  origin: string;
-  accuracy_m: number | null;
-  provenance: string;
-  source_file_id: string | null;
-  camera_id: string | null;
-  declared_start_ts: string | null;
-}
-
-export interface MovementTimeline {
-  results: MovementPoint[];
-  next_cursor: string | null;
-}
-
-export interface RoutineCluster {
-  area: string;
-  lat: number;
-  lon: number;
-  visit_count: number;
-  confidence_pct: number;
-  typical_window: string | null;
-  low_data: boolean;
-}
-
-export interface RoutineResponse {
-  clusters: RoutineCluster[];
-  total_points: number;
-}
-
-// API_CONTRACTS.md §2.10 case timeline (server/src/api/timeline.rs).
-// `clock` repeats the timestamp's provenance on the wire (D16) so no
-// consumer has to remember which events are case-clock.
-
-export interface TimelineEvent {
-  event_type: string;
-  ts: string;
-  clock: "case" | "system";
-  description: string;
-  actor: string | null;
-  entity_refs: string[];
-  detail: Record<string, unknown>;
-}
-
-export interface CaseTimeline {
-  results: TimelineEvent[];
-  next_cursor: string | null;
-}
-
-// API_CONTRACTS.md §2.11 user administration (server/src/api/admin.rs).
-
-export interface AdminUser {
-  id: string;
-  email: string;
-  badge_no: string;
-  full_name: string;
-  role: string;
-  active: boolean;
-}

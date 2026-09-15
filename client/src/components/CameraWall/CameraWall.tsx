@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import type { Camera } from "../../types/api";
+import type { CameraView } from "../../types/api";
 import { CameraFeed } from "./CameraFeed";
 
 interface CameraWallProps {
-  cameras: Camera[];
+  cameras: CameraView[];
 }
 
 function gridColumns(count: number): number {

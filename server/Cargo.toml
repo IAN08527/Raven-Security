@@ -29,6 +29,13 @@ serde_json = "1"
 sha2 = "0.10"
 thiserror = "1"
 anyhow = "1"
+# ts-rs 10.1.0 has no `chrono`/`uuid` features (those names do not exist
+# upstream): `uuid-impl` maps Uuid to string, `serde-json-impl` maps
+# serde_json::Value to a JsonValue enum. There is no impl for
+# time::OffsetDateTime, so every case-clock field carries an explicit
+# #[ts(type = "string")] (RFC 3339 on the wire). chrono-impl is omitted:
+# no chrono type crosses the API boundary (D16 uses time, not chrono).
+ts-rs = { version = "10", features = ["uuid-impl", "serde-json-impl"] }
 time = { version = "0.3", features = ["parsing", "formatting", "macros", "serde-well-known"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 ulid = "1"

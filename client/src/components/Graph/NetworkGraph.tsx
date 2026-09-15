@@ -26,6 +26,17 @@ export const NODE_STYLE: Record<GraphEntityType, { shape: string; color: string 
   VEHICLE: { shape: "round-rectangle", color: "#8273A8" },
 };
 
+// EntityDetail carries `type` as a plain string (the server stores the
+// validated value but the wire type is unconstrained), so indexing
+// NODE_STYLE with it needs a fallback for values outside the five
+// contracted types. Unknown types render neutral grey rather than
+// crashing the panel — a display default, never stored data.
+const UNKNOWN_STYLE = { shape: "ellipse", color: "#706E68" };
+
+export function nodeStyleFor(type: string): { shape: string; color: string } {
+  return (NODE_STYLE as Record<string, { shape: string; color: string }>)[type] ?? UNKNOWN_STYLE;
+}
+
 const TRANSITION_S = 0.18; // 180ms selection/isolate transitions; cytoscape takes seconds
 
 interface NetworkGraphProps {

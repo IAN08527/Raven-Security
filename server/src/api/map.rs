@@ -30,12 +30,14 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::audit::{record_action, AssignmentStore, AuditStore};
 use crate::auth::{authenticate_request, AppRole, AuthContext, JwksCache, ProfilesStore};
 use crate::api::cameras::CameraStore;
 use crate::api::entities::EntityStore;
+use crate::api::timeline::Clock;
 use crate::ledger::LedgerClient;
 
 /// One location row as held by this service, mirroring the baseline
@@ -80,10 +82,13 @@ impl LocationStore {
 const DEFAULT_POINT_LIMIT: usize = 500;
 const MAX_POINT_LIMIT: usize = 2000;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct MovementPoint {
     pub ts: String,
-    pub clock: &'static str,
+    // Shared Clock enum (timeline.rs): movement points are always
+    // case-clock today, so this serializes exactly as before ("case")
+    // while giving the generated type the "case" | "system" union.
+    pub clock: Clock,
     pub lat: f64,
     pub lon: f64,
     pub origin: String,
@@ -94,7 +99,7 @@ pub struct MovementPoint {
     pub declared_start_ts: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct MovementTimelineResponse {
     pub results: Vec<MovementPoint>,
     pub next_cursor: Option<String>,
@@ -108,7 +113,7 @@ pub struct MovementQuery {
     pub cursor: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct RoutineCluster {
     pub area: String,
     pub lat: f64,
@@ -119,7 +124,7 @@ pub struct RoutineCluster {
     pub low_data: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct RoutineResponse {
     pub clusters: Vec<RoutineCluster>,
     pub total_points: usize,
@@ -166,13 +171,13 @@ pub fn router(deps: MapDeps) -> Router {
         .with_state(state)
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorEnvelope {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorEnvelope {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorBody {
     code: &'static str,
     message: String,
     detail: serde_json::Value,
@@ -313,7 +318,7 @@ async fn movement_timeline(
             });
             MovementPoint {
                 ts: point.ts.format(&Rfc3339).unwrap_or_default(),
-                clock: "case",
+                clock: Clock::Case,
                 lat: point.lat,
                 lon: point.lon,
                 origin: point.origin,

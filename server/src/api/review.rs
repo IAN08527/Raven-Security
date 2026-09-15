@@ -15,7 +15,7 @@
 //! case-scoped listing works; real persistence joins through
 //! `source_files` instead (the baseline table has no `case_id` column).
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use axum::extract::{Path, Query, State};
@@ -26,6 +26,7 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::audit::{record_action, AuditStore};
@@ -35,7 +36,7 @@ use crate::ledger::LedgerClient;
 /// Baseline `review_status`: pending → corrected | accepted | rejected.
 /// `Pending` is the only status any path other than `decide_review`
 /// constructs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 pub enum ReviewStatus {
     Pending,
@@ -46,8 +47,10 @@ pub enum ReviewStatus {
 
 /// One queue row, mirroring the baseline `review_items` columns plus the
 /// stub-only `case_id` (see module docs).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct ReviewItem {
+    // Wire integers are JSON numbers (see entities.rs MergeProposal).
+    #[ts(type = "number")]
     pub id: i64,
     pub case_id: Uuid,
     pub source_file_id: Uuid,
@@ -62,6 +65,7 @@ pub struct ReviewItem {
     pub status: ReviewStatus,
     pub reviewed_by: Option<Uuid>,
     #[serde(with = "time::serde::rfc3339::option")]
+    #[ts(type = "string | null")]
     pub reviewed_at: Option<OffsetDateTime>,
     pub ledger_tx_id: Option<String>,
 }
@@ -83,9 +87,17 @@ impl ReviewStore {
         debug_assert_eq!(item.status, ReviewStatus::Pending);
         self.lock().push(item);
     }
+
+    pub fn len(&self) -> usize {
+        self.lock().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.lock().is_empty()
+    }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, TS)]
 pub struct DecideReviewRequest {
     pub corrected_text: Option<String>,
     pub status: TerminalStatus,
@@ -94,7 +106,7 @@ pub struct DecideReviewRequest {
 /// Only terminal statuses are reachable through the decide endpoint: there
 /// is no transition back to `pending`, so `Pending` has no variant here
 /// and sending `"pending"` fails deserialization (422).
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq, TS)]
 #[serde(rename_all = "lowercase")]
 pub enum TerminalStatus {
     Corrected,
@@ -102,12 +114,101 @@ pub enum TerminalStatus {
     Rejected,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct DecideReviewResponse {
+    #[ts(type = "number")]
     pub id: i64,
     pub status: ReviewStatus,
     pub ledger_tx_id: Option<String>,
     pub ledger_status: String,
+}
+
+/// Preview-extraction DTOs (D29, API_CONTRACTS.md §2.3). `type` is a
+/// Rust keyword, so the field is `surface_type` renamed on the wire
+/// (same pattern as the graph module's `typ`).
+#[derive(Debug, Deserialize, TS)]
+pub struct PreviewSurface {
+    #[serde(rename = "type")]
+    pub surface_type: String,
+    pub value: String,
+}
+
+#[derive(Debug, Deserialize, TS)]
+pub struct PreviewExtractionRequest {
+    pub text: String,
+    pub surfaces: Vec<PreviewSurface>,
+}
+
+#[derive(Debug, Serialize, TS)]
+pub struct PreviewSpan {
+    #[serde(rename = "type")]
+    pub surface_type: String,
+    pub value: String,
+    // Wire integers are JSON numbers (see entities.rs MergeProposal).
+    #[ts(type = "number | null")]
+    pub char_start: Option<i64>,
+    #[ts(type = "number | null")]
+    pub char_end: Option<i64>,
+    pub found: bool,
+}
+
+/// Deterministic surface-then-resolve (D11-A), ported from the docs-lane
+/// reference implementation (`docs-lane/schemas.py`
+/// `SpanResolver.resolve`): the caller identifies surfaces, this finds
+/// offsets via substring search with occurrence-index disambiguation, so
+/// duplicate values resolve to successive occurrences in surface order.
+/// Unfound (or empty) surfaces return `found: false` with null spans --
+/// never an error (rule 9).
+///
+/// Offsets are CHARACTER indices, not bytes: `str::find` yields byte
+/// positions, converted here, because byte offsets into non-ASCII
+/// review text (Hindi, Marathi) would point at wrong spans.
+///
+/// NOTE (mechanism): D29 pictures the server calling the document
+/// lane's SpanResolver over HTTP, but the lane serves no HTTP yet (its
+/// service is a documented follow-up; the saga still stubs its client
+/// trait). This port keeps the endpoint's contract -- request, response,
+/// audit row -- identical for that future move; only the call target
+/// changes.
+fn resolve_spans(text: &str, surfaces: &[PreviewSurface]) -> Vec<PreviewSpan> {
+    // Next byte offset to search from, per distinct surface value:
+    // each duplicate advances past the previously claimed occurrence.
+    let mut next_offset: HashMap<&str, usize> = HashMap::new();
+    surfaces
+        .iter()
+        .map(|surface| {
+            let value = surface.value.as_str();
+            let start_from = next_offset.get(value).copied().unwrap_or(0);
+            let found = if value.is_empty() {
+                None
+            } else {
+                text.get(start_from..)
+                    .and_then(|tail| tail.find(value))
+                    .map(|rel| start_from + rel)
+            };
+            match found {
+                Some(byte_start) => {
+                    let char_start = text[..byte_start].chars().count();
+                    let char_end = char_start + value.chars().count();
+                    next_offset.insert(value, byte_start + value.len());
+                    PreviewSpan {
+                        surface_type: surface.surface_type.clone(),
+                        value: surface.value.clone(),
+                        char_start: Some(char_start as i64),
+                        char_end: Some(char_end as i64),
+                        found: true,
+                    }
+                }
+                None => PreviewSpan {
+                    surface_type: surface.surface_type.clone(),
+                    value: surface.value.clone(),
+                    char_start: None,
+                    char_end: None,
+                    found: false,
+                },
+            }
+        })
+        .collect()
 }
 
 #[derive(Debug, Deserialize)]
@@ -115,13 +216,13 @@ struct ListReviewQuery {
     status: Option<ReviewStatus>,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorEnvelope {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorEnvelope {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorBody {
     code: &'static str,
     message: String,
     detail: serde_json::Value,
@@ -195,6 +296,7 @@ pub fn router(reviews: ReviewStore, deps: ReviewDeps) -> Router {
     Router::new()
         .route("/cases/:case_id/review", get(list_reviews))
         .route("/review/:id", post(decide_review))
+        .route("/cases/:case_id/preview-extraction", post(preview_extraction))
         .with_state(state)
 }
 
@@ -324,4 +426,49 @@ async fn decide_review(
         ledger_status: row.ledger_status,
     };
     (StatusCode::OK, Json(response)).into_response()
+}
+
+/// POST /cases/{id}/preview-extraction (D29, API_CONTRACTS.md §2.3):
+/// io role only (the auditor is read-only, the analyst views). Resolves
+/// caller-supplied surfaces against the supplied text and returns spans.
+/// No model call, no persistence -- nothing is read from or written to
+/// any table. The ONLY write is the `preview.extraction` audit row
+/// (API_CONTRACTS.md rule 6), so the preview itself is attributable.
+async fn preview_extraction(
+    State(state): State<ReviewState>,
+    headers: HeaderMap,
+    Path(case_id): Path<Uuid>,
+    Json(req): Json<PreviewExtractionRequest>,
+) -> impl IntoResponse {
+    let reviewer = match authenticate_io(&headers, &state.auth).await {
+        Ok(user_id) => user_id,
+        Err(boxed) => return *boxed,
+    };
+    let spans = resolve_spans(&req.text, &req.surfaces);
+    let mut hasher = Sha256::new();
+    hasher.update(req.text.as_bytes());
+    for surface in &req.surfaces {
+        hasher.update(surface.surface_type.as_bytes());
+        hasher.update(surface.value.as_bytes());
+    }
+    let digest: String =
+        hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect();
+    record_action(
+        crate::audit::ActionDeps {
+            audit: &state.audit,
+            ledger: &state.ledger,
+            profiles: &state.profiles,
+        },
+        crate::audit::ActionRecord {
+            case_id,
+            user_id: reviewer,
+            user_role: AppRole::Io,
+            action: "preview.extraction".to_string(),
+            object_type: "preview_extraction".to_string(),
+            object_id: digest.clone(),
+            payload_hash: digest,
+        },
+    )
+    .await;
+    (StatusCode::OK, Json(spans)).into_response()
 }

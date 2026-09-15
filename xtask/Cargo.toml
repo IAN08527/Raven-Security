@@ -1,0 +1,19 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "xtask"
+path = "src/main.rs"
+
+[dependencies]
+# Same ts-rs features as server/Cargo.toml (D30): uuid-impl maps Uuid
+# to string, serde-json-impl maps serde_json::Value to JsonValue.
+# The server path dependency is what pulls the #[ts(export)] inventory
+# into this binary — without it export_all_into would emit nothing.
+ts-rs = { version = "10", features = ["uuid-impl", "serde-json-impl"] }
+server = { path = "../server" }
+
+[lints.rust]
+unsafe_code = "forbid"

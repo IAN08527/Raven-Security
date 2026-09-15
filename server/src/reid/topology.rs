@@ -9,6 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::reid::search::{TimeWindow, MAX_PRIOR_ADJUSTMENT};
@@ -17,7 +18,7 @@ use crate::reid::search::{TimeWindow, MAX_PRIOR_ADJUSTMENT};
 /// `POST /camera-edges` (API_CONTRACTS.md §2.6) creates these rows
 /// through the server, the sole graph writer (D10); the prior only
 /// ever reads them.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct CameraEdge {
     pub from_camera: Uuid,
     pub to_camera: Uuid,

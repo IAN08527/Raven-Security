@@ -9,12 +9,14 @@ Engine selection (OSNet x1.0 vs x0.25, TensorRT FP16) is measured, not
 guessed: whichever engine file fits within ``vram_ceiling`` after the
 detector is already resident is chosen, by ``stat().st_size`` -- the same
 pattern as ``PersonDetector``'s ceiling check. Model weights are pulled
-once and cached locally per ``STACK.md`` §5; until the OSNet TensorRT
-engines land in ``models/``, vectors come from a deterministic fallback
-(see ``_fallback_embed``) so the pipeline, storage and UI can be built and
-tested without claiming real Re-ID accuracy. S2 numbers require the real
-weights -- see ``docs/RESULTS.md`` (no S2 row yet) and never treat fallback
-vectors as a measurement (CLAUDE.md rule 10).
+once and cached locally per ``STACK.md`` §5; ``models/osnet_x1_0.engine``
+is now cached and export-verified (see ``docs/RESULTS.md`` S2 rows), but
+``embed_single`` still serves the deterministic fallback (see
+``_fallback_embed``) until a TensorRT inference path lands here -- and no
+production call passes engine paths yet, so variant selection cannot
+mislabel fallback vectors as OSNet output. S2 numbers require real
+inference over identity-labelled data; never treat fallback vectors as a
+measurement (CLAUDE.md rule 10).
 """
 
 from __future__ import annotations
@@ -130,7 +132,7 @@ class ReIDEmbedder:
             self.variant = "osnet_x0_25"
             self.engine_bytes = x025_size
         elif x10_size is None and x025_size is None:
-            # No TensorRT engines cached yet (STACK.md §5: weights are pulled
+            # No TensorRT engine paths passed (STACK.md §5: weights are pulled
             # once and cached locally). VRAM accounting still holds -- the
             # fallback allocates negligibly -- but vectors are NOT OSNet
             # measurements; see module docstring.

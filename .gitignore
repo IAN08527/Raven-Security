@@ -22,6 +22,11 @@ dist-ssr/
 # Tauri
 client/src-tauri/gen/
 
+# Generated TypeScript bindings (D30): derived from server Rust structs
+# via `cargo xtask generate-types`, never edited by hand. Regenerate
+# after changing any API struct instead of committing the output.
+client/src/types/generated/
+
 # Supabase local dev
 supabase/.branches
 supabase/.temp

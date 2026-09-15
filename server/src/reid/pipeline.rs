@@ -21,6 +21,7 @@ use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::reid::search::{TimeWindow, adjusted_threshold, cosine_similarity};
@@ -59,11 +60,12 @@ pub struct ActiveTarget {
 
 /// A proposal. ``threshold_used`` / ``prior_adjustment`` are non-optional:
 /// the pipeline must not insert a row without them (API_CONTRACTS.md §4).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct ProposedCandidate {
     pub target_id: Uuid,
     pub camera_id: Uuid,
     #[serde(with = "time::serde::rfc3339")]
+    #[ts(type = "string")]
     pub ts: OffsetDateTime,
     pub similarity: f32,
     pub threshold_used: f32,
@@ -78,7 +80,7 @@ pub struct ProposedCandidate {
 /// the decide endpoint (M2-T5) has a variant to transition into; pipeline
 /// code paths that construct it are a D9 violation and are covered by a
 /// test that fails if one appears outside the decide handler.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 pub enum DecisionStatus {
     Proposed,
@@ -87,11 +89,12 @@ pub enum DecisionStatus {
 }
 
 /// ``reid.lost`` payload: the target was lost at a named camera (FR-5.8).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct LostEvent {
     pub case_id: Uuid,
     pub camera_id: Uuid,
     #[serde(with = "time::serde::rfc3339")]
+    #[ts(type = "string")]
     pub last_seen_ts: OffsetDateTime,
 }
 

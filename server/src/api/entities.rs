@@ -34,6 +34,7 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::audit::{record_action, AssignmentStore, AuditStore};
@@ -41,7 +42,7 @@ use crate::auth::{authenticate_io, authenticate_request, AppRole, AuthContext, J
 use crate::ledger::LedgerClient;
 
 /// Postgres-side sync state (D4): the graph projection lags, never leads.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 pub enum SyncState {
     Synced,
@@ -50,7 +51,7 @@ pub enum SyncState {
 }
 
 /// One entity row as held by this service.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct Entity {
     pub id: Uuid,
     pub case_id: Uuid,
@@ -63,7 +64,7 @@ pub struct Entity {
     pub sync_state: SyncState,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 pub enum MergeStatus {
     Proposed,
@@ -72,8 +73,12 @@ pub enum MergeStatus {
 }
 
 /// One merge proposal row as held by this service.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct MergeProposal {
+    // Wire integers are JSON numbers: ids are small sequences, never near
+    // 2^53, so `number` (not ts-rs's default `bigint`, which JSON.parse
+    // never produces) is the honest client type. Same on every i64 below.
+    #[ts(type = "number")]
     pub id: i64,
     pub case_id: Uuid,
     pub surviving_id: Uuid,
@@ -95,13 +100,14 @@ pub struct MergeStore(Arc<Mutex<Vec<MergeProposal>>>);
 /// is copied from the annotation's own audit row rather than read from
 /// the clock a second time, so `OffsetDateTime::now_utc` keeps exactly
 /// one call site in the service (the audit emitter, per rule 3).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 pub struct EntityNote {
     pub id: Uuid,
     pub entity_id: Uuid,
     pub text: String,
     pub created_by: Uuid,
     #[serde(with = "time::serde::rfc3339")]
+    #[ts(type = "string")]
     pub created_at: OffsetDateTime,
 }
 
@@ -187,47 +193,52 @@ impl ConsolidateGraph {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, TS)]
 pub struct ProposeMergeRequest {
     pub surviving_id: Uuid,
     pub merged_id: Uuid,
     pub reason: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct ProposeMergeResponse {
+    #[ts(type = "number")]
     pub merge_id: i64,
     pub status: MergeStatus,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, TS)]
 pub struct DecideMergeRequest {
     pub decision: DecideDecision,
     pub note: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
+// NOTE: reid.rs has an identical DecideDecision; both export to the
+// same DecideDecision.ts (contents identical). If either shape changes,
+// rename one of them instead of silently forking the generated file.
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq, TS)]
 #[serde(rename_all = "lowercase")]
 pub enum DecideDecision {
     Confirmed,
     Rejected,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct DecideMergeResponse {
+    #[ts(type = "number")]
     pub merge_id: i64,
     pub status: MergeStatus,
     pub ledger_tx_id: Option<String>,
     pub ledger_status: String,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorEnvelope {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorEnvelope {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct ErrorBody {
     code: &'static str,
     message: String,
     detail: serde_json::Value,
@@ -528,7 +539,7 @@ pub struct ListEntitiesQuery {
     pub cursor: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct EntityListItem {
     pub id: Uuid,
     #[serde(rename = "type")]
@@ -540,13 +551,13 @@ pub struct EntityListItem {
     pub sync_state: SyncState,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct ListEntitiesResponse {
     pub results: Vec<EntityListItem>,
     pub next_cursor: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 pub struct EntityDetailResponse {
     pub id: Uuid,
     pub case_id: Uuid,
@@ -764,7 +775,7 @@ async fn read_entity(
 /// Transport guard for annotation text (API_CONTRACTS.md §2.5).
 const MAX_NOTE_CHARS: usize = 2000;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, TS)]
 pub struct CreateNoteRequest {
     pub text: String,
 }

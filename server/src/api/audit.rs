@@ -26,6 +26,7 @@ use uuid::Uuid;
 use crate::audit::{AssignmentStore, AuditRow, AuditStore};
 use crate::auth::{AppRole, AuthContext, JwksCache};
 use crate::ledger::{Endorsement, LedgerClient};
+use ts_rs::TS;
 
 #[derive(Clone)]
 struct AuditState {
@@ -255,8 +256,8 @@ async fn export_audit(
         .into_response()
 }
 
-#[derive(Debug, Serialize)]
-struct VerifyRowResponse {
+#[derive(Debug, Serialize, TS)]
+pub(crate) struct VerifyRowResponse {
     row_id: Uuid,
     object_id: String,
     stored_hash: String,
