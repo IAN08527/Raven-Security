@@ -96,6 +96,27 @@ impl AssignmentStore {
         self.lock().push(Assignment { case_id, user_id, role });
     }
 
+    /// Upsert one assignment (production SQL parity: `INSERT INTO
+    /// case_assignments (case_id, user_id, assigned_role, assigned_by)
+    /// VALUES (...) ON CONFLICT (case_id, user_id) DO UPDATE SET
+    /// assigned_role = EXCLUDED.assigned_role`). Re-assigning changes
+    /// the role, never errors. Returns true when the row is new (the
+    /// handler answers 201) and false when an existing row was updated
+    /// (the handler answers 200).
+    pub fn upsert(&self, case_id: Uuid, user_id: Uuid, role: AppRole) -> bool {
+        let mut guard = self.lock();
+        match guard.iter_mut().find(|a| a.case_id == case_id && a.user_id == user_id) {
+            Some(existing) => {
+                existing.role = role;
+                false
+            }
+            None => {
+                guard.push(Assignment { case_id, user_id, role });
+                true
+            }
+        }
+    }
+
     pub fn is_assigned(&self, case_id: &Uuid, user_id: &Uuid) -> bool {
         self.lock().iter().any(|a| &a.case_id == case_id && &a.user_id == user_id)
     }

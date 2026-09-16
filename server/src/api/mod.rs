@@ -9,12 +9,17 @@ use axum::{Json, Router};
 use crate::startup::{check_all, HealthConfig, HealthReport};
 use crate::audit::{AssignmentStore, AuditStore};
 use crate::auth::{JwksCache, ProfilesStore, UsersStore};
+use crate::db::SagaDb;
 use crate::ledger::LedgerClient;
 use crate::graph::InMemoryGraphStore;
+use crate::saga::extraction_client::DocsLaneClient;
+use crate::saga::ingest_upload::SagaIngestSpawner;
+use crate::storage::BlobStore;
 
 pub mod admin;
 pub mod audit;
 pub mod cameras;
+pub mod cases;
 pub mod entities;
 pub mod files;
 pub mod map;
@@ -42,6 +47,9 @@ pub struct RouterStores {
     pub notes: entities::NotesStore,
     pub merge_graph: entities::ConsolidateGraph,
     pub files: files::FileStore,
+    pub saga_db: SagaDb,
+    pub blobs: Arc<BlobStore>,
+    pub docs_lane: DocsLaneClient,
     pub graph: InMemoryGraphStore,
     pub auth: Arc<JwksCache>,
     pub ledger: LedgerClient,
@@ -82,6 +90,19 @@ pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router 
         audit: stores.audit.clone(),
         assignments: stores.assignments.clone(),
         profiles: stores.profiles.clone(),
+    };
+    // D33-D34: upload/retry persistence (saga role) plus the spawner
+    // that detaches run_ingest with the gateway client and docs-lane
+    // client behind the saga adapters.
+    let ingest_deps = files::IngestDeps {
+        repo: Arc::new(stores.saga_db.clone()),
+        spawner: Arc::new(SagaIngestSpawner::new(
+            stores.saga_db.clone(),
+            stores.blobs.clone(),
+            stores.ledger.clone(),
+            stores.docs_lane.clone(),
+        )),
+        blobs: stores.blobs.clone(),
     };
     let timeline_deps = timeline::TimelineDeps {
         auth: stores.auth.clone(),
@@ -127,6 +148,17 @@ pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router 
         audit: stores.audit.clone(),
         profiles: stores.profiles.clone(),
     };
+    // D21: case assignment is an administrative act — admin role only,
+    // writing the join row without exposing case content.
+    let cases_deps = cases::CasesDeps {
+        auth: stores.auth.clone(),
+        ledger: stores.ledger.clone(),
+        audit: stores.audit.clone(),
+        profiles: stores.profiles.clone(),
+        users: stores.users.clone(),
+        cases: stores.cases.clone(),
+        assignments: stores.assignments.clone(),
+    };
     let graph_deps = crate::graph::GraphDeps {
         auth: stores.auth.clone(),
         ledger: stores.ledger.clone(),
@@ -143,11 +175,12 @@ pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router 
     let v1 = Router::new()
         .merge(health)
         .merge(cameras::router(stores.cameras.clone(), stores.camera_edges.clone(), cameras_deps))
+        .merge(cases::router(cases_deps))
         .merge(nodes::router(stores.nodes, nodes_deps))
         .merge(reid::router(stores.targets, stores.candidates, stores.cameras, reid_deps))
         .merge(review::router(stores.reviews, review_deps))
         .merge(entities::router(stores.entities, stores.merges, entities_deps))
-        .merge(files::router(stores.files, files_deps))
+        .merge(files::router_with_ingest(stores.files, files_deps, ingest_deps))
         .merge(timeline::router(timeline_deps))
         .merge(admin::router(admin_deps))
         .merge(search::router(search_deps))

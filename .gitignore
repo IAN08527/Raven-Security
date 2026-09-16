@@ -48,6 +48,10 @@ models/*
 # service-account token, never committed. engine/.env.example is the
 # committed template (no secrets); engine/.env holds the real value.
 engine/.env
+# Server environment (DATABASE_URL, Supabase keys, DB passwords):
+# machine-local secrets, never committed. No template is committed for
+# these; docs/DEPLOYMENT.md §2 is the source of the variable list.
+server/.env
 
 # Local eval tooling binaries (mediamtx, ffmpeg) fetched for S1 throughput
 # measurement (M1-T8). Downloaded, never committed.

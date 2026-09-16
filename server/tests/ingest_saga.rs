@@ -7,9 +7,11 @@
 //! (M2 precedent); live-DB execution is CI's job with supabase up.
 //! Every timestamp below is a fixed literal -- no test uses `now()`.
 
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicUsize, Ordering},
+};
 
 use server::saga::ingest::{
     CaseDb, ExtractionClient, ExtractionFailure, ExtractionResult, FileStatus, GraphEdge,
@@ -43,35 +45,48 @@ struct StoredRelationship {
     sync_pending: bool,
 }
 
-type SharedLog = Rc<RefCell<Vec<SagaEvent>>>;
+// D33: async-trait futures are Send by default, so the shared log is
+// Arc<Mutex<..>> (Rc<RefCell<..>> is !Send and no longer compiles here).
+type SharedLog = Arc<Mutex<Vec<SagaEvent>>>;
 
+fn push_log(log: &SharedLog, event: SagaEvent) {
+    log.lock().expect("test log lock").push(event);
+}
+
+// D33: the saga traits take `&self` (they ride behind `Arc` across
+// `tokio::spawn`), so mutable fake state lives behind `Mutex`.
 struct FakeDb {
     log: SharedLog,
-    entities: HashMap<Uuid, StoredEntity>,
-    relationships: HashMap<Uuid, StoredRelationship>,
-    statuses: HashMap<Uuid, FileStatus>,
+    entities: Mutex<HashMap<Uuid, StoredEntity>>,
+    relationships: Mutex<HashMap<Uuid, StoredRelationship>>,
+    statuses: Mutex<HashMap<Uuid, FileStatus>>,
     fail_persist: bool,
-    known_weight_versions: Vec<i32>,
-    weight_calls: Vec<(Uuid, i32)>,
+    known_weight_versions: Mutex<Vec<i32>>,
+    weight_calls: Mutex<Vec<(Uuid, i32)>>,
 }
 
 impl FakeDb {
     fn new(log: SharedLog) -> Self {
         Self {
             log,
-            entities: HashMap::new(),
-            relationships: HashMap::new(),
-            statuses: HashMap::new(),
+            entities: Mutex::new(HashMap::new()),
+            relationships: Mutex::new(HashMap::new()),
+            statuses: Mutex::new(HashMap::new()),
             fail_persist: false,
-            known_weight_versions: vec![WEIGHT_PARAMS_VERSION],
-            weight_calls: Vec::new(),
+            known_weight_versions: Mutex::new(vec![WEIGHT_PARAMS_VERSION]),
+            weight_calls: Mutex::new(Vec::new()),
         }
+    }
+
+    fn lock<T>(cell: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+        cell.lock().expect("test fake lock")
     }
 }
 
+#[async_trait::async_trait]
 impl CaseDb for FakeDb {
-    fn persist_extraction(
-        &mut self,
+    async fn persist_extraction(
+        &self,
         _file_id: Uuid,
         _case_id: Uuid,
         provenance: Provenance,
@@ -86,7 +101,7 @@ impl CaseDb for FakeDb {
         let mut entity_ids = Vec::new();
         for _ in &batch.entities {
             let id = Uuid::new_v4();
-            self.entities.insert(
+            Self::lock(&self.entities).insert(
                 id,
                 StoredEntity { provenance, sync_pending: false },
             );
@@ -95,7 +110,7 @@ impl CaseDb for FakeDb {
         let mut relationship_ids = Vec::new();
         for _ in &batch.relationships {
             let id = Uuid::new_v4();
-            self.relationships.insert(
+            Self::lock(&self.relationships).insert(
                 id,
                 StoredRelationship { provenance, sync_pending: false },
             );
@@ -104,41 +119,43 @@ impl CaseDb for FakeDb {
         for evidence in &batch.evidence {
             assert!(evidence.char_end >= evidence.char_start, "spans enforced pre-commit");
         }
-        self.log.borrow_mut().push(SagaEvent::PgCommitted);
+        push_log(&self.log, SagaEvent::PgCommitted);
         Ok(PersistedIds { entity_ids, relationship_ids })
     }
 
-    fn set_file_status(&mut self, file_id: Uuid, status: FileStatus) {
-        self.statuses.insert(file_id, status);
-        self.log.borrow_mut().push(SagaEvent::FileStatusSet(status));
+    async fn set_file_status(&self, file_id: Uuid, status: FileStatus) {
+        Self::lock(&self.statuses).insert(file_id, status);
+        push_log(&self.log, SagaEvent::FileStatusSet(status));
     }
 
-    fn recompute_weight(&mut self, rel_id: Uuid, version: i32) -> Result<f64, WeightError> {
-        self.weight_calls.push((rel_id, version));
-        self.log.borrow_mut().push(SagaEvent::WeightRecomputed { version });
-        if self.known_weight_versions.contains(&version) {
+    async fn recompute_weight(&self, rel_id: Uuid, version: i32) -> Result<f64, WeightError> {
+        Self::lock(&self.weight_calls).push((rel_id, version));
+        push_log(&self.log, SagaEvent::WeightRecomputed { version });
+        if Self::lock(&self.known_weight_versions).contains(&version) {
             Ok(10.0)
         } else {
             Err(WeightError::UnknownVersion(version))
         }
     }
 
-    fn mark_sync_pending(&mut self, entity_ids: &[Uuid], relationship_ids: &[Uuid]) {
+    async fn mark_sync_pending(&self, entity_ids: &[Uuid], relationship_ids: &[Uuid]) {
+        let mut entities = Self::lock(&self.entities);
         for id in entity_ids {
-            if let Some(row) = self.entities.get_mut(id) {
+            if let Some(row) = entities.get_mut(id) {
                 row.sync_pending = true;
             }
         }
+        let mut relationships = Self::lock(&self.relationships);
         for id in relationship_ids {
-            if let Some(row) = self.relationships.get_mut(id) {
+            if let Some(row) = relationships.get_mut(id) {
                 row.sync_pending = true;
             }
         }
     }
 
-    fn record_ledger(&mut self, _file_id: Uuid, outcome: &LedgerOutcome) {
+    async fn record_ledger(&self, _file_id: Uuid, outcome: &LedgerOutcome) {
         if matches!(outcome, LedgerOutcome::Anchored(_)) {
-            self.log.borrow_mut().push(SagaEvent::LedgerAnchored);
+            push_log(&self.log, SagaEvent::LedgerAnchored);
         }
     }
 }
@@ -146,16 +163,21 @@ impl CaseDb for FakeDb {
 struct FakeGraph {
     log: SharedLog,
     fail: bool,
-    merges: usize,
+    merges: AtomicUsize,
 }
 
+#[async_trait::async_trait]
 impl GraphWriter for FakeGraph {
-    fn merge_case_graph(&mut self, _nodes: &[GraphNode], _edges: &[GraphEdge]) -> Result<(), GraphError> {
+    async fn merge_case_graph(
+        &self,
+        _nodes: &[GraphNode],
+        _edges: &[GraphEdge],
+    ) -> Result<(), GraphError> {
         if self.fail {
             return Err(GraphError::Failed("bolt down".to_string()));
         }
-        self.merges += 1;
-        self.log.borrow_mut().push(SagaEvent::Neo4jMerge);
+        self.merges.fetch_add(1, Ordering::SeqCst);
+        push_log(&self.log, SagaEvent::Neo4jMerge);
         Ok(())
     }
 }
@@ -164,8 +186,13 @@ struct FakeLedger {
     fail: bool,
 }
 
+#[async_trait::async_trait]
 impl LedgerAnchor for FakeLedger {
-    fn anchor_extraction(&mut self, _file_id: Uuid, hash: &str) -> Result<String, LedgerError> {
+    async fn anchor_extraction(
+        &self,
+        _file_id: Uuid,
+        hash: &str,
+    ) -> Result<String, LedgerError> {
         assert_eq!(hash.len(), 64, "D5 anchors a SHA-256 hex digest");
         if self.fail {
             return Err(LedgerError::Unavailable("gateway down".to_string()));
@@ -176,18 +203,19 @@ impl LedgerAnchor for FakeLedger {
 
 struct StubExtractor {
     result: Result<ExtractionResult, ExtractionFailure>,
-    calls: std::cell::Cell<usize>,
+    calls: AtomicUsize,
     log: SharedLog,
 }
 
+#[async_trait::async_trait]
 impl ExtractionClient for StubExtractor {
-    fn extract(
+    async fn extract(
         &self,
         _text: &str,
         _source_ts: Option<time::OffsetDateTime>,
     ) -> Result<ExtractionResult, ExtractionFailure> {
-        self.calls.set(self.calls.get() + 1);
-        self.log.borrow_mut().push(SagaEvent::ExtractCalled);
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        push_log(&self.log, SagaEvent::ExtractCalled);
         match &self.result {
             Ok(result) => Ok(result.clone()),
             Err(failure) => Err(failure.clone()),
@@ -241,28 +269,28 @@ fn two_person_result() -> ExtractionResult {
 fn harness(
     result: Result<ExtractionResult, ExtractionFailure>,
 ) -> (StubExtractor, FakeDb, FakeGraph, FakeLedger, SharedLog) {
-    let log: SharedLog = Rc::new(RefCell::new(Vec::new()));
+    let log: SharedLog = Arc::new(Mutex::new(Vec::new()));
     (
-        StubExtractor { result, calls: std::cell::Cell::new(0), log: log.clone() },
+        StubExtractor { result, calls: AtomicUsize::new(0), log: log.clone() },
         FakeDb::new(log.clone()),
-        FakeGraph { log: log.clone(), fail: false, merges: 0 },
+        FakeGraph { log: log.clone(), fail: false, merges: AtomicUsize::new(0) },
         FakeLedger { fail: false },
         log,
     )
 }
 
-#[test]
-fn postgres_commits_before_neo4j_write_is_attempted() {
-    let (client, mut db, mut graph, mut ledger, log) = harness(Ok(two_person_result()));
+#[tokio::test]
+async fn postgres_commits_before_neo4j_write_is_attempted() {
+    let (client, db, graph, ledger, log) = harness(Ok(two_person_result()));
     let input = confirmed_input(ReviewDisposition::Corrected);
-    let outcome = run_steps_7_to_9(&client, &mut db, &mut graph, &mut ledger, input);
+    let outcome = run_steps_7_to_9(&client, &db, &graph, &ledger, input).await;
     assert!(matches!(outcome, StepOutcome::Committed { graph_synced: true, .. }));
-    assert_eq!(graph.merges, 1);
-    assert!(!db.entities.is_empty());
+    assert_eq!(graph.merges.load(Ordering::SeqCst), 1);
+    assert!(!FakeDb::lock(&db.entities).is_empty());
     // D4 ordering, proved on the shared event log: the Postgres commit
     // precedes the first Neo4j write, weights and ledger follow.
     assert_eq!(
-        *log.borrow(),
+        *log.lock().expect("test log lock"),
         vec![
             SagaEvent::ExtractCalled,
             SagaEvent::PgCommitted,
@@ -274,68 +302,81 @@ fn postgres_commits_before_neo4j_write_is_attempted() {
     );
 }
 
-#[test]
-fn neo4j_failure_marks_pending_without_rolling_back_postgres() {
-    let (client, mut db, mut graph, mut ledger, _log) = harness(Ok(two_person_result()));
+#[tokio::test]
+async fn neo4j_failure_marks_pending_without_rolling_back_postgres() {
+    let (client, db, mut graph, ledger, _log) = harness(Ok(two_person_result()));
     graph.fail = true;
     let input = confirmed_input(ReviewDisposition::Accepted);
-    let outcome = run_steps_7_to_9(&client, &mut db, &mut graph, &mut ledger, input);
+    let outcome = run_steps_7_to_9(&client, &db, &graph, &ledger, input).await;
     let StepOutcome::Committed { entity_ids, relationship_ids, graph_synced, .. } = outcome
     else {
         panic!("neo4j failure must not fail the saga, got {outcome:?}");
     };
     assert!(!graph_synced);
     // Postgres rows stand (D4): still present, flagged for the reconciler.
-    assert_eq!(db.entities.len(), 2);
-    assert!(entity_ids.iter().all(|id| db.entities[id].sync_pending));
-    assert!(relationship_ids.iter().all(|id| db.relationships[id].sync_pending));
+    let entities = FakeDb::lock(&db.entities);
+    let relationships = FakeDb::lock(&db.relationships);
+    assert_eq!(entities.len(), 2);
+    assert!(entity_ids.iter().all(|id| entities[id].sync_pending));
+    assert!(relationship_ids.iter().all(|id| relationships[id].sync_pending));
 }
 
-#[test]
-fn provenance_propagates_from_source_file_to_every_row() {
-    let (client, mut db, mut graph, mut ledger, _log) = harness(Ok(two_person_result()));
+#[tokio::test]
+async fn provenance_propagates_from_source_file_to_every_row() {
+    let (client, db, graph, ledger, _log) = harness(Ok(two_person_result()));
     let input = confirmed_input(ReviewDisposition::Corrected);
-    let _ = run_steps_7_to_9(&client, &mut db, &mut graph, &mut ledger, input);
-    assert!(db.entities.values().all(|row| row.provenance == Provenance::Benchmark));
-    assert!(db.relationships.values().all(|row| row.provenance == Provenance::Benchmark));
+    let _ = run_steps_7_to_9(&client, &db, &graph, &ledger, input).await;
+    assert!(
+        FakeDb::lock(&db.entities).values().all(|row| row.provenance == Provenance::Benchmark)
+    );
+    assert!(
+        FakeDb::lock(&db.relationships)
+            .values()
+            .all(|row| row.provenance == Provenance::Benchmark)
+    );
 }
 
-#[test]
-fn unknown_weight_version_surfaces_without_rollback() {
-    let (client, mut db, mut graph, mut ledger, _log) = harness(Ok(two_person_result()));
-    db.known_weight_versions.clear();
+#[tokio::test]
+async fn unknown_weight_version_surfaces_without_rollback() {
+    let (client, db, graph, ledger, _log) = harness(Ok(two_person_result()));
+    FakeDb::lock(&db.known_weight_versions).clear();
     let input = confirmed_input(ReviewDisposition::Corrected);
-    let outcome = run_steps_7_to_9(&client, &mut db, &mut graph, &mut ledger, input);
+    let outcome = run_steps_7_to_9(&client, &db, &graph, &ledger, input).await;
     let StepOutcome::Committed { graph_synced: false, .. } = outcome else {
         panic!("weight failure must park rows as pending, got {outcome:?}");
     };
-    assert_eq!(db.entities.len(), 2, "committed rows stand");
-    assert!(db.weight_calls.iter().all(|(_, v)| *v == WEIGHT_PARAMS_VERSION));
+    assert_eq!(FakeDb::lock(&db.entities).len(), 2, "committed rows stand");
+    assert!(
+        FakeDb::lock(&db.weight_calls).iter().all(|(_, v)| *v == WEIGHT_PARAMS_VERSION)
+    );
 }
 
-#[test]
-fn rejected_review_text_is_never_extracted() {
-    let (client, mut db, mut graph, mut ledger, _log) = harness(Ok(two_person_result()));
+#[tokio::test]
+async fn rejected_review_text_is_never_extracted() {
+    let (client, db, graph, ledger, _log) = harness(Ok(two_person_result()));
     let input = confirmed_input(ReviewDisposition::Rejected);
-    let outcome = run_steps_7_to_9(&client, &mut db, &mut graph, &mut ledger, input);
+    let outcome = run_steps_7_to_9(&client, &db, &graph, &ledger, input).await;
     assert!(matches!(outcome, StepOutcome::NeedsReview { .. }));
-    assert_eq!(client.calls.get(), 0, "extractor must not see rejected text");
-    assert!(db.entities.is_empty());
+    assert_eq!(client.calls.load(Ordering::SeqCst), 0, "extractor must not see rejected text");
+    assert!(FakeDb::lock(&db.entities).is_empty());
 }
 
-#[test]
-fn quarantine_sets_needs_review_and_stops() {
-    let (client, mut db, mut graph, mut ledger, _log) = harness(Err(ExtractionFailure::Quarantined {
+#[tokio::test]
+async fn quarantine_sets_needs_review_and_stops() {
+    let (client, db, graph, ledger, _log) = harness(Err(ExtractionFailure::Quarantined {
         reason: "third failure".to_string(),
     }));
     let file_id = Uuid::new_v4();
     let mut input = confirmed_input(ReviewDisposition::Corrected);
     input.file_id = file_id;
-    let outcome = run_steps_7_to_9(&client, &mut db, &mut graph, &mut ledger, input);
+    let outcome = run_steps_7_to_9(&client, &db, &graph, &ledger, input).await;
     assert!(matches!(outcome, StepOutcome::NeedsReview { .. }));
-    assert_eq!(db.statuses.get(&file_id), Some(&FileStatus::NeedsReview));
-    assert!(db.entities.is_empty(), "nothing persists on quarantine");
-    assert_eq!(graph.merges, 0);
+    assert_eq!(
+        FakeDb::lock(&db.statuses).get(&file_id),
+        Some(&FileStatus::NeedsReview)
+    );
+    assert!(FakeDb::lock(&db.entities).is_empty(), "nothing persists on quarantine");
+    assert_eq!(graph.merges.load(Ordering::SeqCst), 0);
 }
 
 #[test]

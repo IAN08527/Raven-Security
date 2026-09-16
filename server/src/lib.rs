@@ -10,4 +10,5 @@ pub mod ledger;
 pub mod reid;
 pub mod saga;
 pub mod startup;
+pub mod storage;
 pub mod ts_export;

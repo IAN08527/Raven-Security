@@ -247,6 +247,13 @@ prompt, then quarantine to a review queue. Never a crash, never a silent drop.
 12  Server   emit ingest.complete
 ```
 
+Implementation split: steps 1-4 run in the HTTP handler (stream, hash,
+store blob, initial DB row). Steps 5-6 run in the background saga task
+(ledger anchor, MIME routing). Steps 7-9 are implemented in
+`server/src/saga/ingest.rs`. Steps 10-12 (Cypher MERGE, ledger action,
+emit event) are wired inside `run_steps_7_to_9`. The saga uses the
+`raven_saga` database role (D33).
+
 Steps 9 and 10 are deliberately not atomic. Step 10 is idempotent, and
 `rebuild_graph()` regenerates all of Neo4j from Postgres. The graph is an index,
 not a record.

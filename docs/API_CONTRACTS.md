@@ -106,6 +106,13 @@ Upload responds as soon as the file is hashed and stored, before recognition.
 Progress arrives on the socket as `ingest.progress`. A client that blocks on the
 HTTP response for a scanned 40-page document is doing it wrong.
 
+`POST /cases/{id}/files`: Auth: io role only (D34).
+
+`POST /files/{id}/retry`: Auth: io role only. Eligible:
+`source_files.status` IN (`failed`, `needs_review`). Other statuses:
+409 `CONFLICT`. Resets status to `received`, clears `ledger_tx_id`,
+spawns saga.
+
 ### 2.3 Review queue
 
 ```
@@ -399,6 +406,21 @@ A candidate without its threshold and prior is not a valid candidate.
 **Engine nodes never write to Postgres or Neo4j.** They hold read-only Bolt
 credentials for camera topology queries and nothing else (D10). Persistence is the
 server's job, so it passes the audit emitter.
+
+### 4.5 Server to docs-lane (internal, :8757)
+
+Not yet implemented as HTTP. The docs-lane currently has no HTTP
+service. The server uses a trait stub (`ExtractionClient`) that returns
+connection-refused gracefully.
+
+Planned endpoints (not yet live):
+
+```
+POST /extract {text, source_node}      -> ExtractionOutput
+POST /ocr (multipart, file bytes)      -> {text: string}
+```
+
+`DOCS_LANE_URL` env var, default `http://localhost:8757`.
 
 ---
 

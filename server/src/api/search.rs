@@ -55,6 +55,13 @@ impl CaseStore {
         self.lock().push(case);
     }
 
+    /// True when a case with this id exists. The assignment endpoint
+    /// answers 404 on unknown cases rather than creating an assignment
+    /// against nothing.
+    pub fn exists(&self, id: &Uuid) -> bool {
+        self.lock().iter().any(|case| &case.id == id)
+    }
+
     pub fn visible(&self, cases: &HashSet<Uuid>) -> Vec<CaseRecord> {
         self.lock().iter().filter(|case| cases.contains(&case.id)).cloned().collect()
     }

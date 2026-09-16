@@ -89,6 +89,11 @@ pub fn export_all(out_dir: &Path) -> Result<(), ts_rs::ExportError> {
         crate::api::files::FileDetailResponse,
         crate::api::files::VerifyStatus,
         crate::api::files::VerifyFileResponse,
+        crate::api::files::UploadFileResponse,
+        crate::api::files::RetryFileResponse,
+        // Case assignments (§2.1, D21).
+        crate::api::cases::AssignUserRequest,
+        crate::api::cases::AssignUserResponse,
         // Search (§2.12).
         crate::api::search::CaseRecord,
         crate::api::search::EntityHit,
@@ -123,6 +128,8 @@ pub fn export_all(out_dir: &Path) -> Result<(), ts_rs::ExportError> {
         crate::api::admin::ErrorBody,
         crate::api::cameras::ErrorEnvelope,
         crate::api::cameras::ErrorBody,
+        crate::api::cases::ErrorEnvelope,
+        crate::api::cases::ErrorBody,
         crate::api::entities::ErrorEnvelope,
         crate::api::entities::ErrorBody,
         crate::api::files::ErrorEnvelope,
@@ -150,7 +157,7 @@ mod tests {
     use ts_rs::TS;
 
     /// The registry writes several same-named files from multiple source
-    /// modules (nine ErrorEnvelope/ErrorBody copies, two DecideDecisions).
+    /// modules (ten ErrorEnvelope/ErrorBody copies, two DecideDecisions).
     /// That is only sound while the copies stay shape-identical: the last
     /// export wins, so a silent fork would ship one module's shape under
     /// every module's name. This test fails the build on any fork.
@@ -159,6 +166,7 @@ mod tests {
         let envelope = crate::api::admin::ErrorEnvelope::decl();
         for decl in [
             crate::api::cameras::ErrorEnvelope::decl(),
+            crate::api::cases::ErrorEnvelope::decl(),
             crate::api::entities::ErrorEnvelope::decl(),
             crate::api::files::ErrorEnvelope::decl(),
             crate::api::map::ErrorEnvelope::decl(),
@@ -174,6 +182,7 @@ mod tests {
         let body = crate::api::admin::ErrorBody::decl();
         for decl in [
             crate::api::cameras::ErrorBody::decl(),
+            crate::api::cases::ErrorBody::decl(),
             crate::api::entities::ErrorBody::decl(),
             crate::api::files::ErrorBody::decl(),
             crate::api::map::ErrorBody::decl(),

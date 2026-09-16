@@ -56,6 +56,10 @@ around a flag by improvising; file it and stop at that step.
   ledger.
 - **Python 3.11.** Both Python lanes pin `requires-python == 3.11.*`
   (`engine/pyproject.toml`, `docs-lane/pyproject.toml`).
+  Note: Python 3.13 is not compatible with numpy==1.26.* (no cp313
+  wheels). Python 3.11 is required. Install side-by-side if 3.13 is
+  already present and use py -3.11 for all engine and docs-lane
+  commands.
 - **CUDA 12.x driver.** The verified combination on the reference machine
   is NVIDIA driver 560.76 with CUDA runtime 12.6, torch 2.8.0+cu126,
   TensorRT 11.3.0.99 (`STACK.md` §6). Install the PyTorch cu126 wheels
@@ -117,6 +121,7 @@ Two files are needed:
 | `LEDGER_GATEWAY_URL` | Server ledger client (`server/src/ledger/mod.rs`) | Has a default | `http://127.0.0.1:8801` | Ledger gateway base URL for anchors and actions |
 | `LEDGER_HEALTH_URL` | Server health gate | Has a default | `http://localhost:8801/health` | Ledger health endpoint the gate probes |
 | `SUPABASE_URL` | Server auth (`server/src/auth.rs`, GoTrue JWKS) | Has a default; set manually if Supabase API is not on loopback | `http://127.0.0.1:54321` | Supabase API URL; JWKS is fetched from `<SUPABASE_URL>/auth/v1/.well-known/jwks.json` (loopback, not egress) |
+| `SAGA_DATABASE_URL` | Server ingest saga worker (`server/src/db/mod.rs`, D33) | **Must be set manually** where the saga runs; no code default | `postgresql://raven_saga:saga_password@localhost:54322/postgres` (local) | Postgres connection for the ingest saga background worker. Uses the raven_saga role (D33), not the service-role key |
 | `POSTGRES_USER` | Compose `postgres` service | Must be set in compose (already set in the committed file) | `postgres` (in `infra/compose/all-in-one.yml`) | Postgres role for the deployment-shaped database |
 | `POSTGRES_PASSWORD` | Compose `postgres` service | Must be set in compose (already set); change for any non-local deployment | `postgres` | Postgres password; `DATABASE_URL` must carry the same value |
 | `POSTGRES_DB` | Compose `postgres` service | Has a default in compose | `postgres` | Postgres database name |
@@ -138,6 +143,8 @@ Two files are needed:
 | `VITE_BASEMAP_URL` | Client (committed in `client/.env.development`) | Has a committed default for local dev | `http://localhost:8802/maharashtra.pmtiles` | PMTiles archive the MapLibre client reads with byte-range GETs |
 | `VITE_BASEMAP_URL_BASE` | Client (committed) | Has a committed default | `http://localhost:8802` | Basemap host (glyphs are served from `<base>/glyphs/`) |
 | `VITE_BASEMAP_ATTRIBUTION` | Client (committed) | Has a committed value; **must stay visible** | `© OpenStreetMap contributors (ODbL)` | ODbL attribution rendered by the map layer |
+| `RAVEN_BLOB_DIR` | Server upload handler / blob store (`server/src/storage.rs`, D34) | Has a default | `./blobs` | Directory for content-addressed blob storage. Create before starting the server. Must be on a disk with sufficient space for ingested documents |
+| `DOCS_LANE_URL` | Server saga docs-lane client | Has a default | `http://localhost:8757` | Internal docs-lane service URL. The docs-lane HTTP service is not yet implemented; this URL will be used when it is |
 
 What is unknown here and why: there is no committed loader (no
 `dotenv` wiring, no `server/.env.example`) as of this writing, so the
@@ -529,7 +536,7 @@ sees credentials) and to engine nodes directly for video (MJPEG
 
 ## Health verification
 
-### `GET /health` expected response
+### `GET /v1/health` expected response
 
 No authentication. Safe to expose on the LAN (`API_CONTRACTS.md`
 §2.8). The server checks every dependency live on each call (not a
@@ -537,7 +544,7 @@ frozen snapshot) with a 3-second per-dependency timeout
 (`server/src/startup.rs`).
 
 ```bash
-curl http://localhost:8443/health
+curl http://localhost:8443/v1/health
 ```
 
 All services up:
@@ -586,7 +593,7 @@ diagnosing, not for running the pilot on.
 
 ### Common failure modes and how to diagnose them
 
-- **Neo4j not connecting.** `GET /health` shows `neo4j: healthy false`
+- **Neo4j not connecting.** `GET /v1/health` shows `neo4j: healthy false`
   with the driver error or a 3-second timeout. Check: container running
   (`docker ps | grep raven-neo4j`), Bolt on :7687 reachable, and
   `NEO4J_PASSWORD` matching the compose `NEO4J_AUTH` password half.
@@ -786,7 +793,7 @@ pg_restore -d "postgres://postgres:postgres@127.0.0.1:54322/postgres" \
   --clean --if-exists raven-pilot-<yyyymmdd>.dump
 
 # Then restore the blob directory to its configured path, restart
-# services, and verify: GET /health all green, spot-check GET
+# services, and verify: GET /v1/health all green, spot-check GET
 # /files/{id}/verify -> status verified on at least one anchored file.
 ```
 
@@ -822,7 +829,7 @@ restore is corrupt and the tamper state will (correctly) say so.
 5. Re-run the gates: `cargo test --workspace`, `cd client && npm run
    build`, `pytest engine/ docs-lane/`, and `eval/test_rls.py` against
    the migrated database. A red RLS suite blocks release (NFR-8).
-6. Re-verify `GET /health` all green and re-record any `RESULTS.md`
+6. Re-verify `GET /v1/health` all green and re-record any `RESULTS.md`
    rows the update claims to change as new rows (D24 — never edits).
 
 ---

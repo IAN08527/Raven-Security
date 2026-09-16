@@ -49,6 +49,10 @@ decision needs a number to be correct, it names the experiment that produces it.
 | D30 | TypeScript type generation | ACTIVE | - |
 | D31 | Egress gate scope: anchor hrefs excluded | ACTIVE | - |
 | D32 | Camera list unauthenticated on LAN | ACTIVE | - |
+| D33 | Ingest saga database role | ACTIVE | - |
+| D34 | Document upload: io role only, 200MB cap | ACTIVE | - |
+| D35 | PDF routing: lopdf text extraction | ACTIVE | - |
+| D36 | Structured file ingest path | ACTIVE | - |
 
 ---
 
@@ -651,3 +655,132 @@ Pinned by `server/tests/cameras.rs`
 (`list_cameras_needs_no_authentication`).
 
 **Origin:** Session 13 — Part 4 camera auth audit.
+
+### D33 - Ingest saga database role `ACTIVE`
+
+**Context:** the ingest saga runs as a background task with no user JWT,
+so neither the per-request RLS identity nor the service-role key fits:
+the service-role key bypasses RLS and application code never uses it,
+and there is no user token to ride on.
+
+**Decision:** the saga uses a dedicated Postgres role `raven_saga` with
+INSERT/UPDATE on `source_files`, `ingest_jobs`, `entities`,
+`identifiers`, `relationships`, `evidence`, `entity_aliases`,
+`location_history`, `cdr_records`, `financial_txns` and SELECT on
+`cases` and `case_assignments`. It does not use the service-role key
+(which bypasses RLS) and does not use a user JWT (which it does not
+have).
+
+The saga role is created in a new migration. It is not an RLS subject —
+it owns its tables directly. Actions it takes are attributed to the
+uploading user via the `source_files.uploaded_by` column, not via the
+database connection.
+
+Ledger actions from the saga use the uploading user's `ledger_id` from
+`profiles`. If `ledger_id` is null:
+`ledger_status='skipped_no_identity'`, same as the decide endpoints.
+The `case_id` comes from the `source_files` row. Both are read from the
+database using the saga role before the ledger call.
+
+Trait migration: `CaseDb`, `GraphWriter`, `LedgerAnchor`,
+`ExtractionClient` traits move to async. The existing sync signatures
+in `ingest.rs` are superseded. Test fakes become async fakes. This is a
+breaking change to `ingest.rs` and its tests — update them as part of
+the upload implementation session.
+
+**Amendment (upload implementation session):** production wiring uses
+adapters, not new services. `SagaDb` (sqlx pool on `SAGA_DATABASE_URL`)
+implements async `CaseDb`; a `GraphWriter` adapter records merges
+in memory (production parity with the tested fake — the merge call
+carries no `case_id`, so placement into case snapshots awaits either
+that on the call or the Neo4j writer); a `LedgerAnchor` adapter over
+`LedgerClient + SagaDb` reads case/ledger identity per this decision
+and anchors the extraction hash via `POST /action` with
+`actionType='extraction.anchor'` (ARCHITECTURE.md §4.3 step 11 is a
+ledger *action*); a null `ledger_id` becomes
+`LedgerOutcome::PendingRetry` carrying the `skipped_no_identity`
+reason. Handler tests use trait-generic repos with in-memory fakes
+(hermetic-suite convention); `run_ingest` reads `DOCS_LANE_URL` for its
+OCR client through the same default const as `DocsLaneClient::from_env`.
+Known gaps, not silently fixed: the specified saga-role GRANTs omit
+`INSERT ON review_items` (the D36 structured path needs it — one-line
+follow-up), and GRANTs alone leave the RLS policies (keyed on
+`auth.uid()`, which is NULL in background sessions) denying the role —
+owner transfer or equivalent is a follow-up decision. `record_ledger`
+therefore persists the extraction-anchor outcome as an `ingest_jobs`
+`handoff` row rather than overwriting `source_files.ledger_tx_id`,
+which the verify flow needs for the *file* anchor (overwriting it
+would compare file bytes against the extraction hash and false-positive
+tamper).
+
+### D34 - Document upload: io role only, 200MB cap `ACTIVE`
+
+**Decision:** `POST /cases/{id}/files` requires io role. Analysts and
+auditors read case data; they do not ingest it.
+
+File size cap: 200MB. Files above this limit are rejected with
+`VALIDATION_FAILED` before any bytes are read into memory. 200MB is an
+operational limit sized for scanned FIR documents (typically under 20MB)
+with headroom for multi-page batches.
+
+Deduplication: global SHA-256. A file whose hash already exists in
+`source_files` for any case returns the existing `file_id` with
+`duplicate:true`. The baseline schema has a global `sha256` index;
+per-case dedup would require a new unique constraint and is not the
+current behavior.
+
+Blob storage: `RAVEN_BLOB_DIR` environment variable, defaults to
+`./blobs`. Path structure:
+`{RAVEN_BLOB_DIR}/{sha256[0..2]}/{sha256}`. Content-addressed,
+immutable once written.
+
+MIME detected from magic bytes via `infer`, never from the filename
+extension or the Content-Type header. Exception: structured text
+formats (CSV, JSON, NDJSON) have no magic bytes and infer returns
+unknown for them. For these types only, MIME detection falls back to
+filename extension (.csv → text/csv, .json → application/json) when
+infer returns unknown. Content-Type header is still never trusted.
+This is a documented limitation: a CSV renamed to .pdf is detected as
+application/pdf and routed to the PDF path, not the structured path.
+
+### D35 - PDF routing: lopdf text extraction `ACTIVE`
+
+**Decision:** PDFs are routed by attempting text extraction with lopdf.
+If lopdf returns non-empty text (after stripping whitespace): the file
+is a digital PDF and text is used directly. If lopdf returns empty or
+errors: the file is treated as scanned and routed to the docs-lane OCR
+path.
+
+This heuristic has known failure modes: some PDFs have embedded text
+that is garbage (e.g. scanned PDFs run through bad OCR). The review
+queue is the safety net — all extracted text requires human confirmation
+before entities are created (D17 gate, FR-2.7).
+
+lopdf is added to `server/Cargo.toml`. It makes no network calls
+(verified: lopdf is a pure Rust PDF parser with no network features).
+Add to `STACK.md` server section.
+
+### D36 - Structured file ingest path `ACTIVE`
+
+**Decision:** CSV, JSON, XLSX, XLS files (detected by magic bytes) take
+a structured parse path. In the current implementation this path sets
+`status='needs_review'` and creates one `review_item` with
+`kind='structured_import'` requiring human confirmation of the schema
+mapping. It does not set `status='committed'` directly — doing so would
+bypass provenance tracking (D19) and ledger anchoring (D5).
+
+Full structured parsing (typed ETL into `cdr_records`,
+`financial_txns` etc.) is a follow-up that requires the schema mapping
+UI from `DATABASES_MODULE.md`. The current path is honest: the file is
+ingested, hashed, anchored, and queued for human review.
+
+**Amendment (upload implementation session):** `review_items` has no
+`kind` column, and this session's migration budget covers only the
+saga-role migration, so the marker reuses existing columns rather than
+adding one: `field_name='structured_import'`,
+`script='Zyyy'` (the ISO 15924 code for undetermined script — a
+structured file has no handwritten script), `crop_path` set to the
+file's blob `storage_path` (a structured file has no pixel crop; the
+path keeps the NOT NULL column pointed at where the bytes live),
+`recognised_text` NULL, `status='pending'`. The human confirms the
+schema mapping before anything is extracted.

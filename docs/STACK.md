@@ -45,6 +45,8 @@ that phones home is disqualified regardless of how good it is (CLAUDE.md rule 6)
 | ulid | 1.x | `trace_id` in the error envelope (API_CONTRACTS.md §1.1), matching the native client's copy |
 | sha2 | 0.10.x | SHA-256 of the canonical extraction JSON for the D5 ledger anchor (M4-T2). Pure Rust, no network |
 | ts-rs | 10.x (`uuid-impl`, `serde-json-impl`) | TypeScript bindings from Rust API structs (D30): `#[derive(TS)]` on boundary types, `server/src/ts_export.rs` registry, `cargo xtask generate-types`. Build-time only, no runtime. Note: upstream has no `chrono`/`uuid` features and no `time` support — case-clock fields carry explicit `#[ts(type = "string")]` |
+| lopdf | 0.32.x | PDF text extraction, pure Rust, no network calls verified (D35) |
+| axum multipart feature | matching axum 0.7.x | Required for multipart upload handler; add `multipart` to axum features in Cargo.toml (D34) |
 
 ## 3. Frontend
 
@@ -182,6 +184,10 @@ OSNet engine record (S2 unblocking, 2026-09-15, reference machine):
   runtime behaviour — variant-selection leg only. One-off tooling
   (`torchreid` 0.2.5 arch definition, `gdown`) lives in the local
   Python env, not the repo: no dependency row owed.
+
+Blob storage note (D34): `RAVEN_BLOB_DIR` defaults to `./blobs`
+relative to the server working directory. Set explicitly in
+`server/.env` for production.
 
 ## 7. Infrastructure
 

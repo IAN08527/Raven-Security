@@ -2,6 +2,9 @@
 .branches
 .temp
 
+# JWT signing keys (private key material — never commit).
+signing_keys.json
+
 # dotenvx
 .env.keys
 .env.local

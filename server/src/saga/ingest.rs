@@ -36,6 +36,18 @@ pub enum Provenance {
     Synthetic,
 }
 
+impl Provenance {
+    /// Baseline `provenance` enum label, for SQL casts. Matches the
+    /// serde spelling by construction — a fork here breaks persistence.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Provenance::Benchmark => "benchmark",
+            Provenance::Collected => "collected",
+            Provenance::Synthetic => "synthetic",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FileStatus {
@@ -48,6 +60,24 @@ pub enum FileStatus {
     Committed,
     NeedsReview,
     Failed,
+}
+
+impl FileStatus {
+    /// Baseline `ingest_status` enum label, for SQL casts. Matches the
+    /// serde spelling by construction.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            FileStatus::Received => "received",
+            FileStatus::Hashing => "hashing",
+            FileStatus::Stored => "stored",
+            FileStatus::Recognising => "recognising",
+            FileStatus::AwaitingReview => "awaiting_review",
+            FileStatus::Extracting => "extracting",
+            FileStatus::Committed => "committed",
+            FileStatus::NeedsReview => "needs_review",
+            FileStatus::Failed => "failed",
+        }
+    }
 }
 
 /// Review disposition of the text handed to step 7. Only human-resolved
@@ -102,8 +132,18 @@ pub enum ExtractionFailure {
 /// Step 7 calls the docs-lane extraction endpoint with confirmed review
 /// text. The real implementation POSTs to the lane's HTTP service when
 /// it serves one (follow-up); tests stub this trait.
-pub trait ExtractionClient {
-    fn extract(
+///
+/// D33: async — the saga runs as a background task and every
+/// implementation here is I/O (HTTP, Postgres, Bolt).
+///
+/// `&self` throughout (not `&mut self`): the saga holds these behind
+/// `Arc` across `tokio::spawn`, which cannot yield `&mut`. Implementors
+/// use interior mutability (`Mutex`, pools, HTTP clients are all
+/// `&self`-ready); the step-7-to-9 tests prove ordering on a shared log
+/// rather than on exclusive borrows.
+#[async_trait::async_trait]
+pub trait ExtractionClient: Send + Sync {
+    async fn extract(
         &self,
         confirmed_text: &str,
         source_ts: Option<OffsetDateTime>,
@@ -167,25 +207,35 @@ pub enum LedgerError {
 /// `persist_extraction` as ONE transaction (step 9) and
 /// `recompute_weight` as `SELECT recompute_weight($1, $2)` (M4-T4: the
 /// baseline function is called, never rewritten).
-pub trait CaseDb {
-    fn persist_extraction(
-        &mut self,
+///
+/// D33: async — see [`ExtractionClient`].
+#[async_trait::async_trait]
+pub trait CaseDb: Send + Sync {
+    async fn persist_extraction(
+        &self,
         file_id: Uuid,
         case_id: Uuid,
         provenance: Provenance,
         batch: PersistBatch,
     ) -> Result<PersistedIds, PersistError>;
-    fn set_file_status(&mut self, file_id: Uuid, status: FileStatus);
-    fn recompute_weight(&mut self, rel_id: Uuid, version: i32) -> Result<f64, WeightError>;
-    fn mark_sync_pending(&mut self, entity_ids: &[Uuid], relationship_ids: &[Uuid]);
-    fn record_ledger(&mut self, file_id: Uuid, outcome: &LedgerOutcome);
+    async fn set_file_status(&self, file_id: Uuid, status: FileStatus);
+    async fn recompute_weight(&self, rel_id: Uuid, version: i32) -> Result<f64, WeightError>;
+    async fn mark_sync_pending(&self, entity_ids: &[Uuid], relationship_ids: &[Uuid]);
+    async fn record_ledger(&self, file_id: Uuid, outcome: &LedgerOutcome);
 }
 
 /// The single Neo4j writer (D10). Real implementation issues Cypher
 /// `MERGE` for nodes and edges; `rebuild_graph()` regenerates the whole
 /// graph from Postgres (D4).
-pub trait GraphWriter {
-    fn merge_case_graph(&mut self, nodes: &[GraphNode], edges: &[GraphEdge]) -> Result<(), GraphError>;
+///
+/// D33: async — see [`ExtractionClient`].
+#[async_trait::async_trait]
+pub trait GraphWriter: Send + Sync {
+    async fn merge_case_graph(
+        &self,
+        nodes: &[GraphNode],
+        edges: &[GraphEdge],
+    ) -> Result<(), GraphError>;
 }
 
 #[derive(Debug, Clone)]
@@ -205,8 +255,15 @@ pub struct GraphEdge {
 }
 
 /// Ledger anchor for the extraction result hash (D5, saga step 11).
-pub trait LedgerAnchor {
-    fn anchor_extraction(&mut self, file_id: Uuid, result_hash: &str) -> Result<String, LedgerError>;
+///
+/// D33: async — see [`ExtractionClient`].
+#[async_trait::async_trait]
+pub trait LedgerAnchor: Send + Sync {
+    async fn anchor_extraction(
+        &self,
+        file_id: Uuid,
+        result_hash: &str,
+    ) -> Result<String, LedgerError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -260,48 +317,48 @@ pub fn extraction_hash(result: &ExtractionResult) -> String {
 }
 
 /// Saga steps 7-9. See module docs for ordering guarantees.
-pub fn run_steps_7_to_9(
+///
+/// D33: async — every side effect here is I/O in production.
+pub async fn run_steps_7_to_9(
     client: &dyn ExtractionClient,
-    db: &mut dyn CaseDb,
-    graph: &mut dyn GraphWriter,
-    ledger: &mut dyn LedgerAnchor,
+    db: &dyn CaseDb,
+    graph: &dyn GraphWriter,
+    ledger: &dyn LedgerAnchor,
     input: IngestInput,
 ) -> StepOutcome {
     if input.disposition == ReviewDisposition::Rejected {
-        db.set_file_status(input.file_id, FileStatus::NeedsReview);
+        db.set_file_status(input.file_id, FileStatus::NeedsReview).await;
         return StepOutcome::NeedsReview {
             reason: "rejected review text is never extracted (FR-2.7)".to_string(),
         };
     }
     if !step8_review_gate() {
-        db.set_file_status(input.file_id, FileStatus::NeedsReview);
+        db.set_file_status(input.file_id, FileStatus::NeedsReview).await;
         return StepOutcome::NeedsReview {
             reason: "review gate held the document (TODO S3)".to_string(),
         };
     }
 
-    let extraction = match client.extract(&input.confirmed_text, input.source_ts) {
+    let extraction = match client.extract(&input.confirmed_text, input.source_ts).await {
         Ok(result) => result,
         Err(ExtractionFailure::Quarantined { reason }) => {
-            db.set_file_status(input.file_id, FileStatus::NeedsReview);
+            db.set_file_status(input.file_id, FileStatus::NeedsReview).await;
             return StepOutcome::NeedsReview { reason };
         }
     };
     if let Err(reason) = check_extraction(&extraction, &input.confirmed_text) {
-        db.set_file_status(input.file_id, FileStatus::NeedsReview);
+        db.set_file_status(input.file_id, FileStatus::NeedsReview).await;
         return StepOutcome::NeedsReview { reason };
     }
 
     let batch = to_batch(&extraction);
-    let persisted = match db.persist_extraction(
-        input.file_id,
-        input.case_id,
-        input.provenance,
-        batch,
-    ) {
+    let persisted = match db
+        .persist_extraction(input.file_id, input.case_id, input.provenance, batch)
+        .await
+    {
         Ok(ids) => ids,
         Err(PersistError::Failed(reason)) => {
-            db.set_file_status(input.file_id, FileStatus::NeedsReview);
+            db.set_file_status(input.file_id, FileStatus::NeedsReview).await;
             return StepOutcome::NeedsReview { reason };
         }
     };
@@ -329,32 +386,32 @@ pub fn run_steps_7_to_9(
         })
         .collect();
     let mut graph_synced = true;
-    if let Err(GraphError::Failed(_)) = graph.merge_case_graph(&nodes, &edges) {
+    if let Err(GraphError::Failed(_)) = graph.merge_case_graph(&nodes, &edges).await {
         // D4: Neo4j is a derived index. Mark pending for the reconciler;
         // Postgres rows stand -- never roll back a commit (the single most
         // important property of this step).
-        db.mark_sync_pending(&persisted.entity_ids, &persisted.relationship_ids);
+        db.mark_sync_pending(&persisted.entity_ids, &persisted.relationship_ids).await;
         graph_synced = false;
     }
 
     // M4-T4: wire the baseline function, version pinned by D27.
     let mut weights_pending = false;
     for rel_id in &persisted.relationship_ids {
-        if db.recompute_weight(*rel_id, WEIGHT_PARAMS_VERSION).is_err() {
+        if db.recompute_weight(*rel_id, WEIGHT_PARAMS_VERSION).await.is_err() {
             weights_pending = true;
         }
     }
     if weights_pending {
-        db.mark_sync_pending(&[], &persisted.relationship_ids);
+        db.mark_sync_pending(&[], &persisted.relationship_ids).await;
     }
 
     let hash = extraction_hash(&extraction);
-    let ledger_outcome = match ledger.anchor_extraction(input.file_id, &hash) {
+    let ledger_outcome = match ledger.anchor_extraction(input.file_id, &hash).await {
         Ok(tx_id) => LedgerOutcome::Anchored(tx_id),
         Err(LedgerError::Unavailable(reason)) => LedgerOutcome::PendingRetry(reason),
     };
-    db.record_ledger(input.file_id, &ledger_outcome);
-    db.set_file_status(input.file_id, FileStatus::Committed);
+    db.record_ledger(input.file_id, &ledger_outcome).await;
+    db.set_file_status(input.file_id, FileStatus::Committed).await;
     StepOutcome::Committed {
         entity_ids: persisted.entity_ids,
         relationship_ids: persisted.relationship_ids,

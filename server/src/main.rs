@@ -1,5 +1,6 @@
 //! Raven server binary: thin entry point over the `server` library crate.
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -58,6 +59,28 @@ async fn main() -> Result<()> {
     let users = server::auth::UsersStore::default();
     jwks.set_user_directory(users.clone());
 
+    // D33-D34: ingest saga wiring. The pool is lazy (no I/O here), but
+    // a missing SAGA_DATABASE_URL is a config error: uploads could not
+    // persist, so boot fails naming the variable rather than serving a
+    // broken upload endpoint (rule 9).
+    let saga_db = match server::db::SagaDb::from_env() {
+        Ok(db) => db,
+        Err(detail) => {
+            tracing::error!(detail = %detail, "ingest saga database unavailable");
+            std::process::exit(1);
+        }
+    };
+    let blob_dir: PathBuf =
+        std::env::var("RAVEN_BLOB_DIR").map(PathBuf::from).unwrap_or("./blobs".into());
+    let blobs = Arc::new(server::storage::BlobStore::new(blob_dir));
+    let docs_lane = match server::saga::extraction_client::DocsLaneClient::from_env() {
+        Ok(client) => client,
+        Err(detail) => {
+            tracing::error!(detail = %detail, "docs-lane client unavailable");
+            std::process::exit(1);
+        }
+    };
+
     let app = api::router(
         config,
         api::RouterStores {
@@ -72,6 +95,9 @@ async fn main() -> Result<()> {
             notes: api::entities::NotesStore::default(),
             merge_graph: api::entities::ConsolidateGraph::default(),
             files: api::files::FileStore::default(),
+            saga_db,
+            blobs,
+            docs_lane,
             graph: server::graph::InMemoryGraphStore::default(),
             auth: jwks,
             ledger,
