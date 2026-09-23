@@ -10,9 +10,12 @@
 //! follow-up as every other store in this service.
 //!
 //! Access rule: results come only from the caller's assigned cases
-//! (D21). Without `case_id` the search spans every assigned case; with
-//! it, the case must be assigned or the call is `CASE_ACCESS_DENIED` —
-//! never an empty result set that leaks which cases exist.
+//! (D21), except the administrator, who searches every case
+//! unconditionally (D37 amends D21). Without `case_id` the search spans
+//! every assigned case (every case, for admin); with it, the case must
+//! be assigned (or the caller must be admin) or the call is
+//! `CASE_ACCESS_DENIED` — never an empty result set that leaks which
+//! cases exist.
 
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -34,9 +37,12 @@ use crate::ledger::LedgerClient;
 
 /// One case row as held by this service, mirroring the baseline
 /// `cases` columns the search contract exposes. Populated by the case
-/// lifecycle (and by tests); production reads the `cases` table through
-/// RLS instead.
-#[derive(Debug, Clone, Serialize, TS)]
+/// lifecycle and, at startup, rehydrated from the durable `cases` table
+/// via [`crate::api::cases::CaseTable::all_cases`] (session request:
+/// this in-memory store must survive a server restart). `sqlx::FromRow`
+/// lets `all_cases`'s Postgres implementation query straight into this
+/// shape -- column names match field names exactly.
+#[derive(Debug, Clone, Serialize, TS, sqlx::FromRow)]
 pub struct CaseRecord {
     pub id: Uuid,
     pub case_code: String,
@@ -53,6 +59,14 @@ impl CaseStore {
 
     pub fn insert(&self, case: CaseRecord) {
         self.lock().push(case);
+    }
+
+    /// Startup rehydration: replace the whole in-memory set with what
+    /// Postgres has. Only ever called once, before the router starts
+    /// serving requests, so plain replacement (not merge) is correct --
+    /// nothing else could have raced onto this store first.
+    pub fn replace_all(&self, rows: Vec<CaseRecord>) {
+        *self.lock() = rows;
     }
 
     /// True when a case with this id exists. The assignment endpoint
@@ -72,6 +86,13 @@ impl CaseStore {
 
     pub fn visible(&self, cases: &HashSet<Uuid>) -> Vec<CaseRecord> {
         self.lock().iter().filter(|case| cases.contains(&case.id)).cloned().collect()
+    }
+
+    /// Every case, unfiltered. Only for the administrator's unconditional
+    /// read grant (D37 amends D21) — every other caller goes through
+    /// `visible` scoped to their own assignments.
+    pub fn all(&self) -> Vec<CaseRecord> {
+        self.lock().clone()
     }
 }
 
@@ -205,8 +226,12 @@ async fn authorize(
     headers: &HeaderMap,
     state: &SearchState,
 ) -> Result<AuthContext, Box<Response>> {
-    authenticate_request(headers, &state.auth, &[AppRole::Io, AppRole::Analyst, AppRole::Auditor])
-        .await
+    authenticate_request(
+        headers,
+        &state.auth,
+        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor, AppRole::Admin],
+    )
+    .await
 }
 
 /// GET /search (API_CONTRACTS.md §2.12).
@@ -221,7 +246,7 @@ async fn global_search(
     };
     let wanted: HashSet<Uuid> = match query.case_id {
         Some(case_id) => {
-            if !state.assignments.is_assigned(&case_id, &context.user_id) {
+            if context.role != AppRole::Admin && !state.assignments.is_assigned(&case_id, &context.user_id) {
                 return error(
                     "CASE_ACCESS_DENIED",
                     StatusCode::FORBIDDEN,
@@ -229,6 +254,12 @@ async fn global_search(
                 );
             }
             HashSet::from([case_id])
+        }
+        // The administrator has no case_assignments rows (D37 amends
+        // D21: unrestricted read, not an assignment), so `cases_for_user`
+        // would wrongly return empty for them — search every case instead.
+        None if context.role == AppRole::Admin => {
+            state.cases.all().into_iter().map(|case| case.id).collect()
         }
         None => state.assignments.cases_for_user(&context.user_id).into_iter().collect(),
     };

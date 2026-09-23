@@ -2,9 +2,13 @@
 //!
 //! Hermetic by convention: the handler runs against the in-memory
 //! [`CaseStore`], [`UsersStore`] and [`AssignmentStore`] — no live
-//! Postgres. What the tests prove: admin-only gating, 201 on first
-//! assignment, 200 with an updated role on re-assignment, 404 on
-//! unknown case or user, and one `case.assign` audit row per call.
+//! Postgres, [`FakeCaseTable`] standing in for [`crate::db::SagaDb`].
+//! What the tests prove: admin-only gating, 201 on first assignment,
+//! 200 with an updated role on re-assignment, 404 on unknown case or
+//! user, one `case.assign` audit row per call, admin's unconditional
+//! read grant (D37), and that cases/assignments survive a restart
+//! (`Harness::restart` rehydrates fresh stores from the same durable
+//! `case_table`, exactly like `main.rs`).
 
 #[path = "support/mod.rs"]
 mod support;
@@ -14,7 +18,7 @@ use axum::http::{Request, StatusCode};
 use serde_json::{json, Value};
 use server::api::cases::{CaseTable, CasesDeps, router};
 use server::api::search::{CaseRecord, CaseStore};
-use server::audit::{AssignmentStore, AuditStore};
+use server::audit::{Assignment, AssignmentStore, AuditStore};
 use server::auth::{AppRole, ProfilesStore, UserRecord, UsersStore};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -25,6 +29,7 @@ use uuid::Uuid;
 #[derive(Debug, Default)]
 struct FakeCaseTable {
     rows: std::sync::Mutex<Vec<(Uuid, String, String)>>,
+    assignments: std::sync::Mutex<Vec<Assignment>>,
 }
 
 #[async_trait::async_trait]
@@ -35,6 +40,39 @@ impl CaseTable for FakeCaseTable {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .push((*id, case_code.to_string(), title.to_string()));
         Ok(())
+    }
+
+    async fn all_cases(&self) -> Result<Vec<CaseRecord>, String> {
+        Ok(self
+            .rows
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .iter()
+            .map(|(id, case_code, title)| CaseRecord {
+                id: *id,
+                case_code: case_code.clone(),
+                title: title.clone(),
+            })
+            .collect())
+    }
+
+    async fn insert_assignment_row(
+        &self,
+        case_id: &Uuid,
+        user_id: &Uuid,
+        role: AppRole,
+        _assigned_by: &Uuid,
+    ) -> Result<(), String> {
+        let mut guard = self.assignments.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        match guard.iter_mut().find(|a| &a.case_id == case_id && &a.user_id == user_id) {
+            Some(existing) => existing.role = role,
+            None => guard.push(Assignment { case_id: *case_id, user_id: *user_id, role }),
+        }
+        Ok(())
+    }
+
+    async fn all_assignments(&self) -> Result<Vec<Assignment>, String> {
+        Ok(self.assignments.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clone())
     }
 }
 
@@ -55,6 +93,36 @@ impl Harness {
         let cases = CaseStore::default();
         let assignments = AssignmentStore::default();
         let case_table = std::sync::Arc::new(FakeCaseTable::default());
+        let auth = support::test_auth_cache();
+        auth.set_user_directory(users.clone());
+        let gateway = support::StubGateway::start().await;
+        let app = router(CasesDeps {
+            auth,
+            ledger: gateway.client(),
+            audit: audit.clone(),
+            profiles,
+            users: users.clone(),
+            cases: cases.clone(),
+            assignments: assignments.clone(),
+            case_table: case_table.clone(),
+        });
+        Self { app, audit, assignments, cases, users, case_table }
+    }
+
+    /// Simulates a server restart: fresh, empty `CaseStore`/
+    /// `AssignmentStore`, rehydrated from the *same* durable
+    /// `case_table` -- mirrors `main.rs`'s startup path exactly. Only
+    /// what was actually written through the durable path survives;
+    /// nothing else carries over (a fresh `UsersStore` included, since
+    /// `main.rs` never persists that directory either).
+    async fn restart(case_table: std::sync::Arc<FakeCaseTable>) -> Self {
+        let audit = AuditStore::default();
+        let profiles = ProfilesStore::default();
+        let users = UsersStore::default();
+        let cases = CaseStore::default();
+        cases.replace_all(case_table.all_cases().await.expect("rehydrate cases"));
+        let assignments = AssignmentStore::default();
+        assignments.replace_all(case_table.all_assignments().await.expect("rehydrate assignments"));
         let auth = support::test_auth_cache();
         auth.set_user_directory(users.clone());
         let gateway = support::StubGateway::start().await;
@@ -411,6 +479,61 @@ async fn case_listing_and_detail_follow_assignment() {
 }
 
 #[tokio::test]
+async fn admin_reads_any_case_without_assignment() {
+    // D37 amends D21: the administrator's read grant is unconditional.
+    // `Harness::admin_token` mints a fresh admin identity with zero
+    // `case_assignments` rows, so a 200 here proves the bypass rather
+    // than a coincidence of also being assigned.
+    let harness = Harness::start().await;
+    let admin = Harness::admin_token();
+
+    let response = harness
+        .app
+        .clone()
+        .oneshot(post_request(
+            "/cases".to_string(),
+            &admin,
+            json!({ "case_code": "CR-2026-020", "title": "Admin-visible case" }),
+        ))
+        .await
+        .expect("router responds");
+    let (_, created) = body_json(response).await;
+    let case_id = created["id"].as_str().expect("case id").to_string();
+
+    // Same admin token, never assigned, lists every case and reads detail.
+    let response = harness
+        .app
+        .clone()
+        .oneshot(get_request("/cases".to_string(), &admin))
+        .await
+        .expect("router responds");
+    let (status, listed) = body_json(response).await;
+    assert_eq!(status, StatusCode::OK);
+    let rows = listed.as_array().expect("case array");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["case_code"], "CR-2026-020");
+
+    let response = harness
+        .app
+        .clone()
+        .oneshot(get_request(format!("/cases/{case_id}"), &admin))
+        .await
+        .expect("router responds");
+    let (status, detail) = body_json(response).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(detail["case"]["title"], "Admin-visible case");
+
+    // Existence still wins over the (now-bypassed) assignment check: a
+    // nonexistent case is 404 for admin too, not a phantom 200.
+    let response = harness
+        .app
+        .oneshot(get_request(format!("/cases/{}", Uuid::new_v4()), &admin))
+        .await
+        .expect("router responds");
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn assignment_writes_audit_row() {
     let harness = Harness::start().await;
     let case_id = harness.seed_case();
@@ -431,4 +554,56 @@ async fn assignment_writes_audit_row() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].action, "case.assign");
     assert_eq!(rows[0].object_id, officer.to_string());
+}
+
+#[tokio::test]
+async fn cases_and_assignments_survive_a_simulated_restart() {
+    // Session request: the in-memory case/assignment state was wiped on
+    // every server restart. This proves the fix end-to-end at the
+    // hermetic level -- create a case and an assignment, throw away the
+    // in-memory stores, rehydrate fresh ones from the same durable
+    // case_table (exactly what main.rs does at startup), and confirm
+    // the assigned officer still sees the case.
+    let harness = Harness::start().await;
+    let admin = Harness::admin_token();
+    let officer = harness.seed_user(AppRole::Io);
+    let officer_token = support::mint_token(&officer, "io", 3600);
+
+    let response = harness
+        .app
+        .clone()
+        .oneshot(post_request(
+            "/cases".to_string(),
+            &admin,
+            json!({ "case_code": "CR-2026-021", "title": "Restart-durability case" }),
+        ))
+        .await
+        .expect("router responds");
+    let (_, created) = body_json(response).await;
+    let case_id = created["id"].as_str().expect("case id").to_string();
+
+    let response = harness
+        .app
+        .clone()
+        .oneshot(post_request(
+            format!("/cases/{case_id}/assignments"),
+            &admin,
+            json!({ "user_id": officer, "assigned_role": "io" }),
+        ))
+        .await
+        .expect("router responds");
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let restarted = Harness::restart(harness.case_table.clone()).await;
+
+    let response = restarted
+        .app
+        .oneshot(get_request("/cases".to_string(), &officer_token))
+        .await
+        .expect("router responds");
+    let (status, listed) = body_json(response).await;
+    assert_eq!(status, StatusCode::OK);
+    let rows = listed.as_array().expect("case array");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["case_code"], "CR-2026-021");
 }

@@ -144,7 +144,7 @@ export function CasesScreen({
 
       <section aria-label="Assigned cases" className="border border-[#30302D] bg-[#1B1B19]">
         <h2 className="border-b border-[#30302D] px-3 py-2 text-xs font-semibold text-[#E8E5DD]">
-          My cases
+          {role === "admin" ? "All cases (oversight, D37)" : "My cases"}
         </h2>
         {listNote ? (
           <p role="alert" className="px-3 py-2 text-xs text-[#D8665C]">
@@ -184,7 +184,9 @@ export function CasesScreen({
         </table>
         {assigned.length === 0 && !listNote ? (
           <p className="px-3 py-3 text-xs text-[#706E68]">
-            No assigned cases. An administrator opens cases and assigns them to you.
+            {role === "admin"
+              ? "No cases exist yet."
+              : "No assigned cases. An administrator opens cases and assigns them to you."}
           </p>
         ) : null}
       </section>

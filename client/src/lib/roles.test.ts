@@ -19,8 +19,19 @@ describe("role-based navigation (design §5.2, §33)", () => {
     expect(ids("auditor")).toEqual(["home", "cases", "search", "map", "timeline", "audit"]);
   });
 
-  it("admin sees Settings but not Graph or CCTV", () => {
-    expect(ids("admin")).toEqual(["home", "cases", "settings"]);
+  it("admin sees every read-only case-content screen plus Settings, but not Ingestion", () => {
+    expect(ids("admin")).toEqual([
+      "home",
+      "cases",
+      "graph",
+      "cctv",
+      "search",
+      "map",
+      "timeline",
+      "reports",
+      "audit",
+      "settings",
+    ]);
   });
 
   it("unknown roles see nothing rather than everything", () => {

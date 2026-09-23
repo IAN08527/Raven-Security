@@ -70,6 +70,31 @@ async fn main() -> Result<()> {
             std::process::exit(1);
         }
     };
+
+    // Startup rehydration (session request): CaseStore and
+    // AssignmentStore are the live, synchronous cache every
+    // authorization check reads, and previously started empty on every
+    // restart even though cases (and, as of this change, assignments)
+    // are durably written to Postgres. A rehydration failure is logged
+    // and the server still starts with an empty cache rather than
+    // refusing to boot (rule 9: visible, not fatal -- the top-of-main
+    // health gate already covers "Postgres is down").
+    use server::api::cases::CaseTable;
+    let cases = api::search::CaseStore::default();
+    match saga_db.all_cases().await {
+        Ok(rows) => cases.replace_all(rows),
+        Err(detail) => {
+            tracing::warn!(detail = %detail, "could not rehydrate cases from Postgres; starting empty")
+        }
+    }
+    let assignments = server::audit::AssignmentStore::default();
+    match saga_db.all_assignments().await {
+        Ok(rows) => assignments.replace_all(rows),
+        Err(detail) => {
+            tracing::warn!(detail = %detail, "could not rehydrate case assignments from Postgres; starting empty")
+        }
+    }
+
     let blob_dir: PathBuf =
         std::env::var("RAVEN_BLOB_DIR").map(PathBuf::from).unwrap_or("./blobs".into());
     let blobs = Arc::new(server::storage::BlobStore::new(blob_dir));
@@ -102,10 +127,10 @@ async fn main() -> Result<()> {
             auth: jwks,
             ledger,
             audit: server::audit::AuditStore::default(),
-            assignments: server::audit::AssignmentStore::default(),
+            assignments,
             profiles: server::auth::ProfilesStore::default(),
             users,
-            cases: api::search::CaseStore::default(),
+            cases,
             locations: api::map::LocationStore::default(),
         },
     );

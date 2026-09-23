@@ -50,9 +50,17 @@ Two users, two cases, one assignment each. Tests attempt cross-case reads on eve
 policy-protected table.
 
 *Done when:* every cross-case read returns zero rows, an admin user reads zero
-case content, and a user with no assignment reads nothing. Runs in CI. **This
-suite blocks release forever** (NFR-8), so it is written before there is anything
-to protect rather than after.
+case content **at the direct-Postgres RLS layer covered by this suite**, and a
+user with no assignment reads nothing. Runs in CI. **This suite blocks release
+forever** (NFR-8), so it is written before there is anything to protect rather
+than after.
+
+*Note (D37):* "an admin user reads zero case content" is scoped to this
+suite's direct-Postgres RLS layer, which the live REST API does not yet route
+case-content reads through. It is intentionally out of sync with D37 (admin
+has unrestricted read access to case content through the API) — see the
+`ADMIN_DENIED_TABLES` comment in `eval/test_rls.py`. Revisit both together
+when case content gets real per-user Postgres persistence.
 
 *Note:* the `insight_reviews` policy in the baseline is permissive because
 `object_id` is polymorphic. Tighten it in this task and record how.

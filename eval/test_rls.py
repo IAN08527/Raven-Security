@@ -92,7 +92,17 @@ CASE_SCOPED_TABLES: list[tuple[str, str]] = [
     ("audit_log", "id"),
 ]
 
-# NFR-8 / M0-T4: admin manages the system without reading case content (D21).
+# NFR-8 / M0-T4: this table asserts direct-Postgres RLS denies admin --
+# a true statement today, but scoped to a layer the live API doesn't
+# route case-content reads through yet (everything here is dual-written
+# by the privileged raven_saga role, never read per-user). It is now
+# INTENTIONALLY out of sync with the API-layer admin read grant (D37
+# amends D21: admin has unrestricted read access to case content through
+# the REST API). Don't "fix" has_case_access() to match D37 without first
+# re-reading D37's consequences -- case_scoped/via_* policies are FOR ALL,
+# not FOR SELECT, so adding an admin OR there would grant Postgres-level
+# WRITE access too, which D37 explicitly does not. Revisit together with
+# whichever milestone gives case content real per-user Postgres reads.
 ADMIN_DENIED_TABLES = [
     "source_files",
     "entities",
@@ -483,6 +493,9 @@ def test_admin_reads_all_assignments(conn: psycopg.Connection[Any], world: World
 
 @pytest.mark.parametrize("table", ADMIN_DENIED_TABLES)
 def test_admin_reads_no_case_content(conn: psycopg.Connection[Any], world: World, table: str) -> None:
+    """Direct-Postgres RLS only -- see the ADMIN_DENIED_TABLES comment
+    above. This is unrelated to, and does not contradict, D37's
+    API-layer admin read grant."""
     as_user(conn, world.admin)
     count = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     assert count == 0

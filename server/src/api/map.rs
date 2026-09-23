@@ -33,8 +33,8 @@ use time::OffsetDateTime;
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::audit::{record_action, AssignmentStore, AuditStore};
-use crate::auth::{authenticate_request, AppRole, AuthContext, JwksCache, ProfilesStore};
+use crate::audit::{authenticate_case_reader, record_action, AssignmentStore, AuditStore};
+use crate::auth::{AppRole, AuthContext, JwksCache, ProfilesStore};
 use crate::api::cameras::CameraStore;
 use crate::api::entities::EntityStore;
 use crate::api::timeline::Clock;
@@ -201,6 +201,8 @@ fn error(code: &'static str, status: StatusCode, message: impl Into<String>) -> 
         .into_response()
 }
 
+/// Any assigned role may query, plus the administrator unconditionally
+/// (D37 amends D21).
 async fn authorize_entity(
     headers: &HeaderMap,
     state: &MapState,
@@ -212,22 +214,14 @@ async fn authorize_entity(
                 .into_response(),
         ));
     };
-    let context = authenticate_request(
+    let context = authenticate_case_reader(
         headers,
         &state.auth,
-        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor],
+        &state.assignments,
+        &entity.case_id,
+        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor, AppRole::Admin],
     )
     .await?;
-    if !state.assignments.is_assigned(&entity.case_id, &context.user_id) {
-        return Err(Box::new(
-            error(
-                "CASE_ACCESS_DENIED",
-                StatusCode::FORBIDDEN,
-                format!("no assignment for this user on case {}", entity.case_id),
-            )
-            .into_response(),
-        ));
-    }
     Ok((context, entity.case_id))
 }
 

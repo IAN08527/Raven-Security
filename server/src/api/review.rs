@@ -311,11 +311,12 @@ async fn list_reviews(
 ) -> impl IntoResponse {
     // Verified identity (any case role may read the queue; assignment
     // enforcement lives on the audit endpoints and, with real
-    // persistence, in RLS).
+    // persistence, in RLS). Admin included unconditionally (D37 amends
+    // D21); decide_review below stays io-only, untouched.
     if let Err(boxed) = authenticate_request(
         &headers,
         &state.auth,
-        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor],
+        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor, AppRole::Admin],
     )
     .await
     {

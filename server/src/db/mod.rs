@@ -315,6 +315,63 @@ impl crate::api::cases::CaseTable for SagaDb {
             .map(|_| ())
             .map_err(|error| error.to_string())
     }
+
+    /// Startup rehydration source for `CaseStore` (session request: the
+    /// in-memory list must survive a restart). Reads under the
+    /// `saga_select` policy on `cases` -- unconditional, unlike the
+    /// baseline `case_visible` policy user JWTs go through.
+    async fn all_cases(&self) -> Result<Vec<crate::api::search::CaseRecord>, String> {
+        sqlx::query_as::<_, crate::api::search::CaseRecord>(
+            "SELECT id, case_code, title FROM cases",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|error| error.to_string())
+    }
+
+    /// Durable write behind `POST /cases/{id}/assignments`. `app_role`
+    /// is a Postgres enum, not a type `sqlx` maps automatically, so it
+    /// binds as text and casts server-side -- same convention as every
+    /// other enum column in this file (`status::ingest_status`, etc.).
+    async fn insert_assignment_row(
+        &self,
+        case_id: &Uuid,
+        user_id: &Uuid,
+        role: crate::auth::AppRole,
+        assigned_by: &Uuid,
+    ) -> Result<(), String> {
+        sqlx::query(
+            "INSERT INTO case_assignments (case_id, user_id, assigned_role, assigned_by) \
+             VALUES ($1, $2, $3::app_role, $4) \
+             ON CONFLICT (case_id, user_id) DO UPDATE \
+             SET assigned_role = EXCLUDED.assigned_role, assigned_by = EXCLUDED.assigned_by",
+        )
+        .bind(case_id)
+        .bind(user_id)
+        .bind(role.as_str())
+        .bind(assigned_by)
+        .execute(&self.pool)
+        .await
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+    }
+
+    /// Startup rehydration source for `AssignmentStore`.
+    async fn all_assignments(&self) -> Result<Vec<crate::audit::Assignment>, String> {
+        let rows: Vec<(Uuid, Uuid, String)> = sqlx::query_as(
+            "SELECT case_id, user_id, assigned_role::text FROM case_assignments",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|error| error.to_string())?;
+        rows.into_iter()
+            .map(|(case_id, user_id, role_text)| {
+                crate::auth::AppRole::parse(&role_text)
+                    .map(|role| crate::audit::Assignment { case_id, user_id, role })
+                    .ok_or_else(|| format!("unknown assigned_role {role_text:?} in case_assignments"))
+            })
+            .collect()
+    }
 }
 
 #[async_trait::async_trait]

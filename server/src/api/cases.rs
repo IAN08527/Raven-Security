@@ -2,10 +2,11 @@
 //!
 //! `POST /cases/{id}/assignments` assigns a managed user to a case.
 //! Case assignment is an administrative act, not a user act (D21): the
-//! caller must hold the admin role, and the administrator still has no
-//! read access to case content — this route writes the join row, it
-//! does not expose the case. Every assignment writes one `case.assign`
-//! audit row before returning (rule 6).
+//! caller must hold the admin role. The administrator separately has
+//! unrestricted read access to every case's content (D37 amends D21),
+//! but that grant is read-only — assignment stays the only way anyone
+//! gains write/confirm capability on a case. Every assignment writes one
+//! `case.assign` audit row before returning (rule 6).
 //!
 //! Upsert semantics mirror the production query (`INSERT INTO
 //! case_assignments (case_id, user_id, assigned_role, assigned_by)
@@ -29,19 +30,40 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::api::search::{CaseRecord, CaseStore};
-use crate::audit::{record_action, AssignmentStore, AuditStore};
+use crate::audit::{record_action, Assignment, AssignmentStore, AuditStore};
 use crate::auth::{authenticate_request, AppRole, AuthContext, JwksCache, ProfilesStore, UsersStore};
 use crate::ledger::LedgerClient;
 
-/// What `create_case` needs from Postgres: the `cases` row must exist
-/// there before any `source_files` row can reference it
-/// (`source_files_case_id_fkey`). Same hermetic-test convention as
-/// [`crate::api::files::SourceFileRepo`]: handlers are generic over
-/// this trait, tests use an in-memory fake, production passes
-/// [`crate::db::SagaDb`].
+/// What `create_case`/`assign_user` need from Postgres: the `cases` row
+/// must exist there before any `source_files` row can reference it
+/// (`source_files_case_id_fkey`), and both cases and assignments must
+/// be durable so the in-memory `CaseStore`/`AssignmentStore` (the live
+/// cache every authorization check reads) can be rehydrated after a
+/// restart instead of starting empty (session request). Same
+/// hermetic-test convention as [`crate::api::files::SourceFileRepo`]:
+/// handlers are generic over this trait, tests use an in-memory fake,
+/// production passes [`crate::db::SagaDb`].
 #[async_trait::async_trait]
 pub trait CaseTable: Send + Sync {
     async fn insert_case_row(&self, id: &Uuid, case_code: &str, title: &str) -> Result<(), String>;
+
+    /// Every case row, for rehydrating `CaseStore` at startup.
+    async fn all_cases(&self) -> Result<Vec<CaseRecord>, String>;
+
+    /// Durable write for `POST /cases/{id}/assignments`, mirroring
+    /// `insert_case_row`'s role for case creation. Upsert semantics
+    /// match the in-memory `AssignmentStore::upsert`: re-assigning the
+    /// same user changes their role rather than erroring.
+    async fn insert_assignment_row(
+        &self,
+        case_id: &Uuid,
+        user_id: &Uuid,
+        role: AppRole,
+        assigned_by: &Uuid,
+    ) -> Result<(), String>;
+
+    /// Every assignment row, for rehydrating `AssignmentStore` at startup.
+    async fn all_assignments(&self) -> Result<Vec<Assignment>, String>;
 }
 
 #[derive(Clone)]
@@ -117,8 +139,9 @@ fn error(code: &'static str, status: StatusCode, message: impl Into<String>) -> 
 }
 
 /// Case creation body (API_CONTRACTS.md §2.1). Admin role only: opening
-/// a case is a platform act, and the administrator still has no read
-/// access to the case content created inside it afterwards.
+/// a case is a platform act. The administrator has unrestricted read
+/// access to the case content created inside it afterwards (D37 amends
+/// D21), but not write/confirm capability.
 #[derive(Debug, Deserialize, TS)]
 pub struct CreateCaseRequest {
     pub case_code: String,
@@ -126,8 +149,8 @@ pub struct CreateCaseRequest {
 }
 
 /// Case detail (API_CONTRACTS.md §2.1): the case plus its assignment
-/// list. Assigned callers only; the administrator assigns without
-/// reading, so this route is 403 for admin.
+/// list. Assigned callers, plus the administrator unconditionally
+/// (D37 amends D21).
 #[derive(Debug, Serialize, TS)]
 pub struct CaseDetailResponse {
     pub case: CaseRecord,
@@ -197,24 +220,34 @@ async fn create_case(
 }
 
 /// GET /cases (API_CONTRACTS.md §2.1): cases the caller is assigned to,
-/// in case-code order. Admin has no case access, so this route is 403
-/// for admin rather than leaking the case list.
+/// in case-code order. The administrator sees every case unconditionally
+/// (D37 amends D21: admin has unrestricted read access to case content).
 async fn list_cases(State(state): State<CasesState>, headers: HeaderMap) -> Response {
-    let context =
-        match authenticate_request(&headers, &state.auth, &[AppRole::Io, AppRole::Analyst, AppRole::Auditor])
-            .await
-        {
-            Ok(context) => context,
-            Err(boxed) => return *boxed,
-        };
-    let mine = state.assignments.cases_for_user(&context.user_id);
-    let mut rows = state.cases.visible(&mine.into_iter().collect());
+    let context = match authenticate_request(
+        &headers,
+        &state.auth,
+        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor, AppRole::Admin],
+    )
+    .await
+    {
+        Ok(context) => context,
+        Err(boxed) => return *boxed,
+    };
+    let mut rows = if context.role == AppRole::Admin {
+        state.cases.all()
+    } else {
+        let mine = state.assignments.cases_for_user(&context.user_id);
+        state.cases.visible(&mine.into_iter().collect())
+    };
     rows.sort_by(|a, b| a.case_code.cmp(&b.case_code));
     (StatusCode::OK, Json(rows)).into_response()
 }
 
 /// GET /cases/{id} (API_CONTRACTS.md §2.1): case detail plus assignment
-/// list. Unknown case is 404; assigned callers only otherwise.
+/// list. Unknown case is 404 before the assignment check ever runs
+/// (`server/tests/case_assignments.rs` pins this ordering), so the
+/// administrator's bypass below only skips the assignment check, never
+/// the existence check.
 async fn read_case(
     State(state): State<CasesState>,
     headers: HeaderMap,
@@ -227,7 +260,7 @@ async fn read_case(
     let Some(case) = state.cases.find(&case_id) else {
         return error("NOT_FOUND", StatusCode::NOT_FOUND, format!("case {case_id} not found"));
     };
-    if !state.assignments.is_assigned(&case_id, &context.user_id) {
+    if context.role != AppRole::Admin && !state.assignments.is_assigned(&case_id, &context.user_id) {
         return error(
             "FORBIDDEN",
             StatusCode::FORBIDDEN,
@@ -243,14 +276,20 @@ async fn read_case(
     (StatusCode::OK, Json(CaseDetailResponse { case, assignments })).into_response()
 }
 
-/// Any case-content role authenticates; assignment itself is checked per
-/// case by the caller. Admin is excluded here (D21): the administrator
-/// assigns without reading.
+/// Any case-content role authenticates, plus the administrator
+/// unconditionally (D37 amends D21: admin has unrestricted read access to
+/// case content). Assignment itself is checked per case by the caller,
+/// which is where the administrator's bypass lives.
 async fn authorized_case_reader(
     headers: &HeaderMap,
     state: &CasesState,
 ) -> Result<AuthContext, Box<Response>> {
-    authenticate_request(headers, &state.auth, &[AppRole::Io, AppRole::Analyst, AppRole::Auditor]).await
+    authenticate_request(
+        headers,
+        &state.auth,
+        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor, AppRole::Admin],
+    )
+    .await
 }
 
 /// Assignment body (API_CONTRACTS.md §2.1): who, and in what capacity.
@@ -292,7 +331,26 @@ async fn assign_user(
             format!("user {} not found", req.user_id),
         );
     }
-    let is_new = state.assignments.upsert(case_id, req.user_id, req.assigned_role);
+    // Postgres first (D4), same as case creation: capture "was this
+    // already assigned" before either write, since the durable insert
+    // must not silently no-op on conflict and the in-memory store must
+    // not move if the durable write fails (rule 9 -- a memory-only
+    // assignment would look real until the next restart quietly
+    // dropped it).
+    let was_assigned = state.assignments.is_assigned(&case_id, &req.user_id);
+    if let Err(detail) = state
+        .case_table
+        .insert_assignment_row(&case_id, &req.user_id, req.assigned_role, &context.user_id)
+        .await
+    {
+        return error(
+            "INTERNAL",
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("assignment store unavailable: {detail}"),
+        );
+    }
+    state.assignments.upsert(case_id, req.user_id, req.assigned_role);
+    let is_new = !was_assigned;
     record_action(
         crate::audit::ActionDeps {
             audit: &state.audit,

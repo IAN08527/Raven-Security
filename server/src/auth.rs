@@ -32,8 +32,9 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 /// Application roles (baseline `app_role` enum, D21). The administrator
-/// manages users, cases, cameras and templates and has no case-content
-/// access; only the investigating officer confirms or rejects.
+/// manages users, cases, cameras and templates and has unrestricted read
+/// access to case content across every case (D37 amends D21); only the
+/// investigating officer confirms, rejects or otherwise writes it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 pub enum AppRole {
@@ -391,8 +392,9 @@ pub async fn authenticate_request(
 
 /// Investigating-officer gate shared by the confirm paths (D9
 /// single-confirm discipline from M2: the auditor is read-only, the
-/// analyst views, the admin has no case-content access). Returns the
-/// verified user id for `decided_by`/`reviewed_by` attribution.
+/// analyst views, and the admin's read grant (D37) does not extend to
+/// confirming anything — only io does). Returns the verified user id for
+/// `decided_by`/`reviewed_by` attribution.
 pub async fn authenticate_io(
     headers: &HeaderMap,
     cache: &JwksCache,

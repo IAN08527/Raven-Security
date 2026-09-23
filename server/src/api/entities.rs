@@ -7,9 +7,10 @@
 //!
 //! Auth→audit→anchor (M5-T3, D21, FR-7.4), mirroring `reid.rs`
 //! `decide_candidate`: verified GoTrue identity, io role only (the auditor
-//! is read-only, the admin has no case-content access), an audit row per
-//! decision, and a ledger `POST /action` anchor with the actor's
-//! `profiles.ledger_id` (`skipped_no_identity` when unconfigured).
+//! is read-only and the admin's D37 read grant doesn't extend to
+//! deciding), an audit row per decision, and a ledger `POST /action`
+//! anchor with the actor's `profiles.ledger_id` (`skipped_no_identity`
+//! when unconfigured).
 //!
 //! Consistency (D4): Postgres commits first and is the source of truth. The
 //! Neo4j `MERGE` consolidation runs after; on graph failure the merge row
@@ -38,7 +39,7 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::audit::{record_action, AssignmentStore, AuditStore};
-use crate::auth::{authenticate_io, authenticate_request, AppRole, AuthContext, JwksCache, ProfilesStore};
+use crate::auth::{authenticate_io, AppRole, AuthContext, JwksCache, ProfilesStore};
 use crate::ledger::LedgerClient;
 
 /// Postgres-side sync state (D4): the graph projection lags, never leads.
@@ -596,7 +597,8 @@ async fn revert_merge(
     Path(id): Path<i64>,
 ) -> impl IntoResponse {
     // M5-T1/T3: verified GoTrue identity, io role only — the auditor is
-    // read-only and the admin has no case-content access, same as decide.
+    // read-only and the admin's D37 read grant doesn't extend to
+    // reverting, same as decide.
     let reverter = match authenticate_io(&headers, &state.auth).await {
         Ok(user_id) => user_id,
         Err(boxed) => return *boxed,
@@ -746,33 +748,25 @@ pub struct EntityDetailResponse {
     pub notes: Vec<EntityNote>,
 }
 
-/// Any assigned role may read (mirrors `files.rs`: io, analyst, auditor).
-/// The administrator is excluded by the role gate — admin manages users
-/// and cases without read access to case content (D21). Callers assigned
-/// to no case here get `CASE_ACCESS_DENIED`, never an empty list: an
-/// empty list would let a caller probe which cases exist.
+/// Any assigned role may read (mirrors `files.rs`: io, analyst, auditor),
+/// plus the administrator unconditionally (D37 amends D21: admin has
+/// unrestricted read access to case content, but still no write/confirm
+/// path here). Callers assigned to no case here get `CASE_ACCESS_DENIED`,
+/// never an empty list: an empty list would let a caller probe which
+/// cases exist.
 async fn authorize_case(
     headers: &HeaderMap,
     state: &EntitiesState,
     case_id: &Uuid,
 ) -> Result<AuthContext, Box<Response>> {
-    let context = authenticate_request(
+    crate::audit::authenticate_case_reader(
         headers,
         &state.auth,
-        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor],
+        &state.assignments,
+        case_id,
+        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor, AppRole::Admin],
     )
-    .await?;
-    if !state.assignments.is_assigned(case_id, &context.user_id) {
-        return Err(Box::new(
-            error(
-                "CASE_ACCESS_DENIED",
-                StatusCode::FORBIDDEN,
-                format!("no assignment for this user on case {case_id}"),
-            )
-            .into_response(),
-        ));
-    }
-    Ok(context)
+    .await
 }
 
 /// GET /cases/{id}/entities (API_CONTRACTS.md §2.5): filtered, searched,

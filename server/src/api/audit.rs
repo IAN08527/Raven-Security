@@ -23,7 +23,7 @@ use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::audit::{AssignmentStore, AuditRow, AuditStore};
+use crate::audit::{authenticate_case_reader, AssignmentStore, AuditRow, AuditStore};
 use crate::auth::{AppRole, AuthContext, JwksCache};
 use crate::ledger::{Endorsement, LedgerClient};
 use ts_rs::TS;
@@ -78,25 +78,22 @@ fn error(code: &'static str, status: StatusCode, message: impl Into<String>) -> 
         .into_response()
 }
 
+/// Auditor and io only, unrelated Analyst exclusion unchanged, plus the
+/// administrator unconditionally (D37 amends D21: admin's oversight read
+/// grant reaches the audit log too).
 async fn authorize(
     headers: &HeaderMap,
     state: &AuditState,
     case_id: &Uuid,
 ) -> Result<AuthContext, Box<Response>> {
-    let context = crate::auth::authenticate_request(
+    authenticate_case_reader(
         headers,
         &state.auth,
-        &[AppRole::Auditor, AppRole::Io],
+        &state.assignments,
+        case_id,
+        &[AppRole::Auditor, AppRole::Io, AppRole::Admin],
     )
-    .await?;
-    if !state.assignments.is_assigned(case_id, &context.user_id) {
-        return Err(Box::new(error(
-            "CASE_ACCESS_DENIED",
-            StatusCode::FORBIDDEN,
-            format!("no assignment for this user on case {case_id}"),
-        )));
-    }
-    Ok(context)
+    .await
 }
 
 fn parse_time(value: &Option<String>) -> Result<Option<OffsetDateTime>, Box<Response>> {

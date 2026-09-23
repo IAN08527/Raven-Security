@@ -37,7 +37,7 @@ decision needs a number to be correct, it names the experiment that produces it.
 | D18 | Form-template field constraints | ACTIVE | - |
 | D19 | Three corpora and provenance | ACTIVE | - |
 | D20 | Server / engine node / thin client | ACTIVE | - |
-| D21 | Real identity, RLS and signed actions | ACTIVE | - |
+| D21 | Real identity, RLS and signed actions | AMENDED | D37 |
 | D22 | Multi-org Fabric | ACTIVE | - |
 | D23 | Person-centric graph | ACTIVE | - |
 | D24 | Metric-gated milestones | ACTIVE | - |
@@ -53,6 +53,7 @@ decision needs a number to be correct, it names the experiment that produces it.
 | D34 | Document upload: io role only, 200MB cap | ACTIVE | - |
 | D35 | PDF routing: lopdf text extraction | ACTIVE | - |
 | D36 | Structured file ingest path | ACTIVE | - |
+| D37 | Administrator read access to case content | ACTIVE | - |
 
 ---
 
@@ -403,7 +404,7 @@ Server-side detection runs once and both see identical results.
 - The 6GB laptop is the development machine and the engine-node reference
   configuration, not the deployment target.
 
-### D21 - Real identity, real RLS, signed actions `ACTIVE`
+### D21 - Real identity, real RLS, signed actions `AMENDED, see D37`
 
 **Context:** accounts are a requirement, and the prototype listed both officer
 identity and RLS in its "simulated" column.
@@ -733,6 +734,37 @@ dual-write is pinned by `server/tests/case_assignments.rs`
 itself was verified live (upload went from RLS-denied to accepted).
 The RLS suite (`eval/test_rls.py`) still guards the user paths.
 
+**Resolution, part 3 (session request — cases/assignments must survive
+a restart):** `cases` and `case_assignments` reads, and
+`case_assignments` writes, join the raven_saga least-privilege set.
+`supabase/migrations/20260923193148_saga_case_and_assignment_reads.sql`
+adds a `saga_select` policy on `cases` (the D33 role migration already
+GRANTed SELECT, but — same RLS caveat as above — no policy meant no
+rows), plus `GRANT INSERT, UPDATE ON case_assignments` and matching
+`saga_select`/`saga_insert`/`saga_update` policies. `CaseTable` (the
+existing hermetic-test seam `create_case` already used) gains
+`all_cases`, `insert_assignment_row` and `all_assignments`; `main.rs`
+calls the two `all_*` methods once at startup to rehydrate `CaseStore`
+and `AssignmentStore` before the router serves anything, and
+`assign_user` now writes through `insert_assignment_row` before
+touching the in-memory store (D4 order, mirroring `create_case`).
+
+This is deliberately a write-behind cache, not a move to live per-request
+Postgres reads: `CaseStore`/`AssignmentStore` stay the synchronous
+in-memory structures every authorization check already reads
+(`is_assigned` etc.), unchanged, so none of the ~10 call sites the D37
+consolidation touched needed to change again. A rehydration failure at
+startup is logged and the server still starts empty rather than
+refusing to boot (rule 9). Pinned by
+`server/tests/case_assignments.rs::cases_and_assignments_survive_a_simulated_restart`,
+which throws away the in-memory stores and rebuilds them from the same
+`FakeCaseTable`, exactly mirroring `main.rs`'s startup path. Verified
+live against `supabase_db_Raven-Security`: `raven_saga` reads the two
+pre-existing test cases and successfully upserts an assignment row
+under the new policies. Real per-request RLS-enforced reads for cases
+(and everything else still in-memory) remain the same documented
+follow-up as before.
+
 ### D34 - Document upload: io role only, 200MB cap `ACTIVE`
 
 **Decision:** `POST /cases/{id}/files` requires io role. Analysts and
@@ -804,3 +836,57 @@ file's blob `storage_path` (a structured file has no pixel crop; the
 path keeps the NOT NULL column pointed at where the bytes live),
 `recognised_text` NULL, `status='pending'`. The human confirms the
 schema mapping before anything is extracted.
+
+### D37 - Administrator read access to case content `ACTIVE, amends D21`
+
+**Context:** D21 introduced four roles with distinct capability sets,
+including an administrator deliberately excluded from case content — PRD.md
+§2 stated the rationale directly: "someone has to manage the system without
+being able to read the intelligence in it." The named harm was a system/IT
+administrator browsing sensitive investigation data on people who could be
+detained, without ever being formally assigned to that investigation. The
+operator running this pilot decided, after that rationale was made explicit,
+to retire the read exclusion: a single-operator deployment makes the
+separation-of-duties boundary between "manages the system" and "reads the
+intelligence" pure friction rather than a meaningful control, and administrator
+oversight of every case is more useful here than the isolation was.
+
+**Decision:** the administrator role gains unrestricted, unconditional read
+access to case content across every case — no assignment required, in every
+environment, not a dev-only flag. This covers case listing/detail, entities,
+files, graph (ego/macro/evidence), search, movement timeline/routine, the
+review queue, re-id candidates, and the audit log. It does **not** extend to
+any write, confirm, reject, annotate or ingest action: document upload,
+merge propose/decide/revert, entity notes, review decisions,
+preview-extraction, target creation and candidate decisions all remain
+gated exactly as before (`authenticate_io`, investigating-officer only).
+Case creation and case assignment remain administrator-only, unaffected in
+either direction.
+
+Implementation consolidates the nine near-identical "role gate, then
+`assignments.is_assigned`" checks that existed across `cases.rs`,
+`entities.rs`, `files.rs`, `review.rs`, `search.rs`, `map.rs`, `timeline.rs`,
+`reid.rs` and `graph/mod.rs` into one shared
+`audit::authenticate_case_reader`, which skips the assignment check only for
+`AppRole::Admin`. `cases.rs::read_case` and `search.rs::global_search` keep
+bespoke logic instead of adopting the shared helper, because both have an
+existence-check-before-assignment-check ordering (`read_case`) or a
+conditional assignment check (`global_search`) that a blind swap would have
+broken.
+
+**Consequences:** the Postgres RLS layer (`has_case_access()` and every
+`case_scoped`/`via_*` policy in `supabase/migrations/
+20260910000000_baseline.sql`) is deliberately left unchanged — those
+policies are `FOR ALL`, not `FOR SELECT`, so adding an admin bypass there
+would grant Postgres-level *write* access too, which this decision does not
+intend. That RLS layer also isn't in the live read path yet for anything
+except `cases`/`source_files` (dual-written through the privileged
+`raven_saga` role, not per-user RLS). `eval/test_rls.py`'s
+`test_admin_reads_no_case_content` therefore keeps passing and is now an
+intentionally-tracked gap, not a contradiction — revisit together with
+whichever milestone gives case content real per-user Postgres persistence.
+The client sidebar (`client/src/lib/roles.ts`) exposes every read-only
+screen to the administrator except Ingestion (a write path); no case-content
+screen needed a new write-action role guard — every existing write button
+was already gated to the investigating-officer role specifically, not to
+"anyone who can reach this screen."

@@ -76,13 +76,13 @@ new row in this table.
 | Data type | Source | Retention period | Who can access (by role) | Where stored | Encrypted in transit | Encrypted at rest |
 |:---|:---|:---|:---|:---|:---|:---|
 | Camera footage frames | Pilot cameras / recorded files | **Not stored.** Decoded, detected, and tracked in memory; MJPEG streamed to the viewer, never persisted | N/A (no stored frames to access) | Memory only | TLS required by design on all inter-service traffic, but **not implemented** in the current compose file — pilot runs on a trusted LAN only (see §6) | N/A |
-| Appearance embeddings (`vector(512)`, pgvector HNSW) | Derived from footage at lock-on and per completed tracklet | Confirmed sightings retained for the pilot; unconfirmed tracklet embeddings expire per the D7 retention policy (exact expiry interval: not yet configured — see §8) | Investigating officer (confirm/reject), analyst (view), auditor (read-only verify); admin has no case-content access (D21) | Postgres + pgvector, premises machine | Same TLS caveat as above | Database volume encryption: **not configured** — relies on physical control of the pilot machine (see §6) |
+| Appearance embeddings (`vector(512)`, pgvector HNSW) | Derived from footage at lock-on and per completed tracklet | Confirmed sightings retained for the pilot; unconfirmed tracklet embeddings expire per the D7 retention policy (exact expiry interval: not yet configured — see §8) | Investigating officer (confirm/reject), analyst (view), auditor (read-only verify), admin (unrestricted read-only oversight across every case, D37 amends D21 — no write/confirm capability) | Postgres + pgvector, premises machine | Same TLS caveat as above | Database volume encryption: **not configured** — relies on physical control of the pilot machine (see §6) |
 | Location history (confirmed sightings, routine clusters) | Confirmed camera sightings, registered addresses, ingested records | Pilot duration, then deleted with the case unless extended retention agreed | Same role split as embeddings; routine responses always carry supporting point counts (FR-6.3) | Postgres (`location_history`), graph projection in Neo4j (derived, rebuildable) | Same TLS caveat | Same volume caveat |
 | CDR records | Ingested CSV/JSON/XLSX via typed parse (no model inference) | Pilot duration (pilot CDRs are fictional fixtures, provenance `synthetic`, excluded from metrics per D19) | Same role split; cross-case reads denied by RLS (M0-T4, 81 tests) | Postgres (`cdr_records`), blobs content-addressed by SHA-256 | Same TLS caveat | Same volume caveat |
 | FIR document text (scans + transcriptions) | Scanned handwritten forms (300 DPI PDF) + reviewer corrections | Until M6 evaluation complete, then deleted/shredded unless extended retention agreed | Same role split; every field from a non-gated script sits in the review queue until a person confirms (FR-2.6/2.7) | Postgres (`source_files`, `review_items`), blob store on disk | Same TLS caveat | Same volume caveat |
 | Extracted entities, identifiers, relationships, evidence spans | NER over confirmed text; spans resolved deterministically (D11-A) | Pilot duration; merges reversible via `entity_merges.reversible_snapshot` | Same role split; merges are proposals until confirmed (FR-3.3) | Postgres, projected to Neo4j via the server saga (sole writer, D10) | Same TLS caveat | Same volume caveat |
-| Audit log (`audit_log`, ledger anchors) | Every mutating endpoint writes an audit row before returning; file hash anchored at ingest, extraction hash after commit (D5) | Retained as the accountability record of the pilot; individual rows are not deletable (see §5 on the ledger limit) | Auditor (read-only review), all roles' actions recorded with their identity | Postgres + Fabric/mock ledger via the gateway | Same TLS caveat | Same volume caveat |
-| User credentials | GoTrue (`auth.users`) + `profiles` (badge_no, full_name, role, ledger_id, org_unit) | Pilot duration; deactivation flips `active`, rows and audit trail survive (no delete path by design) | Admin manages accounts without case-content access; users see only their own credential state | Supabase Auth schema + `public.profiles` | Same TLS caveat | Same volume caveat |
+| Audit log (`audit_log`, ledger anchors) | Every mutating endpoint writes an audit row before returning; file hash anchored at ingest, extraction hash after commit (D5) | Retained as the accountability record of the pilot; individual rows are not deletable (see §5 on the ledger limit) | Auditor (read-only review), admin (read-only, D37), all roles' actions recorded with their identity | Postgres + Fabric/mock ledger via the gateway | Same TLS caveat | Same volume caveat |
+| User credentials | GoTrue (`auth.users`) + `profiles` (badge_no, full_name, role, ledger_id, org_unit) | Pilot duration; deactivation flips `active`, rows and audit trail survive (no delete path by design) | Admin manages accounts, and separately has unrestricted read-only oversight of case content (D37); users see only their own credential state | Supabase Auth schema + `public.profiles` | Same TLS caveat | Same volume caveat |
 
 Why the two "same caveat" columns repeat instead of being footnoted:
 an evaluator checking any single row should see the protection state
@@ -156,11 +156,13 @@ assessment, because absent data cannot leak:
   function.
 
 Kept data is further minimised by role: the administrator who manages
-users, cases, cameras, and templates cannot read case content (D21);
-analysts cannot confirm sightings; auditors cannot modify anything.
-The graph default view is person-to-person with other types expanded
-only on demand (D23), which limits incidental exposure during routine
-use.
+users, cases, cameras, and templates has unrestricted read-only oversight
+of case content but cannot write, confirm, reject, annotate or ingest
+anything (D37 amends D21's original exclusion — see D37 for the pilot
+operator's rationale for narrowing that separation-of-duties boundary);
+analysts cannot confirm sightings; auditors cannot modify anything. The
+graph default view is person-to-person with other types expanded only on
+demand (D23), which limits incidental exposure during routine use.
 
 ---
 
@@ -210,11 +212,16 @@ apply to the agency deployment rather than the pilot and are noted in
   effective control: the attack surface of a machine with no outbound
   data path is the LAN it sits on. Verified by the network policy test
   in CI, map tiles and fonts included.
-- **Role-based access control (D21).** GoTrue authentication, per-case
-  row-level security, four roles with distinct capability sets, and an
-  administrator role deliberately excluded from case content. An RLS
-  bug is treated as a data breach and has a dedicated suite (NFR-8;
-  81/81 green, `RESULTS.md` M0-T4-rls rows).
+- **Role-based access control (D21, D37).** GoTrue authentication,
+  per-case row-level security, and four roles with distinct capability
+  sets: three case-working roles gated by case assignment, plus an
+  administrator with unrestricted read-only oversight across every case
+  (D37 amends D21's original exclusion) and no write/confirm/ingest
+  capability anywhere. An RLS bug is treated as a data breach and has a
+  dedicated suite (NFR-8; 81/81 green, `RESULTS.md` M0-T4-rls rows) —
+  that suite still denies admin at the direct-Postgres layer it tests,
+  which is an intentionally tracked gap from the API-layer grant, not a
+  contradiction (see D37's consequences).
 - **Tamper-evident ledger (D22).** File hash anchored at ingest,
   extraction hash after commit (D5); opening a document recomputes its
   hash and compares; mismatch marks every derived entity and edge and
@@ -248,7 +255,7 @@ apply to the agency deployment rather than the pilot and are noted in
 |:---|:---|:---|:---|
 | False cross-camera match leading to wrong identification | Medium (Re-ID accuracy unquantified; S2 blocked) | High (in production: liberty harm; in pilot: fictional participants, so contained — but the mechanism must be judged as if it were not) | Human confirmation required before anything enters the record (D9); evidence panel shows both crops, score, threshold, topology expectation, and time gap (FR-5.6); rejected candidates remain visible as audit evidence and tuning signal |
 | Human error at the confirmation step (confirming a wrong candidate the system correctly scored low) | Medium (review fatigue is real; throughput is bounded by human review by design) | High (same liberty harm, one step removed) | Scores and thresholds stay visible rather than collapsing to a yes/no; rejections recorded; merges reversible via `reversible_snapshot`; confirmation is a signed, anchored, attributable act, which changes the psychology from clicking through to deciding |
-| Unauthorised access to case data | Low on a premises LAN with RLS enforced | High (case content exposure) | RLS at database level with 81-test suite; role separation with admin content exclusion; audit log of access; no service-role key in application paths |
+| Unauthorised access to case data | Low on a premises LAN with RLS enforced | High (case content exposure); a compromised administrator credential is now also a full case-content-exposure vector, not just account control (D37 amends D21 — see §6) | RLS at database level with 81-test suite; case-assignment gating for the three case-working roles; audit log of access (including admin reads, D37); no service-role key in application paths |
 | Evidence tampering | Low (requires host access or cross-org collusion) | High (integrity of the record) | Ledger anchoring (D5), recompute-and-compare verification on read, tamper state propagating to graph entities and edges (FR-4.6), multi-org endorsement in fabric mode |
 | System error producing wrong entity merge (fusing two people's records) | Medium (extraction precision measured low on Enron S4 rows; resolution metrics unmeasurable — no resolver implements FR-3.3 yet) | High (fused records attribute one person's history to another) | Every merge recorded and reversible (FR-3.3); merges are proposals until confirmed; pairwise/B-cubed measurement required before any correctness claim (S4) |
 | Data breach via network | Low in the pilot topology (no egress path, trusted LAN) | High | Premises-only deployment, no external endpoints, CI egress gate; residual exposure is the unimplemented inter-service TLS (see §6) plus physical access to the machine |

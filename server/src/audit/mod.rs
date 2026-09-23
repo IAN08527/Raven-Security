@@ -21,12 +21,15 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use axum::http::{HeaderMap, StatusCode};
+use axum::response::{IntoResponse, Response};
+use axum::Json;
 use serde::Serialize;
 use time::OffsetDateTime;
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::auth::{AppRole, ProfilesStore};
+use crate::auth::{authenticate_request, AppRole, AuthContext, JwksCache, ProfilesStore};
 use crate::ledger::LedgerClient;
 
 /// One audit row, mirroring the baseline `audit_log` columns plus the
@@ -74,9 +77,14 @@ impl AuditStore {
 }
 
 /// Case assignments (baseline `case_assignments`): who may see which
-/// case, and in what capacity. In-memory until per-request Postgres
-/// wiring lands; the auditor endpoints enforce it here so the rule is
-/// tested before the persistence exists.
+/// case, and in what capacity. This is the live, synchronous cache
+/// every authorization check reads (`is_assigned` etc.); it now also
+/// durably writes through `CaseTable::insert_assignment_row` on every
+/// mutation and is rehydrated from Postgres at startup via
+/// `CaseTable::all_assignments` (session request: this store must
+/// survive a server restart), rather than a per-request live query --
+/// that remains the same documented follow-up as every other store in
+/// this service.
 #[derive(Debug, Clone, Default)]
 pub struct AssignmentStore(Arc<Mutex<Vec<Assignment>>>);
 
@@ -136,6 +144,73 @@ impl AssignmentStore {
         rows.sort_by_key(|a| a.user_id);
         rows
     }
+
+    /// Startup rehydration: replace the whole in-memory set with what
+    /// Postgres has. Only ever called once, before the router starts
+    /// serving requests.
+    pub fn replace_all(&self, rows: Vec<Assignment>) {
+        *self.lock() = rows;
+    }
+}
+
+#[derive(Debug, Serialize, TS)]
+struct ErrorEnvelope {
+    error: ErrorBody,
+}
+
+#[derive(Debug, Serialize, TS)]
+struct ErrorBody {
+    code: &'static str,
+    message: String,
+    detail: serde_json::Value,
+    retryable: bool,
+    trace_id: String,
+}
+
+fn error(code: &'static str, status: StatusCode, message: impl Into<String>) -> Response {
+    (
+        status,
+        Json(ErrorEnvelope {
+            error: ErrorBody {
+                code,
+                message: message.into(),
+                detail: serde_json::json!({}),
+                retryable: false,
+                trace_id: ulid::Ulid::new().to_string(),
+            },
+        }),
+    )
+        .into_response()
+}
+
+/// Shared case-content read gate (D37): the caller must hold one of
+/// `allowed` roles AND, unless they are the administrator, be assigned
+/// to `case_id`. The administrator's read grant is unconditional by
+/// design (D37 amends D21) -- the assignment check is the only thing
+/// this function skips for them; write/confirm routes never call this
+/// helper and stay gated exactly as before. Callers pass their own
+/// `allowed` list rather than a fixed one because not every case-content
+/// route admits the same roles (`api::audit` still excludes the analyst
+/// role, unrelated to this change).
+pub async fn authenticate_case_reader(
+    headers: &HeaderMap,
+    cache: &JwksCache,
+    assignments: &AssignmentStore,
+    case_id: &Uuid,
+    allowed: &[AppRole],
+) -> Result<AuthContext, Box<Response>> {
+    let context = authenticate_request(headers, cache, allowed).await?;
+    if context.role != AppRole::Admin && !assignments.is_assigned(case_id, &context.user_id) {
+        return Err(Box::new(
+            error(
+                "CASE_ACCESS_DENIED",
+                StatusCode::FORBIDDEN,
+                format!("no assignment for this user on case {case_id}"),
+            )
+            .into_response(),
+        ));
+    }
+    Ok(context)
 }
 
 /// Stores [`record_action`] needs. Bundled so the call takes two

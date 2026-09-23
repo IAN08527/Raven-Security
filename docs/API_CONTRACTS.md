@@ -86,24 +86,25 @@ everything; the server never uses a service-role key on behalf of a user.
 ### 2.1 Cases and access
 
 ```
-GET    /cases                          -> [{id, case_code, title}] (assigned only)
+GET    /cases                          -> [{id, case_code, title}] (assigned only; admin sees every case, D37)
 GET    /cases/{id}                     -> {case, assignments: [{user_id, assigned_role}]}
 POST   /cases                          {case_code, title} -> 201 + case record
 POST   /cases/{id}/assignments         {user_id, assigned_role}
 ```
 
-`POST /cases`: admin role only (opening a case is a platform act;
-the administrator still has no read access to what goes inside it).
-Blank `case_code`/`title` is `422`; duplicate `case_code` is `409`;
-every creation writes one `case.create` audit row. Creation
-dual-writes the row to Postgres through the saga role (D33) so later
-uploads satisfy the `source_files` foreign key; a durable failure is
-`500` with nothing kept in memory. `GET /cases`
-returns only the caller's assigned cases in `case_code` order (any of
-io, analyst, auditor; admin is `403` — no case access, D21).
-`GET /cases/{id}` is `404` on unknown cases and `403` without an
-assignment. (`jurisdiction` from the earlier draft is deferred: the
-record carries `id`, `case_code`, `title` only.)
+`POST /cases`: admin role only (opening a case is a platform act). The
+administrator separately has unrestricted read access to what goes inside
+it (D37 amends D21), but not write/confirm capability. Blank
+`case_code`/`title` is `422`; duplicate `case_code` is `409`; every
+creation writes one `case.create` audit row. Creation dual-writes the row
+to Postgres through the saga role (D33) so later uploads satisfy the
+`source_files` foreign key; a durable failure is `500` with nothing kept
+in memory. `GET /cases` returns the caller's assigned cases in
+`case_code` order for io, analyst and auditor; for admin it returns
+every case unconditionally (D37). `GET /cases/{id}` is `404` on unknown
+cases and `403` without an assignment (admin is exempt from the
+assignment check but not the `404`). (`jurisdiction` from the earlier
+draft is deferred: the record carries `id`, `case_code`, `title` only.)
 
 ### 2.2 Ingestion
 
@@ -184,8 +185,9 @@ POST   /entities/{id}/notes             {text} -> 201 + note
                                          created_at}
 ```
 
-`GET /cases/{id}/entities`: any assigned role (io, analyst, auditor);
-unassigned callers get `CASE_ACCESS_DENIED`, never an empty list. `type`
+`GET /cases/{id}/entities`: any assigned role (io, analyst, auditor), plus
+admin unconditionally (D37 amends D21); unassigned non-admin callers get
+`CASE_ACCESS_DENIED`, never an empty list. `type`
 filters to one `entity_type` (PERSON, ORGANIZATION, LOCATION, VEHICLE,
 ACCOUNT) and defaults to all types — this is a listing endpoint, so the
 D23 person-centric default (which governs graph rendering) does not apply.
@@ -286,10 +288,11 @@ Pagination follows §1.3; `limit` defaults to 50, capped at 100.
 
 ### 2.11 Administration
 
-Admin role only on all three routes. The administrator manages accounts
-without read access to case content (D21); these routes are
-platform-scoped, so their audit rows carry the nil UUID as `case_id`
-rather than inventing a case.
+Admin role only on all three routes. These routes are platform-scoped, so
+their audit rows carry the nil UUID as `case_id` rather than inventing a
+case. (The administrator also has unrestricted, unconditional read access
+to case content itself — D37 amends D21 — via the case-content routes
+elsewhere in this document, not through these three.)
 
 ```
 GET    /admin/users                   -> [{id, email, badge_no, full_name,
@@ -321,11 +324,12 @@ GET /search?q=&types=&case_id=&limit=
                                             files: [], identifiers: []}
 ```
 
-Any assigned role (io, analyst, auditor); the administrator has no
-case-content access. Without `case_id` the search spans every case the
-caller is assigned to; with `case_id` it narrows to that case, which
-must be assigned (`CASE_ACCESS_DENIED` otherwise — never an empty
-result set). `types` is `entities|cases|files|identifiers|all`
+Any assigned role (io, analyst, auditor), plus admin unconditionally (D37
+amends D21). Without `case_id` the search spans every case the caller is
+assigned to (every case, for admin); with `case_id` it narrows to that
+case, which must be assigned unless the caller is admin
+(`CASE_ACCESS_DENIED` otherwise — never an empty result set). `types` is
+`entities|cases|files|identifiers|all`
 (default `all`); unknown values are `VALIDATION_FAILED`. Empty `q`
 returns empty groups, not an error.
 

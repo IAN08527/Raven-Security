@@ -1,12 +1,13 @@
 //! Graph queries and endpoints (M4-T3, D23, FR-4.1/FR-4.2/FR-4.3/FR-4.4).
 //!
 //! Auth→assignment→audit (M5-T3, D21), mirroring `api::entities`: verified
-//! GoTrue identity, any assigned role (io, analyst, auditor — the admin has
-//! no case-content access), a case-assignment check before any projection
-//! query runs, and one audit row per successful query. The assignment check
-//! matters more here than on Postgres-backed routes: Neo4j queries do not
-//! go through Postgres RLS, so without it any authenticated user knowing a
-//! case id could read its graph.
+//! GoTrue identity, any assigned role (io, analyst, auditor), plus the
+//! admin unconditionally (D37 amends D21), a case-assignment check
+//! (skipped only for admin) before any projection query runs, and one
+//! audit row per successful query. The assignment check matters more
+//! here than on Postgres-backed routes: Neo4j queries do not go through
+//! Postgres RLS, so without it any authenticated user knowing a case id
+//! could read its graph.
 //!
 //! Person-centric (D23): every query defaults to person-to-person.
 //! Other types are returned only when explicitly requested via `types`.
@@ -39,7 +40,7 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::audit::{record_action, AssignmentStore, AuditStore};
-use crate::auth::{authenticate_request, AppRole, AuthContext, JwksCache, ProfilesStore};
+use crate::auth::{AppRole, AuthContext, JwksCache, ProfilesStore};
 use crate::ledger::LedgerClient;
 
 /// Transport guard: BFS stops adding nodes beyond this many. Pagination
@@ -487,34 +488,26 @@ pub fn router(store: InMemoryGraphStore, deps: GraphDeps) -> Router {
 }
 
 /// Any assigned role may query (mirrors `api::entities`: io, analyst,
-/// auditor; the administrator is excluded by the role gate — admin manages
-/// users and cases without read access to case content, D21). The
-/// assignment check runs before any projection query: Neo4j reads do not
-/// pass Postgres RLS, so this gate is the only thing stopping an
-/// authenticated user who knows a case id from reading its graph.
-/// Unassigned callers get `CASE_ACCESS_DENIED`, never an empty result.
+/// auditor), plus the administrator unconditionally (D37 amends D21: admin
+/// has unrestricted read access to case content). The assignment check
+/// (skipped only for the administrator) runs before any projection query:
+/// Neo4j reads do not pass Postgres RLS, so this gate is the only thing
+/// stopping an authenticated user who knows a case id from reading its
+/// graph. Unassigned non-admin callers get `CASE_ACCESS_DENIED`, never an
+/// empty result.
 async fn authorize_case(
     headers: &HeaderMap,
     state: &GraphState,
     case_id: &Uuid,
 ) -> Result<AuthContext, Box<Response>> {
-    let context = authenticate_request(
+    crate::audit::authenticate_case_reader(
         headers,
         &state.auth,
-        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor],
+        &state.assignments,
+        case_id,
+        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor, AppRole::Admin],
     )
-    .await?;
-    if !state.assignments.is_assigned(case_id, &context.user_id) {
-        return Err(Box::new(
-            error(
-                "CASE_ACCESS_DENIED",
-                StatusCode::FORBIDDEN,
-                format!("no assignment for this user on case {case_id}"),
-            )
-            .into_response(),
-        ));
-    }
-    Ok(context)
+    .await
 }
 
 async fn anchor_query(

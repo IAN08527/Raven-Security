@@ -40,7 +40,7 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::audit::{record_action, AssignmentStore, AuditStore};
-use crate::auth::{authenticate_request, AppRole, AuthContext, JwksCache, ProfilesStore};
+use crate::auth::{AppRole, AuthContext, JwksCache, ProfilesStore};
 use crate::graph::{GraphStore, InMemoryGraphStore, VerificationState};
 use crate::api::files::FileStore;
 use crate::api::reid::{CandidateStore, TargetStore};
@@ -161,25 +161,21 @@ fn error(code: &'static str, status: StatusCode, message: impl Into<String>) -> 
         .into_response()
 }
 
+/// Read access for io, analyst, auditor plus the administrator
+/// unconditionally (D37 amends D21).
 async fn authorize(
     headers: &HeaderMap,
     state: &TimelineState,
     case_id: &Uuid,
 ) -> Result<AuthContext, Box<Response>> {
-    let context = authenticate_request(
+    crate::audit::authenticate_case_reader(
         headers,
         &state.auth,
-        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor],
+        &state.assignments,
+        case_id,
+        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor, AppRole::Admin],
     )
-    .await?;
-    if !state.assignments.is_assigned(case_id, &context.user_id) {
-        return Err(Box::new(error(
-            "CASE_ACCESS_DENIED",
-            StatusCode::FORBIDDEN,
-            format!("no assignment for this user on case {case_id}"),
-        )));
-    }
-    Ok(context)
+    .await
 }
 
 fn parse_time(value: &Option<String>) -> Result<Option<OffsetDateTime>, Box<Response>> {

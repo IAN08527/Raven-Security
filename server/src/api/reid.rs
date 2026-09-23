@@ -7,8 +7,9 @@
 //!
 //! M5 (D21, FR-7.4): both session handling and attribution are real.
 //! `decide_candidate` verifies the GoTrue JWT, admits only the
-//! investigating-officer role (the auditor is read-only, the admin has
-//! no case-content access), records `decided_by` from the token subject,
+//! investigating-officer role (the auditor is read-only and the admin's
+//! D37 read grant doesn't extend to deciding), records `decided_by` from
+//! the token subject,
 //! writes the audit row and anchors `candidate.decide` through the
 //! ledger gateway with the actor's `profiles.ledger_id`
 //! (`skipped_no_identity` when the Fabric org is not configured yet).
@@ -327,11 +328,12 @@ async fn list_candidates(
 ) -> impl IntoResponse {
     // Verified identity (any case role may read proposals; the
     // case-assignment boundary is enforced on the audit endpoints and,
-    // with real persistence, by RLS).
+    // with real persistence, by RLS). Admin included unconditionally
+    // (D37 amends D21); create_target/decide_candidate stay io-only.
     if let Err(boxed) = authenticate_request(
         &headers,
         &state.auth,
-        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor],
+        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor, AppRole::Admin],
     )
     .await
     {

@@ -440,22 +440,23 @@ pub fn router_with_ingest(files: FileStore, deps: FilesDeps, ingest: IngestDeps)
         .with_state(state)
 }
 
+/// Read access for io, analyst, auditor plus the administrator
+/// unconditionally (D37 amends D21). Upload/retry stay gated by
+/// `authorize_io_case` below, untouched — the administrator's grant
+/// here is read-only.
 async fn authorize(
     headers: &HeaderMap,
     state: &FileState,
     case_id: &Uuid,
 ) -> Result<AuthContext, Box<Response>> {
-    let context =
-        authenticate_request(headers, &state.auth, &[AppRole::Io, AppRole::Analyst, AppRole::Auditor])
-            .await?;
-    if !state.assignments.is_assigned(case_id, &context.user_id) {
-        return Err(Box::new(error(
-            "CASE_ACCESS_DENIED",
-            StatusCode::FORBIDDEN,
-            format!("no assignment for this user on case {case_id}"),
-        )));
-    }
-    Ok(context)
+    crate::audit::authenticate_case_reader(
+        headers,
+        &state.auth,
+        &state.assignments,
+        case_id,
+        &[AppRole::Io, AppRole::Analyst, AppRole::Auditor, AppRole::Admin],
+    )
+    .await
 }
 
 async fn anchor_read(

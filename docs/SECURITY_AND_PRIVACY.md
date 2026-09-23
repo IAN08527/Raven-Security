@@ -48,7 +48,7 @@ means LAN-reachable, not internet-reachable — see §1.
 
 | Boundary | Exposed to | Authentication | What an attacker gains on success |
 |:---|:---|:---|:---|
-| Server API `:8443` (HTTPS REST by contract; plaintext HTTP in the current tree — see §5) | Any LAN host; all pilot users | GoTrue RS256 Bearer token plus per-endpoint role gate plus per-case assignment check — **except** `GET /health` (no auth, by design), `GET /cameras` (no auth, by design per D32), `GET /v1/nodes` (no auth — health-board state, operator-visible like the camera list), and the graph projection reads carry full verification (GoTrue JWT plus case-assignment check plus one audit row per successful query — fixed; previously Bearer-presence only, see §9 history). `POST /v1/nodes` is admin-only with a `node.register` audit row (fixed; previously unauthenticated — see §9 history) | Full case-data access through the API: read any case's `source_files` rows and stored bytes, evidence and entity rows, candidate sightings, audit rows for assigned cases; confirm or reject sightings and merges as the compromised user; register cameras, engine nodes, and topology edges (admin token only); create or deactivate users (admin token only). A compromised admin token additionally yields account control but, by D21 enforcement, still no case content through the API — the attacker would need an officer/analyst token, or a database credential, for content. |
+| Server API `:8443` (HTTPS REST by contract; plaintext HTTP in the current tree — see §5) | Any LAN host; all pilot users | GoTrue RS256 Bearer token plus per-endpoint role gate plus per-case assignment check (assignment check bypassed for the admin role only, D37 amends D21) — **except** `GET /health` (no auth, by design), `GET /cameras` (no auth, by design per D32), `GET /v1/nodes` (no auth — health-board state, operator-visible like the camera list), and the graph projection reads carry full verification (GoTrue JWT plus case-assignment check plus one audit row per successful query — fixed; previously Bearer-presence only, see §9 history). `POST /v1/nodes` is admin-only with a `node.register` audit row (fixed; previously unauthenticated — see §9 history) | Full case-data access through the API: read any case's `source_files` rows and stored bytes, evidence and entity rows, candidate sightings, audit rows for assigned cases; confirm or reject sightings and merges as the compromised user; register cameras, engine nodes, and topology edges (admin token only); create or deactivate users (admin token only). **A compromised admin token is now also a full read-access vector for every case's content, unconditionally, not just account control** (D37 amends D21's original exclusion — see D37 in DECISIONS.md for the pilot operator's rationale). It still cannot write, confirm, reject, annotate or ingest anything — the attacker would need an officer token, or a database credential, for that. |
 | Engine node `:8756` (HTTPS + MJPEG + WSS by contract) | Any LAN host (clients fetch video; server sends control) | **None in the current tree.** `engine/main.py` exposes only `POST /calibrate`, which takes no credential. The contract's MJPEG signed-query-token scheme (`API_CONTRACTS.md` §3.1: short-lived token issued by the server because `<img>` cannot send an `Authorization` header) is specified but not implemented — no issuance or verification code exists in the server or engine tree, and the MJPEG and overlay sockets themselves are not present in `engine/main.py`. Status: pending, not partially built. | Today: trigger calibration runs and observe calibration results (compute-budget disclosure, no case data). Once the specified endpoints land without their specified tokens, the gain becomes live pixels from any camera and, on the control socket, forged tracklets and candidate sightings pushed upstream toward human review. The token scheme must land together with the first streaming endpoint, not after it. |
 | Neo4j Bolt `:7687` (HTTP `:7474`) | Any LAN host; engine nodes (topology reads) | Password authentication (`NEO4J_AUTH`, default `neo4j/ravenpassword` in `infra/compose/all-in-one.yml`; the server default `NEO4J_PASSWORD` must match it). No client-certificate or mTLS check in the current tree. | With the writer password: read the entire derived graph for all cases (person network, edge weights, camera topology) and write arbitrary nodes and edges, bypassing the server saga and therefore bypassing the audit emitter entirely — a false association injected here never produces an audit row. With only the engine's read-only topology credential: read camera topology, no writes (D10). The `:7474` browser endpoint exposes the same data over HTTP with the same password. |
 | Postgres `:5432` | Any LAN host; server; Supabase local stack (GoTrue, PostgREST) | Password authentication (compose defaults `postgres/postgres` in `infra/compose/all-in-one.yml`). RLS policies constrain the `authenticated`/`anon` paths; a superuser or service-role connection is not constrained by RLS at all. | With database credentials: read and write every row for every case — `source_files`, entities, identifiers, relationships, evidence spans, appearance embeddings, `audit_log` — and rewrite or delete `audit_log` rows, since row immutability is enforced by the service never issuing deletes, not by any database-level deny. This is the highest-value credential in the system, above any user token. |
@@ -126,14 +126,22 @@ Four roles, enforced server-side on every gated route (`server/src/auth.rs`
 | Investigating officer (`io`) | Ingest documents, run ego-graph queries, lock on to targets, confirm or reject sightings and merges, annotate, correct review items | See cases they are not assigned to |
 | Intelligence analyst (`analyst`) | Macro network views, cross-case pattern queries over assigned cases, routine analysis, read files and timelines | Confirm or reject sightings, modify case records |
 | Forensic auditor (`auditor`) | Read-only review across assigned cases, ledger verification of any document, access-log review | Modify any record, including their own annotations |
-| Administrator (`admin`) | User and case assignment, camera and node registration, form template management | Read case content — deliberate exclusion, enforced by the role gates (admin appears in no case-content route's allowed set) |
+| Administrator (`admin`) | User and case assignment, camera and node registration, form template management, unconditional read-only oversight of every case's content — case listing/detail, entities, files, graph, search, movement, review queue, re-id candidates, audit log (D37 amends D21) | Write, confirm, reject, annotate or ingest any case content — every route that mutates a case still admits only `io` (or `admin`-only for platform acts like creation/assignment, unaffected by D37) |
 
-The admin exclusion exists so that system administration and intelligence
-access are separable duties: the person who can create accounts and register
-cameras cannot read what the cases contain. Cross-case reads are denied with
+D21 originally excluded the administrator from case content entirely, so that
+system administration and intelligence access were separable duties. D37
+narrows that: the pilot operator judged the isolation to be pure friction in a
+single-operator deployment and replaced it with a read-only oversight grant —
+the administrator can now see everything, but still cannot act on any of it.
+A compromised admin credential is therefore a full case-content read vector
+(see §2's boundary table); it is not a write/confirm vector, and every read it
+performs still writes the same audit row the other roles' reads do. For the
+three case-working roles, cross-case reads are still denied with
 `CASE_ACCESS_DENIED`, never answered with an empty list (an empty list would
 let an attacker distinguish "no such case" from "not your case" and would
-hide misconfiguration as absence).
+hide misconfiguration as absence); the administrator's unconditional grant
+means this specific check is simply skipped for that one role, not weakened
+for anyone else.
 
 ### 3.3 Row-level security (M0-T4)
 
@@ -141,9 +149,13 @@ RLS is enforced at the database layer in the Supabase migrations, not in
 application code. `docs/RESULTS.md` carries two independent `M0-T4-rls` PASS
 rows (commits `f0d09d6` and `e951ad6`), each recording **81/81
 `eval/test_rls.py` green against a fresh `supabase db reset`**, covering
-cross-case read denial on every content table, admin zero-content access,
-and the D28 `insight_reviews` tightening with fail-closed behaviour on
-unresolvable polymorphic types.
+cross-case read denial on every content table, admin zero-content access at
+this direct-Postgres layer, and the D28 `insight_reviews` tightening with
+fail-closed behaviour on unresolvable polymorphic types. "Admin zero-content
+access" here is a Postgres-RLS-layer fact only, not an API-layer one — D37
+gives the administrator unconditional case-content read access through the
+REST API, which this suite doesn't exercise (case content isn't read from
+per-user Postgres connections yet; see D37's consequences in DECISIONS.md).
 
 What RLS does **not** protect against: any connection holding a service-role
 key or superuser credential bypasses RLS entirely — that is what those keys

@@ -5,7 +5,8 @@
 //! - Cross-case access returns 403 `CASE_ACCESS_DENIED`, never an empty list.
 //! - Detail returns identifiers, aliases, associated cases and provenance.
 //! - Every list and detail read writes an audit row (`entities.list`,
-//!   `entity.read`); the administrator role is denied case content.
+//!   `entity.read`); the administrator role reads any case unconditionally
+//!   (D37 amends D21), with no assignment required.
 
 #[path = "support/mod.rs"]
 mod support;
@@ -287,12 +288,15 @@ async fn list_paginates_with_cursor() {
 }
 
 #[tokio::test]
-async fn admin_role_is_denied_case_content() {
+async fn admin_role_reads_case_content_without_assignment() {
+    // D37 amends D21: the administrator's read grant is unconditional,
+    // not assignment-based — deliberately no `harness.assignments.assign`
+    // call for this admin, to prove the bypass rather than a coincidence
+    // of also being assigned.
     let harness = Harness::start().await;
     let case_id = Uuid::new_v4();
     harness.seed_entity(case_id, "PERSON", "Ravi Kumar", &[], &[]);
     let admin = Uuid::new_v4();
-    harness.assignments.assign(case_id, admin, AppRole::Admin);
     let token = harness.token(&admin, "admin");
 
     let response = harness
@@ -301,8 +305,10 @@ async fn admin_role_is_denied_case_content() {
         .await
         .expect("router responds");
     let (status, parsed) = body_json(response).await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
-    assert_eq!(parsed["error"]["code"], "FORBIDDEN");
+    assert_eq!(status, StatusCode::OK);
+    let results = parsed["results"].as_array().expect("results array");
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0]["canonical_name"], "Ravi Kumar");
 }
 
 #[tokio::test]

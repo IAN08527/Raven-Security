@@ -29,10 +29,12 @@ describe("role-based sidebar removes items from the DOM (design §33)", () => {
     expect(screen.getByText("Audit")).toBeTruthy();
   });
 
-  it("admin does not see Graph or CCTV", () => {
+  it("admin sees Graph, CCTV and Audit for oversight but not Ingestion", () => {
     renderSidebar("admin");
-    expect(screen.queryByText("Graph")).toBeNull();
-    expect(screen.queryByText("CCTV")).toBeNull();
+    expect(screen.getByText("Graph")).toBeTruthy();
+    expect(screen.getByText("CCTV")).toBeTruthy();
+    expect(screen.getByText("Audit")).toBeTruthy();
     expect(screen.getByText("Settings")).toBeTruthy();
+    expect(screen.queryByText("Ingestion")).toBeNull();
   });
 });

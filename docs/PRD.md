@@ -46,17 +46,21 @@ error rates.
 ## 2. Users and roles
 
 Roles are enforced, not decorative. Each maps to a database role with row-level
-security scoped per case (D21).
+security scoped per case (D21, D37).
 
 | Role | Does | Cannot |
 |:---|:---|:---|
 | Investigating Officer | Ingests documents, runs ego-graph queries, locks on to targets, confirms or rejects sightings, annotates | See cases they are not assigned to |
 | Intelligence Analyst | Macro network views, cross-case pattern queries, routine analysis | Confirm sightings, modify case records |
 | Forensic Auditor | Read-only across assigned cases, ledger verification, access-log review | Modify any record, including their own annotations |
-| Administrator | User and case assignment, camera and node registration, form template management | Read case content |
+| Administrator | User and case assignment, camera and node registration, form template management, read-only oversight of every case's content | Write, confirm, reject, annotate, ingest or otherwise modify case content |
 
-The administrator exclusion is deliberate. Someone has to manage the system
-without being able to read the intelligence in it.
+The administrator's read access is unconditional and does not depend on
+assignment (D37, amending D21's original exclusion). It exists for oversight,
+not casework: the administrator still cannot write, confirm, reject, annotate
+or ingest anything inside a case — every action that changes case content
+still requires an investigating-officer account, and still writes the same
+attributable audit row it always did. See D37 for the full rationale.
 
 ---
 

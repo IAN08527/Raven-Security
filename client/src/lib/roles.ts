@@ -32,12 +32,15 @@ const ALL_ITEMS: NavItem[] = [
 
 // Map and timeline go to every case-content role for the same reason:
 // movement and event history are case content, and the auditor reads
-// assigned case content everywhere else. Admin stays excluded (D21).
+// assigned case content everywhere else. Admin sees every read-only
+// case-content screen unconditionally (D37 amends D21's exclusion) but
+// not Ingestion, since ingestion is a write action and admin's grant is
+// read-only oversight, not casework.
 const VISIBLE_BY_ROLE: Record<AppRole, string[]> = {
   io: ["home", "cases", "ingestion", "graph", "cctv", "search", "map", "timeline", "reports"],
   analyst: ["home", "cases", "graph", "cctv", "search", "map", "timeline", "reports"],
   auditor: ["home", "cases", "search", "map", "timeline", "audit"],
-  admin: ["home", "cases", "settings"],
+  admin: ["home", "cases", "graph", "cctv", "search", "map", "timeline", "reports", "audit", "settings"],
 };
 
 /** Nav items for a role, in shell order. Unknown roles see nothing. */

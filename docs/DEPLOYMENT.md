@@ -140,9 +140,12 @@ Two files are needed:
 | `FABRIC_WALLET` | Ledger gateway (fabric mode) | **Must be set manually in fabric mode** | `./wallet` | Path to the Fabric file-system wallet |
 | `LEDGER_IDENTITY` | Ledger gateway (fabric mode) | Has a default | `gateway-admin` | Fabric identity used for gateway connections |
 | `FABRIC_AS_LOCALHOST` | Ledger gateway (fabric mode) | Has a default | unset (discovery `asLocalhost` on) | Set to `0` when peers are not on localhost |
-| `VITE_BASEMAP_URL` | Client (committed in `client/.env.development`) | Has a committed default for local dev | `http://localhost:8802/maharashtra.pmtiles` | PMTiles archive the MapLibre client reads with byte-range GETs |
+| `VITE_BASEMAP_URL` | Client (committed in `client/.env`) | Has a committed default for local dev | `http://localhost:8802/maharashtra.pmtiles` | PMTiles archive the MapLibre client reads with byte-range GETs |
 | `VITE_BASEMAP_URL_BASE` | Client (committed) | Has a committed default | `http://localhost:8802` | Basemap host (glyphs are served from `<base>/glyphs/`) |
 | `VITE_BASEMAP_ATTRIBUTION` | Client (committed) | Has a committed value; **must stay visible** | `© OpenStreetMap contributors (ODbL)` | ODbL attribution rendered by the map layer |
+| `VITE_SERVER_URL` | Client (committed in `client/.env`) | Has a committed default for local dev; every `serverBase()` in `client/src/lib` falls back to a hardcoded `https://localhost:8443` if unset, which does not match the server's plain-HTTP listener | `http://localhost:8443` | Raven server base URL the client talks to. Must be loaded from plain `.env`, not `.env.development` — `vite build` (used by `npm run tauri build`) runs in production mode and never reads `.env.development` |
+| `VITE_GOTRUE_URL` | Client (committed in `client/.env`) | Has a committed default for local dev | `http://localhost:54321` | Supabase GoTrue auth URL the client signs in against |
+| `VITE_GOTRUE_ANON_KEY` | Client (committed in `client/.env`) | Has a committed default for local dev (publishable key only) | `sb_publishable_...` | GoTrue publishable key; never the secret/service_role key |
 | `RAVEN_BLOB_DIR` | Server upload handler / blob store (`server/src/storage.rs`, D34) | Has a default | `./blobs` | Directory for content-addressed blob storage. Create before starting the server. Must be on a disk with sufficient space for ingested documents |
 | `DOCS_LANE_URL` | Server saga docs-lane client | Has a default | `http://localhost:8757` | Internal docs-lane service URL. The docs-lane HTTP service is not yet implemented; this URL will be used when it is |
 
