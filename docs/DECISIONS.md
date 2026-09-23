@@ -704,7 +704,8 @@ reason. Handler tests use trait-generic repos with in-memory fakes
 OCR client through the same default const as `DocsLaneClient::from_env`.
 Known gaps, not silently fixed: the specified saga-role GRANTs omit
 `INSERT ON review_items` (the D36 structured path needs it — one-line
-follow-up), and GRANTs alone leave the RLS policies (keyed on
+follow-up, since landed as `20260916000001_saga_review_grant.sql`),
+and GRANTs alone leave the RLS policies (keyed on
 `auth.uid()`, which is NULL in background sessions) denying the role —
 owner transfer or equivalent is a follow-up decision. `record_ledger`
 therefore persists the extraction-anchor outcome as an `ingest_jobs`
@@ -712,6 +713,25 @@ therefore persists the extraction-anchor outcome as an `ingest_jobs`
 which the verify flow needs for the *file* anchor (overwriting it
 would compare file bytes against the extraction hash and false-positive
 tamper).
+
+**Resolution (2026-09-20, local-functionality session):** the
+"owner transfer or equivalent" follow-up is resolved as the
+equivalent, in least-privilege form — not owner transfer (which would
+bypass RLS wholesale) and not `BYPASSRLS`. `supabase/migrations/
+20260920000000_saga_worker_rls.sql` adds permissive policies scoped
+`TO raven_saga` mirroring exactly the granted operations
+(`source_files` SELECT/INSERT/UPDATE, `ingest_jobs` INSERT/UPDATE,
+`review_items`/`entities`/`entity_aliases`/`identifiers`/
+`relationships`/`evidence`/`location_history`/`cdr_records`/
+`financial_txns` INSERT). `20260920000001_saga_case_insert.sql` adds
+`GRANT INSERT ON cases` plus a saga-scoped INSERT policy, because
+`POST /cases` dual-writes the row so later uploads satisfy
+`source_files_case_id_fkey`. Baseline policies for every other role
+are untouched; attribution stays column-based (`uploaded_by`). The
+dual-write is pinned by `server/tests/case_assignments.rs`
+(`admin_creates_case...` asserts the durable row); the RLS effect
+itself was verified live (upload went from RLS-denied to accepted).
+The RLS suite (`eval/test_rls.py`) still guards the user paths.
 
 ### D34 - Document upload: io role only, 200MB cap `ACTIVE`
 

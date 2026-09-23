@@ -304,6 +304,20 @@ impl SourceFileRepo for SagaDb {
 }
 
 #[async_trait::async_trait]
+impl crate::api::cases::CaseTable for SagaDb {
+    async fn insert_case_row(&self, id: &Uuid, case_code: &str, title: &str) -> Result<(), String> {
+        sqlx::query("INSERT INTO cases (id, case_code, title) VALUES ($1, $2, $3)")
+            .bind(id)
+            .bind(case_code)
+            .bind(title)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+}
+
+#[async_trait::async_trait]
 impl CaseDb for SagaDb {
     /// Step 9: ONE transaction — entities, identifiers, relationships,
     /// then evidence (D4: Postgres commits first and is the source of

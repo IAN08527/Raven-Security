@@ -29,6 +29,7 @@ function stubAdmin(): void {
       }
       if (target.endsWith("/admin/users") && init?.method === "POST") {
         const body = JSON.parse(String(init.body)) as {
+          id: string;
           email: string;
           badge_no: string;
           full_name: string;
@@ -41,7 +42,7 @@ function stubAdmin(): void {
             }),
           );
         }
-        const created = { id: "u2", active: true, ...body };
+        const created = { active: true, ...body, id: body.id || "u2" };
         users.push(created);
         return Promise.resolve(new Response(JSON.stringify(created), { status: 201 }));
       }
@@ -68,6 +69,7 @@ describe("user management", () => {
     await login("admin@example.test", "password");
     render(<UserManagement />);
     expect(await screen.findByText("io@example.test")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Auth user id"), { target: { value: "u2" } });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.test" } });
     fireEvent.change(screen.getByLabelText("Badge number"), { target: { value: "MH-9" } });
     fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "New Officer" } });
@@ -80,6 +82,7 @@ describe("user management", () => {
     await login("admin@example.test", "password");
     render(<UserManagement />);
     await screen.findByText("io@example.test");
+    fireEvent.change(screen.getByLabelText("Auth user id"), { target: { value: "u3" } });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "io@example.test" } });
     fireEvent.change(screen.getByLabelText("Badge number"), { target: { value: "MH-9" } });
     fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Dup" } });

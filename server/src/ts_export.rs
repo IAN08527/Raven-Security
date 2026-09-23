@@ -91,7 +91,10 @@ pub fn export_all(out_dir: &Path) -> Result<(), ts_rs::ExportError> {
         crate::api::files::VerifyFileResponse,
         crate::api::files::UploadFileResponse,
         crate::api::files::RetryFileResponse,
-        // Case assignments (§2.1, D21).
+        // Cases (§2.1, D21).
+        crate::api::cases::CreateCaseRequest,
+        crate::api::cases::CaseDetailResponse,
+        crate::api::cases::AssignmentEntry,
         crate::api::cases::AssignUserRequest,
         crate::api::cases::AssignUserResponse,
         // Search (§2.12).

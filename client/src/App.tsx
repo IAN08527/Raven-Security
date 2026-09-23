@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { LoginScreen } from "./components/Auth/LoginScreen";
 import { AuditPane } from "./components/Audit/AuditPane";
+import { CasesScreen } from "./components/Cases/CasesScreen";
+import { CctvWorkspace } from "./components/Cctv/CctvWorkspace";
 import { EntityProfile } from "./components/Graph/EntityProfile";
+import { GraphWorkspace } from "./components/Graph/GraphWorkspace";
 import { HomeDashboard } from "./components/Home/HomeDashboard";
 import { IngestionScreen } from "./components/Ingestion/IngestionScreen";
+import { ReportsScreen } from "./components/Reports/ReportsScreen";
 import { ReviewScreen } from "./components/Review/ReviewScreen";
 import { CommandPalette } from "./components/Search/CommandPalette";
 import { GlobalSearch } from "./components/Search/GlobalSearch";
@@ -51,6 +55,7 @@ export function App(): JSX.Element {
   const [health, setHealth] = useState<HealthState>("down");
   const [caseId, setCaseId] = useState("");
   const [reviewCaseId, setReviewCaseId] = useState("");
+  const [graphCaseId, setGraphCaseId] = useState("");
   const [mapCaseId, setMapCaseId] = useState("");
   const [timelineCaseId, setTimelineCaseId] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -106,8 +111,16 @@ export function App(): JSX.Element {
     setActive("profile");
   };
 
+  const openCaseId = (id: string, target: "map" | "timeline" | "audit" | "graph"): void => {
+    if (target === "map") setMapCaseId(id);
+    if (target === "timeline") setTimelineCaseId(id);
+    if (target === "audit") setCaseId(id);
+    if (target === "graph") setGraphCaseId(id);
+    go(target);
+  };
+
   return (
-    <div className="flex h-screen bg-neutral-950 text-neutral-100">
+    <div className="flex h-screen bg-[#151514] text-[#E8E5DD]">
       <Sidebar
         role={session.role}
         user={{ badge: session.userId.slice(0, 8), name: session.email, role: session.role }}
@@ -120,8 +133,16 @@ export function App(): JSX.Element {
         <main className="min-h-0 flex-1 overflow-auto">
           {active === "home" ? (
             <HomeDashboard onNavigate={go} />
+          ) : active === "cases" ? (
+            <CasesScreen role={session.role} onOpenCaseId={openCaseId} />
+          ) : active === "graph" ? (
+            <GraphWorkspace initialCaseId={graphCaseId} onOpenEntity={openProfile} />
+          ) : active === "cctv" ? (
+            <CctvWorkspace />
           ) : active === "search" ? (
             <GlobalSearch onOpenEntity={openProfile} />
+          ) : active === "reports" ? (
+            <ReportsScreen />
           ) : active === "profile" && profile ? (
             <EntityProfile
               entityId={profile.entityId}

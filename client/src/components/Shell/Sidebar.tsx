@@ -30,7 +30,7 @@ export function Sidebar({
 }): JSX.Element {
   const items = navItemsForRole(role);
   return (
-    <nav aria-label="Primary" className="flex h-full w-44 flex-col border-r border-neutral-800 bg-neutral-900 text-neutral-200">
+    <nav aria-label="Primary" className="flex h-full w-44 flex-col border-r border-[#30302D] bg-[#1B1B19] text-[#E8E5DD]">
       <div className="px-3 py-3 text-sm font-semibold tracking-widest">RAVEN</div>
       <ul className="flex flex-col gap-0.5 px-2">
         {items.map((item) => (

@@ -142,6 +142,13 @@ async fn list_users(State(state): State<AdminState>, headers: HeaderMap) -> Resp
 
 #[derive(Debug, Deserialize, TS)]
 pub struct CreateUserRequest {
+    /// The GoTrue `auth.users.id` for this person. The directory row must
+    /// share the identity the JWT carries as `sub`: assignment checks and
+    /// the deactivation overlay both look users up by that id, so a
+    /// directory row with any other id would match nothing. Production
+    /// creates the `auth.users` entry through the GoTrue admin API first
+    /// and passes the returned id here.
+    pub id: Uuid,
     pub email: String,
     pub badge_no: String,
     pub full_name: String,
@@ -160,6 +167,12 @@ async fn create_user(
         Ok(context) => context,
         Err(boxed) => return *boxed,
     };
+    if req.id.is_nil() {
+        return error("VALIDATION_FAILED", StatusCode::UNPROCESSABLE_ENTITY, "id must be the GoTrue user id, not the nil UUID");
+    }
+    if state.users.get(&req.id).is_some() {
+        return error("CONFLICT", StatusCode::CONFLICT, format!("user id already managed: {}", req.id));
+    }
     let email = req.email.trim();
     if email.is_empty() || !email.contains('@') {
         return error("VALIDATION_FAILED", StatusCode::UNPROCESSABLE_ENTITY, "email must be a non-empty address");
@@ -181,7 +194,7 @@ async fn create_user(
         return error("CONFLICT", StatusCode::CONFLICT, format!("email already managed: {email}"));
     }
     let record = UserRecord {
-        id: Uuid::new_v4(),
+        id: req.id,
         email: email.to_string(),
         badge_no: req.badge_no.trim().to_string(),
         full_name: req.full_name.trim().to_string(),

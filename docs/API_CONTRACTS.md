@@ -86,11 +86,24 @@ everything; the server never uses a service-role key on behalf of a user.
 ### 2.1 Cases and access
 
 ```
-GET    /cases                          -> [{id, case_code, title, opened_at, role}]
-GET    /cases/{id}                     -> case detail + assignment list
-POST   /cases                          {case_code, title, jurisdiction}
+GET    /cases                          -> [{id, case_code, title}] (assigned only)
+GET    /cases/{id}                     -> {case, assignments: [{user_id, assigned_role}]}
+POST   /cases                          {case_code, title} -> 201 + case record
 POST   /cases/{id}/assignments         {user_id, assigned_role}
 ```
+
+`POST /cases`: admin role only (opening a case is a platform act;
+the administrator still has no read access to what goes inside it).
+Blank `case_code`/`title` is `422`; duplicate `case_code` is `409`;
+every creation writes one `case.create` audit row. Creation
+dual-writes the row to Postgres through the saga role (D33) so later
+uploads satisfy the `source_files` foreign key; a durable failure is
+`500` with nothing kept in memory. `GET /cases`
+returns only the caller's assigned cases in `case_code` order (any of
+io, analyst, auditor; admin is `403` — no case access, D21).
+`GET /cases/{id}` is `404` on unknown cases and `403` without an
+assignment. (`jurisdiction` from the earlier draft is deferred: the
+record carries `id`, `case_code`, `title` only.)
 
 ### 2.2 Ingestion
 
@@ -281,13 +294,17 @@ rather than inventing a case.
 ```
 GET    /admin/users                   -> [{id, email, badge_no, full_name,
                                             role, active}]
-POST   /admin/users                   {email, badge_no, full_name, role}
+POST   /admin/users                   {id, email, badge_no, full_name, role}
                                         -> 201 + user record
 PATCH  /admin/users/{id}              {active} -> user record
 ```
 
-`POST` validates a non-empty email containing `@`, a non-empty
-`badge_no`/`full_name`, and a known role; duplicate email is `CONFLICT`.
+`POST` takes the GoTrue `auth.users.id` as `id`: assignment checks
+and the deactivation overlay look users up by the JWT `sub`, so a
+directory row with any other id would match nothing (nil id is
+`422`). It further validates a non-empty email containing `@`, a
+non-empty `badge_no`/`full_name`, and a known role; duplicate email
+or duplicate id is `CONFLICT`.
 There is no DELETE: deactivation flips `active` to false and the audit
 trail survives. A bearer token for a deactivated user is rejected
 `UNAUTHENTICATED` at verification, so deactivation actually locks the

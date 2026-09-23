@@ -66,6 +66,10 @@ async fn body_json(response: axum::response::Response) -> (StatusCode, Value) {
 
 fn create_body(email: &str) -> Value {
     json!({
+        // The directory id is the GoTrue sub: assignment checks and the
+        // deactivation overlay look users up by the JWT subject, so a
+        // row with any other id would match nothing.
+        "id": Uuid::new_v4(),
         "email": email,
         "badge_no": "MH-0421",
         "full_name": "Test Officer",
@@ -210,6 +214,19 @@ async fn duplicate_email_unknown_role_and_unknown_id_are_rejected() {
     let (status, parsed) = body_json(response).await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert_eq!(parsed["error"]["code"], "CONFLICT");
+
+    // Nil and already-managed ids are rejected, never defaulted.
+    let mut nil_id = create_body("nil@example.test");
+    nil_id["id"] = json!(Uuid::nil());
+    let response = harness
+        .app
+        .clone()
+        .oneshot(authed("POST", "/admin/users".to_string(), &admin, Some(nil_id)))
+        .await
+        .expect("router responds");
+    let (status, parsed) = body_json(response).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(parsed["error"]["code"], "VALIDATION_FAILED");
 
     let mut bad_role = create_body("new@example.test");
     bad_role["role"] = json!("superuser");

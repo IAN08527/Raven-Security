@@ -1,3 +1,46 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Design §3-§5, §34: dark operational workspace. Near-black warm
+   background, charcoal surfaces, thin borders, off-white text.
+   Focus is always visible; motion respects reduced-motion. */
+:root {
+  --raven-bg: #151514;
+  --raven-surface: #1b1b19;
+  --raven-surface-2: #20201e;
+  --raven-elevated: #252522;
+  --raven-input: #171716;
+  --raven-border: #30302d;
+  --raven-border-subtle: #272724;
+  --raven-text: #e8e5dd;
+  --raven-text-2: #a5a29a;
+  --raven-muted: #706e68;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--raven-bg);
+  color: var(--raven-text);
+  font-family: Inter, "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 14px;
+}
+
+:focus-visible {
+  outline: 2px solid #668dba;
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

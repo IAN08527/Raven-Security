@@ -128,6 +128,14 @@ impl AssignmentStore {
         cases.dedup();
         cases
     }
+
+    /// Assignments on one case, ordered by user id for stable responses.
+    pub fn for_case(&self, case_id: &Uuid) -> Vec<Assignment> {
+        let mut rows: Vec<Assignment> =
+            self.lock().iter().filter(|a| &a.case_id == case_id).cloned().collect();
+        rows.sort_by_key(|a| a.user_id);
+        rows
+    }
 }
 
 /// Stores [`record_action`] needs. Bundled so the call takes two

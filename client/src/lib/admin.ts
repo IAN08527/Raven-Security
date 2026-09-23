@@ -44,6 +44,7 @@ export async function fetchUsers(): Promise<AdminUser[]> {
 }
 
 export async function createUser(input: {
+  id: string;
   email: string;
   badge_no: string;
   full_name: string;

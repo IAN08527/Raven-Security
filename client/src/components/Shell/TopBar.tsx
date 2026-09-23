@@ -14,7 +14,7 @@ export function TopBar({
   onOpenPalette: () => void;
 }): JSX.Element {
   return (
-    <header className="flex items-center gap-3 border-b border-neutral-800 bg-neutral-950 px-4 py-2 text-neutral-200">
+    <header className="flex items-center gap-3 border-b border-[#30302D] bg-[#151514] px-4 py-2 text-[#E8E5DD]">
       <button
         type="button"
         aria-label="Global search"

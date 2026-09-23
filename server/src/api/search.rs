@@ -59,7 +59,15 @@ impl CaseStore {
     /// answers 404 on unknown cases rather than creating an assignment
     /// against nothing.
     pub fn exists(&self, id: &Uuid) -> bool {
-        self.lock().iter().any(|case| &case.id == id)
+        self.find(id).is_some()
+    }
+
+    pub fn find(&self, id: &Uuid) -> Option<CaseRecord> {
+        self.lock().iter().find(|case| &case.id == id).cloned()
+    }
+
+    pub fn find_by_code(&self, case_code: &str) -> Option<CaseRecord> {
+        self.lock().iter().find(|case| case.case_code == case_code).cloned()
     }
 
     pub fn visible(&self, cases: &HashSet<Uuid>) -> Vec<CaseRecord> {

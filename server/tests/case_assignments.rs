@@ -12,12 +12,31 @@ mod support;
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
 use serde_json::{json, Value};
-use server::api::cases::{CasesDeps, router};
+use server::api::cases::{CaseTable, CasesDeps, router};
 use server::api::search::{CaseRecord, CaseStore};
 use server::audit::{AssignmentStore, AuditStore};
 use server::auth::{AppRole, ProfilesStore, UserRecord, UsersStore};
 use tower::ServiceExt;
 use uuid::Uuid;
+
+/// In-memory [`CaseTable`]: records durable writes without a database.
+/// Method-for-method it mirrors the Postgres implementation on
+/// `SagaDb` — a fake that drifts from that contract is a test bug.
+#[derive(Debug, Default)]
+struct FakeCaseTable {
+    rows: std::sync::Mutex<Vec<(Uuid, String, String)>>,
+}
+
+#[async_trait::async_trait]
+impl CaseTable for FakeCaseTable {
+    async fn insert_case_row(&self, id: &Uuid, case_code: &str, title: &str) -> Result<(), String> {
+        self.rows
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push((*id, case_code.to_string(), title.to_string()));
+        Ok(())
+    }
+}
 
 struct Harness {
     app: axum::Router,
@@ -25,6 +44,7 @@ struct Harness {
     assignments: AssignmentStore,
     cases: CaseStore,
     users: UsersStore,
+    case_table: std::sync::Arc<FakeCaseTable>,
 }
 
 impl Harness {
@@ -34,6 +54,7 @@ impl Harness {
         let users = UsersStore::default();
         let cases = CaseStore::default();
         let assignments = AssignmentStore::default();
+        let case_table = std::sync::Arc::new(FakeCaseTable::default());
         let auth = support::test_auth_cache();
         auth.set_user_directory(users.clone());
         let gateway = support::StubGateway::start().await;
@@ -45,8 +66,9 @@ impl Harness {
             users: users.clone(),
             cases: cases.clone(),
             assignments: assignments.clone(),
+            case_table: case_table.clone(),
         });
-        Self { app, audit, assignments, cases, users }
+        Self { app, audit, assignments, cases, users, case_table }
     }
 
     fn seed_case(&self) -> Uuid {
@@ -84,6 +106,15 @@ fn post_request(uri: String, token: &str, body: Value) -> Request<Body> {
         .header("authorization", format!("Bearer {token}"))
         .header("content-type", "application/json")
         .body(Body::from(body.to_string()))
+        .expect("request builds")
+}
+
+fn get_request(uri: String, token: &str) -> Request<Body> {
+    Request::builder()
+        .method("GET")
+        .uri(uri)
+        .header("authorization", format!("Bearer {token}"))
+        .body(Body::empty())
         .expect("request builds")
 }
 
@@ -210,6 +241,173 @@ async fn unknown_user_is_not_found() {
     let (status, parsed) = body_json(response).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(parsed["error"]["code"], Value::from("NOT_FOUND"));
+}
+
+#[tokio::test]
+async fn admin_creates_case_and_duplicate_code_conflicts() {
+    let harness = Harness::start().await;
+    let admin = Harness::admin_token();
+
+    let response = harness
+        .app
+        .clone()
+        .oneshot(post_request(
+            "/cases".to_string(),
+            &admin,
+            json!({ "case_code": "CR-2026-017", "title": "Mumbai Theft Ring" }),
+        ))
+        .await
+        .expect("router responds");
+    let (status, created) = body_json(response).await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(created["case_code"], "CR-2026-017");
+    // Dual-write: the durable row exists alongside the memory one, so a
+    // later upload's foreign key resolves. The guard drops before the
+    // next await (clippy `await_holding_lock`).
+    let durable_len;
+    let durable_code;
+    {
+        let durable = harness.case_table.rows.lock().expect("fake unlocks");
+        durable_len = durable.len();
+        durable_code = durable.first().map(|row| row.1.clone());
+    }
+    assert_eq!(durable_len, 1);
+    assert_eq!(durable_code.as_deref(), Some("CR-2026-017"));
+
+    // Duplicate code conflicts; blanks are rejected.
+    let response = harness
+        .app
+        .clone()
+        .oneshot(post_request(
+            "/cases".to_string(),
+            &admin,
+            json!({ "case_code": "CR-2026-017", "title": "Anything else" }),
+        ))
+        .await
+        .expect("router responds");
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+
+    let response = harness
+        .app
+        .clone()
+        .oneshot(post_request(
+            "/cases".to_string(),
+            &admin,
+            json!({ "case_code": "  ", "title": "No code" }),
+        ))
+        .await
+        .expect("router responds");
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    // Non-admin callers cannot open cases.
+    let officer_token = support::mint_token(&Uuid::new_v4(), "io", 3600);
+    let response = harness
+        .app
+        .oneshot(post_request(
+            "/cases".to_string(),
+            &officer_token,
+            json!({ "case_code": "CR-2026-018", "title": "Denied" }),
+        ))
+        .await
+        .expect("router responds");
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn case_listing_and_detail_follow_assignment() {
+    let harness = Harness::start().await;
+    let admin = Harness::admin_token();
+    let officer = harness.seed_user(AppRole::Io);
+    let stranger = harness.seed_user(AppRole::Io);
+    let officer_token = support::mint_token(&officer, "io", 3600);
+    let stranger_token = support::mint_token(&stranger, "io", 3600);
+
+    let response = harness
+        .app
+        .clone()
+        .oneshot(post_request(
+            "/cases".to_string(),
+            &admin,
+            json!({ "case_code": "CR-2026-019", "title": "Listed case" }),
+        ))
+        .await
+        .expect("router responds");
+    let (_, created) = body_json(response).await;
+    let case_id = created["id"].as_str().expect("case id").to_string();
+
+    // Before assignment the officer sees nothing; the stranger never does.
+    let response = harness
+        .app
+        .clone()
+        .oneshot(get_request("/cases".to_string(), &officer_token))
+        .await
+        .expect("router responds");
+    let (status, listed) = body_json(response).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(listed.as_array().expect("case array").len(), 0);
+
+    // Admin assigns the officer (201, new row).
+    let response = harness
+        .app
+        .clone()
+        .oneshot(post_request(
+            format!("/cases/{case_id}/assignments"),
+            &admin,
+            json!({ "user_id": officer, "assigned_role": "io" }),
+        ))
+        .await
+        .expect("router responds");
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    // Now the officer lists one case and reads its detail with the roster.
+    let response = harness
+        .app
+        .clone()
+        .oneshot(get_request("/cases".to_string(), &officer_token))
+        .await
+        .expect("router responds");
+    let (status, listed) = body_json(response).await;
+    assert_eq!(status, StatusCode::OK);
+    let rows = listed.as_array().expect("case array");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["case_code"], "CR-2026-019");
+
+    let response = harness
+        .app
+        .clone()
+        .oneshot(get_request(format!("/cases/{case_id}"), &officer_token))
+        .await
+        .expect("router responds");
+    let (status, detail) = body_json(response).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(detail["case"]["title"], "Listed case");
+    assert_eq!(detail["assignments"].as_array().expect("roster").len(), 1);
+
+    // Stranger: 200-empty list, 403 detail. Unknown case: 404.
+    let response = harness
+        .app
+        .clone()
+        .oneshot(get_request("/cases".to_string(), &stranger_token))
+        .await
+        .expect("router responds");
+    let (status, listed) = body_json(response).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(listed.as_array().expect("case array").len(), 0);
+
+    let response = harness
+        .app
+        .clone()
+        .oneshot(get_request(format!("/cases/{case_id}"), &stranger_token))
+        .await
+        .expect("router responds");
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    let response = harness
+        .app
+        .oneshot(get_request(format!("/cases/{}", Uuid::new_v4()), &officer_token))
+        .await
+        .expect("router responds");
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]

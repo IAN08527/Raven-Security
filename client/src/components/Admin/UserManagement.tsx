@@ -14,6 +14,7 @@ const ROLES = ["io", "analyst", "auditor", "admin"] as const;
 export function UserManagement(): JSX.Element {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState("");
   const [email, setEmail] = useState("");
   const [badge, setBadge] = useState("");
   const [name, setName] = useState("");
@@ -37,7 +38,14 @@ export function UserManagement(): JSX.Element {
   async function create(): Promise<void> {
     setFormError(null);
     try {
-      await createUser({ email: email.trim(), badge_no: badge.trim(), full_name: name.trim(), role });
+      await createUser({
+        id: userId.trim(),
+        email: email.trim(),
+        badge_no: badge.trim(),
+        full_name: name.trim(),
+        role,
+      });
+      setUserId("");
       setEmail("");
       setBadge("");
       setName("");
@@ -61,7 +69,18 @@ export function UserManagement(): JSX.Element {
     <div className="flex flex-col gap-4">
       <section className="rounded-sm border border-neutral-800 bg-neutral-900 p-3">
         <h3 className="mb-2 text-sm font-semibold text-neutral-100">Create user</h3>
+        <p className="mb-2 max-w-3xl text-xs text-neutral-500">
+          Create the sign-in first in Supabase Auth, then register the returned user id here —
+          assignment and deactivation match on that id.
+        </p>
         <div className="flex max-w-3xl flex-wrap gap-2">
+          <input
+            aria-label="Auth user id"
+            value={userId}
+            onChange={(event) => setUserId(event.target.value)}
+            placeholder="GoTrue user UUID"
+            className="w-72 border border-neutral-700 bg-neutral-950 px-2 py-1 font-mono text-sm text-neutral-100"
+          />
           <input
             aria-label="Email"
             value={email}
