@@ -84,20 +84,29 @@ export function App(): JSX.Element {
     const base =
       (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_SERVER_URL ??
       "https://localhost:8443";
-    fetch(`${base.replace(/\/$/, "")}/v1/health`)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((report) => {
-        if (!cancelled) {
-          setHealth(healthOf(report));
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setHealth("down");
-        }
-      });
+    const checkHealth = (): void => {
+      fetch(`${base.replace(/\/$/, "")}/v1/health`)
+        .then((response) => (response.ok ? response.json() : null))
+        .then((report) => {
+          if (!cancelled) {
+            setHealth(healthOf(report));
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setHealth("down");
+          }
+        });
+    };
+    // A single check-at-login can never recover from a transient failure
+    // (a restart mid-check, a container still coming up): the badge would
+    // stay wrong for the rest of the session. Re-check on the same 30s
+    // cadence the rest of the shell uses for live state.
+    checkHealth();
+    const interval = window.setInterval(checkHealth, 30_000);
     return () => {
       cancelled = true;
+      window.clearInterval(interval);
     };
   }, [session]);
 
