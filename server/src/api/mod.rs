@@ -3,8 +3,10 @@
 use std::sync::Arc;
 
 use axum::extract::State;
+use axum::http::HeaderValue;
 use axum::routing::get;
 use axum::{Json, Router};
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 
 use crate::startup::{check_all, HealthConfig, HealthReport};
 use crate::audit::{AssignmentStore, AuditStore};
@@ -158,6 +160,7 @@ pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router 
         users: stores.users.clone(),
         cases: stores.cases.clone(),
         assignments: stores.assignments.clone(),
+        case_table: Arc::new(stores.saga_db.clone()),
     };
     let graph_deps = crate::graph::GraphDeps {
         auth: stores.auth.clone(),
@@ -187,7 +190,24 @@ pub fn router(health_config: Arc<HealthConfig>, stores: RouterStores) -> Router 
         .merge(map::router(map_deps))
         .merge(audit::router(stores.audit, stores.assignments, stores.auth, stores.ledger))
         .merge(crate::graph::router(stores.graph, graph_deps));
-    Router::new().nest("/v1", v1)
+    Router::new().nest("/v1", v1).layer(cors_layer())
+}
+
+/// The client (Vite dev server, or Tauri's own webview origin in a built
+/// app) is always a different origin from this server (D30, API_CONTRACTS.md
+/// "Base https://{server}:8443/v1"), so every browser-issued request needs
+/// an explicit CORS allow. Bearer tokens carry auth, not cookies, so an
+/// origin allowlist without credentials is sufficient -- nothing here widens
+/// what an unauthenticated caller can reach (rule 9's three no-auth routes
+/// are unchanged). `RAVEN_CORS_ORIGINS` (comma-separated) overrides the
+/// default set for a LAN pilot deployment where client machines are known.
+fn cors_layer() -> CorsLayer {
+    let origins = std::env::var("RAVEN_CORS_ORIGINS").unwrap_or_else(|_| {
+        "http://localhost:1420,http://127.0.0.1:1420,tauri://localhost,http://tauri.localhost".into()
+    });
+    let allowed: Vec<HeaderValue> =
+        origins.split(',').filter_map(|origin| HeaderValue::from_str(origin.trim()).ok()).collect();
+    CorsLayer::new().allow_origin(AllowOrigin::list(allowed)).allow_methods(Any).allow_headers(Any)
 }
 
 async fn health_handler(State(config): State<Arc<HealthConfig>>) -> Json<HealthReport> {

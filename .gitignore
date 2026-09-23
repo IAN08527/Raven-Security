@@ -72,6 +72,13 @@ infra/tiles/*
 infra/tiles/glyphs/*
 !infra/tiles/glyphs/FONTS_LICENCE
 
+# scripts/start-raven.ps1 output (server stdout/stderr from the last run)
+/logs/
+
+# BlobStore's default RAVEN_BLOB_DIR (server/src/main.rs): uploaded file
+# bytes, runtime data never committed.
+/blobs/
+
 # OS / editor
 .DS_Store
 Thumbs.db
@@ -82,4 +89,5 @@ Thumbs.db
 #ai
 .claude/
 .agents/
+skills-lock.json
 
